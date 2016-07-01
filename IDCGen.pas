@@ -96,7 +96,7 @@ var
 Begin
   adr := Pos2Adr(_pos);
   s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "", 0);'+#13,[adr,adr]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
 end;
 
 Function TIDCGen.MakeByte (_pos:Integer):Integer;
@@ -104,7 +104,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('MakeByte(0x%x);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result:=_pos + 1;
 end;
 
@@ -113,7 +113,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('MakeWord(0x%x);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result:=_pos + 2;
 end;
 
@@ -122,7 +122,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('MakeDword(0x%x);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result:=_pos + 4;
 end;
 
@@ -131,7 +131,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('MakeQword(0x%x);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result:=_pos + 8;
 end;
 
@@ -142,7 +142,7 @@ Var
 Begin
   adr:=Pos2Adr(_pos);
   s:=Format('MakeByte(0x%x);'+#13+'MakeArray(0x%x, %d);'+#13,[adr,adr,num]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result:=_pos + num;
 end;
 
@@ -160,7 +160,7 @@ Begin
   begin
     adr:=Pos2Adr(_pos);
     s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_PASCAL);'+#13+'MakeStr(0x%x, 0x%x);'+#13,[adr,adr+len+1]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     Result:=_pos + len + 1;
   End;
 end;
@@ -174,7 +174,7 @@ Begin
   adr:=Pos2Adr(_pos);
   len:=StrLen(Code + _pos);
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_TERMCHR);'+#13+'MakeStr(0x%x, 0x%x);'+#13,[adr,adr+len+1]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result:=_pos + len + 1;
 end;
 
@@ -183,7 +183,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_TERMCHR);'+#13+'MakeStr(0x%x, -1);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   //Length
   MakeDword(_pos - 4);
   //RefCount
@@ -195,7 +195,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_UNICODE);'+#13+'MakeStr(0x%x, -1);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   //Length
   MakeDword(_pos - 4);
 end;
@@ -205,7 +205,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_UNICODE);'+#13+'MakeStr(0x%x, -1);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   //Length
   MakeDword(_pos - 4);
   //RefCount
@@ -221,7 +221,7 @@ var
   s:AnsiString;
 Begin
   s:=Format('MakeCode(0x%x);'+#13,[Pos2Adr(_pos)]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   Result := frmDisasm.Disassemble(Code + _pos, Pos2Adr(_pos),Nil, Nil);
   if Result=0 then Result := 1;
 end;
@@ -233,7 +233,7 @@ Begin
   If adr<>0 then
   Begin
     s:=Format('MakeFunction(0x%x, -1);'+#13,[adr]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     MakeCode(Adr2Pos(adr));
   end;
 end;
@@ -243,7 +243,7 @@ Var
   s:AnsiString;
 Begin
   s:=Format('MakeComm(0x%x, "%s");'+#13,[Pos2Adr(_pos), text]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
 end;
 
 Function TIDCGen.OutputAttrData (_pos:Integer):Integer;
@@ -277,7 +277,7 @@ Begin
     +'static main(){'+#13
     +'clear(0x%lX);'
     ,[CodeBase]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
 end;
 
 function TIDCGen.OutputRTTIHeader(kind:LKind; _pos:Integer): Integer;
@@ -292,7 +292,7 @@ Begin
   StrLCopy(PAnsiChar(itemName),Code + _pos + 6, len);
   adr := Pos2Adr(_pos);
   s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "RTTI_%x_%s_%s", 0);',[adr,adr,adr,TypeKind2Name(kind),itemName]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   //Selfptr
   _pos := MakeDword(_pos);
   //Kind
@@ -954,7 +954,7 @@ Begin
   from := _pos;
   adr := pos2Adr(_pos);
   s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "VMT_%x_%s", 0);'+#13,[adr,adr,adr,vmtName]);
-  idcF.Write(s,Length(s));
+  idcF.Write(s[1],Length(s));
   //VmtSelfPtr
   _pos := MakeDword(_pos);
   Result:= _pos - from;
@@ -970,7 +970,7 @@ Begin
   if intfTable<>0 then
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_IntfTable", 0);'+#13,[intfTable,intfTable,itemName]);
-    idcF.Write(s,LEngth(s));
+    idcF.Write(s[1],LEngth(s));
     _pos := Adr2pos(intfTable);
     //EntryCount
     Count := PInteger(Code + _pos)^;
@@ -1029,7 +1029,7 @@ Begin
   if autoTable<>0 then
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_AutoTable", 0);'+#13,[autoTable,autoTable,itemName]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     _pos := Adr2pos(autoTable);
     //EntryCount
     Count := PInteger(Code + _pos)^;
@@ -1078,7 +1078,7 @@ Begin
   if initTable<>0 then
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_InitTable", 0);'+#13,[initTable,initTable,itemName]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     _pos := Adr2pos(initTable);
     //0xE
     _pos := MakeByte(_pos);
@@ -1109,7 +1109,7 @@ Begin
   if fieldTable<>0 then
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_FieldTable", 0);'+#13,[fieldTable,fieldTable,itemName]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     _pos := Adr2pos(fieldTable);
     //num
     num := PInteger(Code + _pos)^;
@@ -1177,7 +1177,7 @@ Begin
   begin
     s:=Format('MakeUnkn(0x%lX, 1);'+#13+'MakeNameEx(0x%lX, \"%s_MethodTable\", 0);'+#13,
       [methodTable,methodTable,itemName]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     _pos := Adr2pos(methodTable);
     //Count
     count := PWORD(Code + _pos)^;
@@ -1290,7 +1290,7 @@ Begin
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_DynamicTable", 0);'+#13,
       [dynamicTable,dynamicTable,itemName]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     _pos := Adr2pos(dynamicTable);
     //Num
     num := PWord(Code + _pos)^;
@@ -1334,7 +1334,7 @@ Begin
     begin
       names.Add(itemName);
       s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s", 0x20);'+#13,[fromAdr,fromAdr,itemName]);
-      idcF.Write(s,Length(s));
+      idcF.Write(s[1],Length(s));
     end
     else
     begin
@@ -1350,7 +1350,7 @@ Begin
       Inc(info.counter);
       s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_%d", 0x20);'+#13,
         [fromAdr,fromAdr,itemName,cnt]);
-      idcF.Write(s,Length(s));
+      idcF.Write(s[1],Length(s));
     end;
     MakeComment(_pos, recN.MakePrototype(fromAdr, true, false, false, true, false));
   end;
@@ -1365,7 +1365,7 @@ Begin
   if imp or (procSize = instrLen) then
   begin
     s:=Format('MakeFunction(0x%x, 0x%x);'+#13,[fromAdr,fromAdr + instrLen]);
-    idcF.Write(s,Length(s));
+    idcF.Write(s[1],Length(s));
     Result:= instrLen - 1;//:= procSize - 1
     Exit;
   end;
@@ -1374,7 +1374,7 @@ Begin
     if _pos - from_pos + 1 = procSize then
     begin
       s:=Format('MakeFunction(0x%x, 0x%x);'+#13,[fromAdr, pos2Adr(_pos) + 1]);
-      idcF.Write(s,Length(s));
+      idcF.Write(s[1],Length(s));
       break;
     end;
     recN1 := GetInfoRec(pos2Adr(_pos));
@@ -1431,7 +1431,7 @@ Begin
       begin
         names.Add(_name);
         s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s", 0);'+#13,[adr,adr,_name]);
-        idcF.Write(s,Length(s));
+        idcF.Write(s[1],Length(s));
       end
       else
       begin
@@ -1447,7 +1447,7 @@ Begin
         Inc(info.counter);
         s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_%d", 0);'+#13,
           [adr,adr,_name,cnt]);
-        idcF.Write(s,Length(s));
+        idcF.Write(s[1],Length(s));
       end;
     end;
     if recN._type <> '' then MakeComment(_pos, recN._type);

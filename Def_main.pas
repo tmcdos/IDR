@@ -632,6 +632,7 @@ Const
   UNEXP_UNIT = 4; //Unit has undefined bytes
 
   HEX_COMENT = '0x'; // or '$'
+  COMENT_QUOTE = ''''; // or '"'
 
 var
   IID_IPersistFile: TGUID = (

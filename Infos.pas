@@ -906,7 +906,7 @@ Begin
   End; 
 end;
 
-Procedure InfoRec.Load (ins:TStream; buf:Pointer);
+procedure InfoRec.Load(ins:TStream; buf:Pointer);
 var
   m, xm, num, xnum, len, xrefAdr, pxrefAdr:Integer;
   recX1:XrefRec;
@@ -920,11 +920,11 @@ Begin
   ins.Read(kbIdx, sizeof(kbIdx));
   //name
   ins.Read(len, sizeof(len));
-  ins.Read(buf, len);
+  ins.Read(buf^, len);
   name := MakeString(buf, len);
   //type
   ins.Read(len, sizeof(len));
-  ins.Read(buf, len);
+  ins.Read(buf^, len);
   _type := MakeString(buf, len);
   //picode
   ins.Read(Pcode, sizeof(Pcode));
@@ -940,7 +940,7 @@ Begin
     	ins.Read(Pcode.Offset, sizeof(Pcode.Offset));
     //Name
     ins.Read(len, sizeof(len));
-    ins.Read(buf, len);
+    ins.Read(buf^, len);
     Pcode.Name := MakeString(buf, len);
   End;
   //xrefs
@@ -970,7 +970,7 @@ Begin
   Begin
   	//value
     ins.Read(len, sizeof(len));
-    ins.Read(buf, len);
+    ins.Read(buf^, len);
     rsInfo := MakeString(buf, len);
   End
   else if kind = ikVMT then
@@ -981,7 +981,7 @@ Begin
     for m := 0 to num-1 do
     Begin
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       vmtInfo.interfaces.Add(MakeString(buf, len));
     End;
   	//fields
@@ -998,11 +998,11 @@ Begin
       ins.Read(fInfo._Case, sizeof(fInfo._Case));
       //Name
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       fInfo.Name := MakeString(buf, len);
       //Type
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       fInfo._Type := MakeString(buf, len);
       //xrefs
       ins.Read(xnum, sizeof(xnum));
@@ -1033,7 +1033,7 @@ Begin
         Read(recM.id, sizeof(recM.id));
         Read(recM.address, sizeof(recM.address));
         Read(len, sizeof(len));
-        Read(buf, len);
+        Read(buf^, len);
       end;
       recM.name := MakeString(buf, len);
       vmtInfo.methods.Add(recM);
@@ -1067,11 +1067,11 @@ Begin
       ins.Read(aInfo.Size, sizeof(aInfo.Size));
       //Name
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       aInfo.Name := MakeString(buf, len);
       //TypeDef
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       aInfo.TypeDef := TrimTypeName(MakeString(buf, len));
       procInfo.args.Add(aInfo);
     End;
@@ -1087,11 +1087,11 @@ Begin
       ins.Read(locInfo.Size, sizeof(locInfo.Size));
       //Name
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       locInfo.Name := MakeString(buf, len);
       //TypeDef
       ins.Read(len, sizeof(len));
-      ins.Read(buf, len);
+      ins.Read(buf^, len);
       locInfo.TypeDef := TrimTypeName(MakeString(buf, len));
       procInfo.locals.Add(locInfo);
     End;

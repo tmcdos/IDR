@@ -563,7 +563,7 @@ Var
   VmtList:TList;       //VMT list
   CodeBase:PAnsiChar;
   DelphiVersion:Integer;
-  InfoList:AInfoRec;
+  InfoList:AInfoRec; //Array of pointers to store items data
   BSSInfos:TStringList;  //Data from BSS
   SegmentList:TList;   //Information about Image Segments
   TotalSize:Integer;      //Size of sections CODE + DATA
@@ -616,7 +616,6 @@ Var
   DataBase:Integer;
   DataSize:Integer;
   DataStart:Integer;
-  Info:InfoRec;	    //Array of pointers to store items data
   Data:Pointer;
 
   ExpFuncList:TList;   //Exported functions list (temporary)
@@ -3765,7 +3764,7 @@ Begin
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
-      Inc(curPos, 4 + 8*num); 
+      Inc(curPos, 4 + 8*num);
       Inc(curAdr, 4 + 8*num);
       continue;
     End;
@@ -3805,7 +3804,8 @@ Begin
         Adr := DisInfo.Immediate; 
         _Pos := Adr2Pos(Adr);
         if (_Pos < 0) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
-        if (GetSegmentNo(Adr) <> 0) and (GetSegmentNo(fromAdr) <> GetSegmentNo(Adr)) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
+        if (GetSegmentNo(Adr) <> 0) and (GetSegmentNo(fromAdr) <> GetSegmentNo(Adr))
+          and ((lastAdr=0) or (curAdr = lastAdr)) then break;
         if (Adr < fromAdr) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
         curAdr := Adr; 
         curPos := _Pos;
@@ -3923,10 +3923,8 @@ Begin
     Begin
       NPos := curPos + instrLen;
       //check that next instruction is push fs:[reg] or retn
-      if (
-        (Code[NPos] = #$64) and (Code[NPos + 1] = #$FF) and
-        (((Code[NPos + 2] >= #$30) and (Code[NPos + 2] <= #$37)) or (Code[NPos + 2] = #$75))
-        ) or (Code[NPos] = #$C3) then
+      if ((Code[NPos] = #$64) and (Code[NPos + 1] = #$FF) and (Code[NPos + 2] in [#$30..#$37,#$75]))
+        or (Code[NPos] = #$C3) then
       Begin
         Adr := DisInfo.Immediate;      //Adr:=@1
         if not IsValidCodeAdr(Adr) then
@@ -4002,9 +4000,8 @@ Begin
       End;
     End;
     //short relative abs jmp or cond jmp
-    if (b1 = $EB) or
-    	((b1 >= $70) and (b1 <= $7F)) or
-      ((b1 = $F) and (b2 >= $80) and (b2 <= $8F)) then
+    if (b1 in [$EB,$70..$7F]) or
+      ((b1 = $F) and (b2 in [$80..$8F])) then
     Begin
       Adr := DisInfo.Immediate;
       if not IsValidImageAdr(Adr) then
@@ -4932,7 +4929,7 @@ Begin
           _name := recM.name;
           if _name <> '' then
           Begin
-            dotpos := Pos('.',name);
+            dotpos := Pos('.',_name);
             if dotpos<>0 then
               recN1.Name:=clasName + Copy(_name,dotpos, Length(_name))
             else
@@ -5083,11 +5080,11 @@ end;
 
 procedure TFMain.FormCreate(Sender : TObject);
 begin
-  DeleteFile('f:\IDR.csl');
+  DeleteFile('z:\IDR.csl');
   Dest := TCodeSiteDestination.Create( Self );
   Dest.LogFile.Active := True;
   Dest.LogFile.FileName := 'IDR.csl';
-  Dest.LogFile.FilePath := 'f:\';
+  Dest.LogFile.FilePath := 'z:\';
   CodeSite.Destination := Dest;
 
   frmDisasm:=MDisasm.Create;
@@ -6239,10 +6236,8 @@ Begin
     Begin
       NPos := curPos + instrLen;
       //Check that next instruction is push fs:[reg] or retn
-      if ((Code[NPos] = #$64) and
-          (Code[NPos + 1] = #$FF) and
-          (((Code[NPos + 2] >= #$30) and (Code[NPos + 2] <= #$37)) or (Code[NPos + 2] = #$75))
-        ) or (Code[NPos] = #$C3) then
+      if ((Code[NPos] = #$64) and (Code[NPos + 1] = #$FF) and (Code[NPos + 2] in [#$30..#$37,#$75]))
+        or (Code[NPos] = #$C3) then
       Begin
         Adr := DisInfo.Immediate;      //Adr:=@1
         if IsValidCodeAdr(Adr) then
@@ -9682,7 +9677,7 @@ Begin
   len := Length(node.Text);
   if len > MaxBufLen then MaxBufLen := len;
   stream.Write(len, sizeof(len));
-  stream.Write(node.Text, len);
+  stream.Write(node.Text[1], len);
   for n := 0 to itemCnt-1 do
     WriteNode(stream, node.Item[n]);
   Application.ProcessMessages;
@@ -9892,7 +9887,7 @@ Begin
       len := Length(recT.name); 
       if len > MaxBufLen then MaxBufLen := len;
       outStream.Write(len, sizeof(len));
-      outStream.Write(recT.name, len);
+      outStream.Write(recT.name[1], len);
     End;
     if num<>0 then outStream.Write(RTTISortField, sizeof(RTTISortField));
 
@@ -9911,17 +9906,17 @@ Begin
       len := Length(dfm.ResName); 
       if len > MaxBufLen then MaxBufLen := len;
       outStream.Write(len, sizeof(len));
-      outStream.Write(dfm.ResName, len);
+      outStream.Write(dfm.ResName[1], len);
       //Name
       len := Length(dfm.Name); 
       if len > MaxBufLen then MaxBufLen := len;
       outStream.Write(len, sizeof(len));
-      outStream.Write(dfm.Name, len);
+      outStream.Write(dfm.Name[1], len);
       //ClassName
       len := Length(dfm.FormClass); 
       if len > MaxBufLen then MaxBufLen := len;
       outStream.Write(len, sizeof(len));
-      outStream.Write(dfm.FormClass, len);
+      outStream.Write(dfm.FormClass[1], len);
       //MemStream
       size := dfm.MemStream.Size;
       outStream.Write(size, sizeof(size));
@@ -9937,12 +9932,12 @@ Begin
         len := Length(eInfo.EventName);
         if len > MaxBufLen then MaxBufLen := len;
         outStream.Write(len, sizeof(len));
-        outStream.Write(eInfo.EventName, len);
+        outStream.Write(eInfo.EventName[1], len);
         //ProcName
         len := Length(eInfo.ProcName); 
         if len > MaxBufLen then MaxBufLen := len;
         outStream.Write(len, sizeof(len));
-        outStream.Write(eInfo.ProcName, len);
+        outStream.Write(eInfo.ProcName[1], len);
       End;
       //Components
       if Assigned(dfm.Components) then cnum := dfm.Components.Count
@@ -9959,12 +9954,12 @@ Begin
         len := Length(cInfo.Name); 
         if len > MaxBufLen then MaxBufLen := len;
         outStream.Write(len, sizeof(len));
-        outStream.Write(cInfo.Name, len);
+        outStream.Write(cInfo.Name[1], len);
         //ClassName
         len := Length(cInfo.ClasName); 
         if len > MaxBufLen then MaxBufLen := len;
         outStream.Write(len, sizeof(len));
-        outStream.Write(cInfo.ClasName, len);
+        outStream.Write(cInfo.ClasName[1], len);
         //Events
         if Assigned(cInfo.Events) then evnum := cInfo.Events.Count
           else evnum:= 0;
@@ -9976,12 +9971,12 @@ Begin
           len := Length(eInfo.EventName); 
           if len > MaxBufLen then MaxBufLen := len;
           outStream.Write(len, sizeof(len));
-          outStream.Write(eInfo.EventName, len);
+          outStream.Write(eInfo.EventName[1], len);
           //ProcName
           len := Length(eInfo.ProcName); 
           if len > MaxBufLen then MaxBufLen := len;
           outStream.Write(len, sizeof(len));
-          outStream.Write(eInfo.ProcName, len);
+          outStream.Write(eInfo.ProcName[1], len);
         End;
       End;
     End;
@@ -13516,7 +13511,8 @@ if is_debug then CodeSite.Send('OP_JMP; curAdr = %d',[curAdr]);
         Adr := DisInfo.Immediate;
         Pos0 := Adr2Pos(Adr);
         if (Pos0 < 0) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
-        if (GetSegmentNo(Adr) <> 0) and (GetSegmentNo(fromAdr) <> GetSegmentNo(Adr)) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
+        if (GetSegmentNo(Adr) <> 0) and (GetSegmentNo(fromAdr) <> GetSegmentNo(Adr))
+          and ((lastAdr=0) or (curAdr = lastAdr)) then break;
         SetFlag(cfLoc, Pos0);
         recN1 := GetInfoRec(Adr);
         if not Assigned(recN1) then recN1 := InfoRec.Create(Pos0, ikUnknown);
@@ -13603,7 +13599,7 @@ if is_debug then CodeSite.Send('OP_JMP; curAdr = %d',[curAdr]);
       Begin
         CNum := jTblAdr - cTblAdr;
         SetFlags(cfSkip, Pos0, CNum);
-        Inc(Pos0, CNum); 
+        Inc(Pos0, CNum);
         Inc(Adr, CNum);
       End;
       for k := 0 to 4095 do
@@ -13887,21 +13883,21 @@ If is_debug then CodeSite.Send('otIMM, curAdr = %d',[curAdr]);
       //imm32 must be valid code address outside current procedure
       if (Pos0 >= 0) and IsValidCodeAdr(DisInfo.Immediate) and ((DisInfo.Immediate < fromAdr) or (DisInfo.Immediate >= fromAdr + procSize)) then
       Begin
-If is_debug then CodeSite.Send('FlagList = %d, curAdr = %d',[FlagList[Pos0],curAdr]);
+If is_debug then CodeSite.Send('FlagList = %d',[FlagList[Pos0]]);
         //Position must be free
         if FlagList[Pos0]=0 then
         Begin
-If is_debug then CodeSite.Send('InfoList = %p, curAdr = %d',[Pointer(InfoList[Pos0]),curAdr]);
+If is_debug then CodeSite.Send('InfoList = %p',[Pointer(InfoList[Pos0])]);
           //No Name
           if InfoList[Pos0]=Nil then
           Begin
-If is_debug then CodeSite.Send('Imm = %d, curAdr = %d',[DisInfo.Immediate,curAdr]);
+If is_debug then CodeSite.Send('Imm = %d',[DisInfo.Immediate]);
             //Address must be outside current procedure
             if (DisInfo.Immediate < fromAdr) or (DisInfo.Immediate >= fromAdr + procSize) then
             Begin
               //If valid code lets user decide later
               codeValidity := IsValidCode(DisInfo.Immediate);
-If is_debug then CodeSite.Send('validity = %d, curAdr = %d',[codeValidity,curAdr]);
+If is_debug then CodeSite.Send('validity = %d',[codeValidity]);
               if codeValidity = 1 then //Code
               begin
 If is_debug then CodeSite.Send('AnalyzeProc_Y = %d',[DisInfo.Immediate]);
@@ -13921,6 +13917,7 @@ If is_debug then CodeSite.Send('AnalyzeProc_Y = %d',[DisInfo.Immediate]);
     Inc(curPos, instrLen);
     Inc(curAdr, instrLen);
   End;
+if is_debug then CodeSite.Send('EXIT; curAdr = %d',[curAdr]);
 end;
 
 Procedure TFMain.AnalyzeProc2 (fromAdr:Integer; addArg, AnalyzeRetType:Boolean);
@@ -13965,7 +13962,7 @@ var
   stack:Array[0..255] of RINFO;
   DisInfo, DisInfo1:TDisInfo;
   singleVal:Single;
-  extendedVal:Double;
+  extendedVal:Extended;
   CTab:Array[0..255] of Byte;
 Begin
   fContinue:=False;
@@ -14935,7 +14932,7 @@ Begin
               End
               else if op = OP_XCHG then
               Begin
-                rtmp := registers[reg1Idx]; 
+                rtmp := registers[reg1Idx];
                 registers[reg1Idx] := registers[reg2Idx]; 
                 registers[reg2Idx] := rtmp;
               End
@@ -15060,7 +15057,7 @@ Begin
                           else
                           Begin
                             if reg1Idx <= 7 then
-                              Val := PInteger(Code + _ap)^
+                              Val := Byte(Code[_ap])
                             else if reg1Idx <= 15 then
                               Val := PWord(Code + _ap)^;
                             AddPicode(curPos, OP_COMMENT, HEX_COMENT + Val2Str(Val), 0);
@@ -15132,7 +15129,7 @@ Begin
                         else
                         Begin
                           if reg1Idx <= 7 then
-                            Val := PInteger(Code + _ap)^
+                            Val := Byte(Code[_ap])
                           else if reg1Idx <= 15 then
                             Val := PWord(Code + _ap)^;
                           AddPicode(curPos, OP_COMMENT, HEX_COMENT + Val2Str(Val), 0);
@@ -16028,7 +16025,7 @@ Begin
         if hInst<>0 then
         Begin
           bytes := LoadString(hInst, ident, buf, SizeOf(Buf));
-          if bytes<>0 then AddPicode(callPos, OP_COMMENT, '"' + MakeString(buf, bytes) + '"', 0);
+          if bytes<>0 then AddPicode(callPos, OP_COMMENT, COMENT_QUOTE + MakeString(buf, bytes) + COMENT_QUOTE, 0);
           FreeLibrary(hInst);
         End;
       End;
@@ -17077,7 +17074,7 @@ Begin
         if Adr1 > lastAdr then lastAdr := Adr1;
       End;
       if Adr > lastAdr then lastAdr := Adr;
-      curPos := Ps; 
+      curPos := Ps;
       curAdr := Adr;
       continue;
     End;
@@ -17789,9 +17786,8 @@ Begin
       Inc(curAdr, instrLen);
       continue;
     End;
-    if (b1 = $EB) or				 //short relative abs jmp or cond jmp
-    	((b1 >= $70) and (b1 <= $7F)) or
-      ((b1 = $F) and (b2 >= $80) and (b2 <= $8F)) then
+    if (b1 in [$EB,$70..$7F]) or				 //short relative abs jmp or cond jmp
+      ((b1 = $F) and (b2 in [$80..$8F])) then
     Begin
       Adr := DisInfo.Immediate;
       if IsValidCodeAdr(Adr) then

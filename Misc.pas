@@ -1181,15 +1181,15 @@ Begin
     Inc(p);
     if (c >= #0) and (c <= #13) then
     begin
-      if not z and (k<>0) then Result:=Result+ '"';
+      if not z and (k<>0) then Result:=Result + COMENT_QUOTE;
       result:=Result + '#' + IntToStr(Ord(c));
       z := true;
     end
     else z := false;
-    if (k=0) and not z then result:=result + '"';
+    if (k=0) and not z then result:=result + COMENT_QUOTE;
     if c > #13 then result:=result + c;
   End;
-  if not z Then result:=result + '"';
+  if not z Then result:=result + COMENT_QUOTE;
 end;
 
 Function TransformUString (codePage:Word; data:PWideChar; len:Integer):AnsiString;
@@ -2262,7 +2262,7 @@ Begin
       for n := 0 to items.Count-1 do
       begin
         line := Copy(items[n],leftMargin+1,1024)+#13+#10;
-        buf.Write(line,Length(line));
+        buf.Write(line[1],Length(line));
       End;
       n:=0;
       buf.Write(n,1);

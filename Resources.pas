@@ -295,8 +295,8 @@ Uses
   Misc,Main,Dialogs,StrUtils,Infos,Def_info,Def_main;
 
 Type
-  PfnGetDstSize = Function (MemPtr:Pointer; Len:Integer):Integer;
-  PfnDecrypt = Function (SrcPtr:Pointer; SrcLen:Integer; DstPtr:Pointer; DstLen:Integer):Boolean;
+  PfnGetDstSize = Function (MemPtr:Pointer; Len:Integer):Integer; stdcall;
+  PfnDecrypt = Function (SrcPtr:Pointer; SrcLen:Integer; DstPtr:Pointer; DstLen:Integer):Boolean; stdcall;
 
 Var
   classesRegistered:Boolean;
@@ -391,7 +391,11 @@ Begin
   While n < FormText.Count do
   begin
     line := Trim(FormText[n]);
-    if line = '' then continue;
+    if line = '' then
+    begin
+      Inc(n);
+      continue;
+    end;
     align := Pos(line,FormText[n]);
     if SameText(line, 'end') and (align = objAlign) then break;
     is_inherit := Pos('inherited ',line) = 1;
@@ -450,7 +454,7 @@ Begin
   Result:=n;
 end;
 
-Function EnumResNameProcedure(hModule:Integer; _Type, Name:PAnsiChar; Param:TResourceInfo):Boolean;
+Function EnumResNameProcedure(hModule:Integer; _Type, Name:PAnsiChar; Param:TResourceInfo):BOOL; stdcall;
 var
   res,is_inherit:Boolean;
   srcSize, dstSize:Integer;

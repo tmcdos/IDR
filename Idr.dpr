@@ -34,7 +34,8 @@ uses
   Disasm in 'Disasm.pas',
   Threads in 'Threads.pas',
   Infos in 'Infos.pas',
-  Decompiler in 'Decompiler.pas';
+  Decompiler in 'Decompiler.pas',
+  Resources in 'Resources.pas';
 
 {$R *.RES}
 

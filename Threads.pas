@@ -1934,7 +1934,7 @@ Begin
   begin
     recN := GetInfoRec(adr);
     if Assigned(recN) and Assigned(recN.vmtInfo.fields) then
-      for n := 0 to recN.vmtInfo.fields.Count do
+      for n := 0 to recN.vmtInfo.fields.Count-1 do
       begin
         fInfo := FieldInfo(recN.vmtInfo.fields[n]);
         if SameText(fInfo.Name, Name) Then
@@ -1950,7 +1950,7 @@ end;
 Procedure TAnalyzeThread.FindPrototypes;
 var
   n, m, k, r, idx, usesNum,stepMask,ss,formAdr,ctlAdr:Integer;
-  recN:InfoRec;
+  recN,recN1:InfoRec;
   importName, _name:AnsiString;
   pInfo:MProcInfo;
   tInfo:MTypeInfo;
@@ -2149,21 +2149,21 @@ Begin
           recM := recN.vmtInfo.methods[k];
           if SameText(recM.name, clasName + '.' + eInfo.ProcName) then
           Begin
-            recN := GetInfoRec(recM.address);
-            if Assigned(recN) then
+            recN1 := GetInfoRec(recM.address);
+            if Assigned(recN1) then
             Begin
               clsname := clasName;
               while true do
               Begin
                 if KBase.GetKBPropertyInfo(PAnsiChar(clsname), eInfo.EventName, tInfo) then
                 Begin
-                  recN.kind := ikProc;
-                  recN.procInfo.flags := recN.procInfo.flags or PF_EVENT;
-                  recN.procInfo.DeleteArgs;
+                  recN1.kind := ikProc;
+                  recN1.procInfo.flags := recN1.procInfo.flags or PF_EVENT;
+                  recN1.procInfo.DeleteArgs;
                   //eax always Self
-                  recN.procInfo.AddArg($21, 0, 4, 'Self', clasName);
+                  recN1.procInfo.AddArg($21, 0, 4, 'Self', clasName);
                   //transform declaration to arguments
-                  recN.procInfo.AddArgsFromDeclaration(tInfo.Decl, 1, 0);
+                  recN1.procInfo.AddArgsFromDeclaration(tInfo.Decl, 1, 0);
                   break;
                 End;
                 clsname := GetParentName(clsname);
@@ -2197,21 +2197,21 @@ Begin
             recM := recN.vmtInfo.methods[r];
             if SameText(recM.name, clasName + '.' + eInfo.ProcName) then
             Begin
-              recN := GetInfoRec(recM.address);
-              if Assigned(recN) then
+              recN1 := GetInfoRec(recM.address);
+              if Assigned(recN1) then
               Begin
                 clsname := clasName;
                 while true do
                 Begin
                   if KBase.GetKBPropertyInfo(PAnsiChar(clsname), eInfo.EventName, tInfo) then
                   Begin
-                    recN.kind := ikProc;
-                    recN.procInfo.flags := recN.procInfo.flags or PF_EVENT;
-                    recN.procInfo.DeleteArgs;
+                    recN1.kind := ikProc;
+                    recN1.procInfo.flags := recN1.procInfo.flags or PF_EVENT;
+                    recN1.procInfo.DeleteArgs;
                     //eax always Self
-                    recN.procInfo.AddArg($21, 0, 4, 'Self', clasName);
+                    recN1.procInfo.AddArg($21, 0, 4, 'Self', clasName);
                     //transform declaration to arguments
-                    recN.procInfo.AddArgsFromDeclaration(tInfo.Decl, 1, 0);
+                    recN1.procInfo.AddArgsFromDeclaration(tInfo.Decl, 1, 0);
                     break;
                   End;
                   clsname := GetParentName(clsname);

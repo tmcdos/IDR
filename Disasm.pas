@@ -285,7 +285,7 @@ end;
 
 function MDisasm.GetOp(mnem:AnsiString): Byte;
 Begin
-  if (mnem = 'mov')or(mnem='movsx')or(mnem='movzx') then REsult:=OP_MOV
+  if (mnem = 'mov')or(mnem='movsx')or(mnem='movzx') then Result:=OP_MOV
   Else If mnem='movs' then Result:=OP_MOVS
   else if mnem = 'push' then Result:=OP_PUSH
   else if mnem = 'pop' then Result:=OP_POP
@@ -304,8 +304,8 @@ Begin
   Else if mnem = 'div' then  Result:= OP_DIV
   Else if mnem = 'imul' then Result:= OP_IMUL
   Else if mnem = 'idiv' then Result:= OP_IDIV
-  Else if (mnem = 'shl') or (mnem = 'shld') then  Result:= OP_SHL
-  Else if (mnem = 'shr') or (mnem = 'shrd') then  Result:= OP_SHR
+  Else if (mnem = 'shl')or(mnem = 'shld') then  Result:= OP_SHL
+  Else if (mnem = 'shr')or(mnem = 'shrd') then  Result:= OP_SHR
   Else if mnem = 'sal' then  Result:= OP_SAL
   else if mnem = 'sar' then  Result:= OP_SAR
   else if mnem = 'neg' then  Result:= OP_NEG
@@ -318,7 +318,7 @@ Begin
   Else if mnem = 'btc' then  Result:= OP_BTC
   Else if mnem = 'btr' then  Result:= OP_BTR
   else if mnem = 'bts' then  Result:= OP_BTS
-  else if mnem = 'set' then Result:= OP_SET
+  else if Copy(mnem,1,3) = 'set' then Result:= OP_SET
   Else Result:=OP_UNK;
 end;
 
