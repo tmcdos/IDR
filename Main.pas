@@ -20,7 +20,6 @@ Type
     pcInfo: TPageControl;
     tsUnits: TTabSheet;
     tsRTTIs: TTabSheet;
-    lbUnits: TListBox;
     lbRTTIs: TListBox;
     miOpenProject: TMenuItem;
     pcWorkArea: TPageControl;
@@ -196,7 +195,6 @@ Type
     procedure lbStringsDblClick(Sender : TObject);
     procedure lbRTTIsDblClick(Sender : TObject);
     procedure lbUnitItemsDblClick(Sender : TObject);
-    procedure lbUnitsDblClick(Sender : TObject);
     procedure miGoToClick(Sender : TObject);
     procedure miExploreAdrClick(Sender : TObject);
     procedure miNameClick(Sender : TObject);
@@ -214,7 +212,6 @@ Type
     procedure miRenameUnitClick(Sender : TObject);
     procedure FormClose(Sender : TObject; Var Action:TCloseAction);
     procedure lbFormsDblClick(Sender : TObject);
-    procedure lbUnitsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
     procedure FormKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure lbCodeKeyDown(Sender : TObject; Var Key:Word; Shift:TShiftState);
     procedure miCollapseAllClick(Sender : TObject);
@@ -224,7 +221,6 @@ Type
     procedure miSearchItemClick(Sender : TObject);
     procedure ShowCXrefsClick(Sender : TObject);
     procedure lbUnitItemsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
-    procedure lbUnitsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbRTTIsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbFormsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbCodeMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
@@ -235,7 +231,6 @@ Type
     procedure rgViewerModeClick(Sender : TObject);
     procedure tvClassesShortMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure miClassTreeBuilderClick(Sender : TObject);
-    procedure lbUnitsClick(Sender : TObject);
     procedure lbRTTIsClick(Sender : TObject);
     procedure lbUnitItemsClick(Sender : TObject);
     procedure tvClassesShortClick(Sender : TObject);
@@ -274,7 +269,6 @@ Type
     procedure miDelphi2006Click(Sender : TObject);
     procedure miDelphi2007Click(Sender : TObject);
     procedure lbXrefsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
-    procedure lbUnitsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure lbRTTIsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure lbFormsKeyDown(Sender : TObject; Var Key:Word; Shift:TShiftState);
     procedure tvClassesShortKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
@@ -621,8 +615,6 @@ Var
   ImpFuncList:TList;   //Imported functions list (temporary)
   ImpModuleList:TStringList; //Imported modules   list (temporary)
 
-  //Units
-  UnitSortField:Integer; //0 - по адресу, 1 - в порядке инициализации, 2 - по имени
   //Types
   RTTISortField:Integer; //0 - по адресу, 1 - по виду, 2 - по имени
 
@@ -710,7 +702,7 @@ begin
   //if tsUnits.Enabled then
   //begin
     pcInfo.ActivePage := tsUnits;
-    if lbUnits.CanFocus then ActiveControl := lbUnits;
+    if vtUnit.CanFocus then ActiveControl := vtUnit;
   //end;
 end;
 
@@ -844,12 +836,11 @@ Begin
   miHex2Double.Enabled := false;
 
   //Init Units
-  lbUnits.Clear;
   vtUnit.Clear;
   miRenameUnit.Enabled := false;
   miSearchUnit.Enabled := false;
   miCopyList.Enabled := false;
-  UnitSortField := 0;
+  vtUnit.Header.SortColumn := 0;
   tsUnits.Enabled := false;
 
   //Init RTTIs
@@ -5135,7 +5126,7 @@ begin
 
   Init;
 
-  lbUnits.Canvas.Font.Assign(lbUnits.Font);
+  vtUnit.Canvas.Font.Assign(vtUnit.Font);
   lbRTTIs.Canvas.Font.Assign(lbRTTIs.Font);
   lbForms.Canvas.Font.Assign(lbForms.Font);
   lbCode.Canvas.Font.Assign(lbCode.Font);
@@ -7822,46 +7813,57 @@ var
   n, ps, idx:Integer;
   line, msg:AnsiString;
   node:TTreeNode;
+  uNode:PVirtualNode;
 begin
   idx:=-1;
-  if Text = '' then Exit;
-  msg := 'Search string "' + Text + '" not found';
+  if str = '' then Exit;
+  msg := 'Search string "' + str + '" not found';
   case WhereSearch of
     SEARCH_UNITS:
       begin
-        for n := UnitsSearchFrom to lbUnits.Items.Count-1 do
-          if AnsiContainsText(lbUnits.Items.Strings[n], Text) then
-          Begin
-            idx := n;
-            break;
-          End;
-        if idx = -1 then
-          for n := 0 to UnitsSearchFrom-1 do
-            if AnsiContainsText(lbUnits.Items.Strings[n], Text) then
-            Begin
-              idx := n;
-              break;
-            End;
-        if idx <> -1 then
+        uNode:=Pointer(UnitsSearchFrom);
+        if not Assigned(uNode) then uNode:=vtUnit.GetFirst;
+        while Assigned(uNode) do
         Begin
-        	if idx < lbUnits.Items.Count - 1 then UnitsSearchFrom := idx + 1
-        	  else UnitsSearchFrom := 0;
-          lbUnits.ItemIndex := idx;
-          lbUnits.SetFocus;
+          If AnsiContainsText(vtUnit.Text[uNode,0], str) Or
+            AnsiContainsText(vtUnit.Text[uNode,2], str) then break;
+          uNode:=uNode.NextSibling;
+        end;
+        if Not Assigned(uNode) then
+        begin
+          uNode:=Pointer(UnitsSearchFrom);
+          if Assigned(uNode) then uNode:=uNode.PrevSibling;
+          while Assigned(uNode) do
+          Begin
+            If AnsiContainsText(vtUnit.Text[uNode,0], str) Or
+              AnsiContainsText(vtUnit.Text[uNode,2], str) then break;
+            uNode:=uNode.PrevSibling;
+          End;
+        end;
+        if Assigned(uNode) then
+        Begin
+        	UnitsSearchFrom := Integer(uNode);
+          with vtUnit do
+          begin
+            FocusedNode:=uNode;
+            Selected[uNode]:=True;
+            ScrollIntoView(uNode,False,False);
+            SetFocus;
+          end;
         End
         else ShowMessage(msg);
       end;
     SEARCH_UNITITEMS:
       begin
         for n := UnitItemsSearchFrom to lbUnitItems.Items.Count-1 do
-          if AnsiContainsText(lbUnitItems.Items.Strings[n], Text) then
+          if AnsiContainsText(lbUnitItems.Items.Strings[n], str) then
           Begin
             idx := n;
             break;
           End;
         if idx = -1 then
           for n := 0 to UnitItemsSearchFrom-1 do
-            if AnsiContainsText(lbUnitItems.Items.Strings[n], Text) then
+            if AnsiContainsText(lbUnitItems.Items.Strings[n], str) then
             Begin
               idx := n;
               break;
@@ -7878,14 +7880,14 @@ begin
     SEARCH_RTTIS:
       begin
         for n := RTTIsSearchFrom to lbRTTIs.Items.Count-1 do
-          if AnsiContainsText(lbRTTIs.Items.Strings[n], Text) then
+          if AnsiContainsText(lbRTTIs.Items.Strings[n], str) then
           Begin
           	idx := n;
             break;
           End;
         if idx = -1 then
           for n := 0 to RTTIsSearchFrom-1 do
-            if AnsiContainsText(lbRTTIs.Items.Strings[n], Text) then
+            if AnsiContainsText(lbRTTIs.Items.Strings[n], str) then
             Begin
             	idx := n;
               break;
@@ -7902,14 +7904,14 @@ begin
     SEARCH_FORMS:
       begin
         for n := FormsSearchFrom to lbForms.Items.Count-1 do
-          if AnsiContainsText(lbForms.Items.Strings[n], Text) then
+          if AnsiContainsText(lbForms.Items.Strings[n], str) then
           Begin
           	idx := n;
             break;
           End;
         if idx = -1 then
           for n := 0 to FormsSearchFrom-1 do
-            if AnsiContainsText(lbForms.Items.Strings[n], Text) then
+            if AnsiContainsText(lbForms.Items.Strings[n], str) then
             Begin
             	idx := n;
               break;
@@ -7932,7 +7934,7 @@ begin
           Begin
           	line := node.Text;
             //Skip <>
-            if (line[1] <> '<') and AnsiContainsText(line, Text) then
+            if (line[1] <> '<') and AnsiContainsText(line, str) then
             Begin
               idx := 0;
               break;
@@ -7946,7 +7948,7 @@ begin
             Begin
               line := node.Text;
               //Skip <>
-              if (line[1] <> '<') and AnsiContainsText(line, Text) then
+              if (line[1] <> '<') and AnsiContainsText(line, str) then
               Begin
                 idx := 0;
                 break;
@@ -7971,7 +7973,7 @@ begin
           Begin
           	line := node.Text;
             //Skip <>
-            if (line[1] <> '<') and AnsiContainsText(line, Text) then
+            if (line[1] <> '<') and AnsiContainsText(line, str) then
             Begin
               idx := 0;
               break;
@@ -7985,7 +7987,7 @@ begin
             Begin
               line := node.Text;
               //Skip <>
-              if (line[1] <> '<') and AnsiContainsText(line, Text) then
+              if (line[1] <> '<') and AnsiContainsText(line, str) then
               Begin
                 idx := 0;
                 break;
@@ -8011,7 +8013,7 @@ begin
         	line := lbStrings.Items[n];
         	ps := Pos('''',line);
         	line := Copy(line,ps + 1, Length(line) - ps);
-          if AnsiContainsText(line, Text) then
+          if AnsiContainsText(line, str) then
           Begin
             idx := n;
             break;
@@ -8023,7 +8025,7 @@ begin
             line := lbStrings.Items[n];
             ps := Pos('''',line);
             line := Copy(line,ps + 1, Length(line) - ps);
-            if AnsiContainsText(line, Text) then
+            if AnsiContainsText(line, str) then
             Begin
               idx := n;
               break;
@@ -8045,7 +8047,7 @@ begin
         	line := lbNames.Items[n];
         	ps := Pos('''',line);
         	line := Copy(line,ps + 1, Length(line) - ps);
-          if AnsiContainsText(line, Text) then
+          if AnsiContainsText(line, str) then
           Begin
             idx := n;
             break;
@@ -8057,7 +8059,7 @@ begin
             line := lbNames.Items[n];
             ps := Pos('''',line);
             line := Copy(line,ps + 1, Length(line) - ps);
-            if AnsiContainsText(line, Text) then
+            if AnsiContainsText(line, str) then
             Begin
               idx := n;
               break;
@@ -9273,24 +9275,26 @@ Begin
     End;
     Units.Add(recU);
   End;
-  UnitSortField := 0;
+  vtUnit.Header.SortColumn := 0;
   CurUnitAdr := 0;
   topIdxI := 0;
   itemIdxI := -1;
-  
+
   if UnitsNum<>0 then
-  Begin
-    inStream.Read(UnitSortField, sizeof(UnitSortField));
-    inStream.Read(CurUnitAdr, sizeof(CurUnitAdr));
-    inStream.Read(topIdxU, sizeof(topIdxU));
-    inStream.Read(itemIdxU, sizeof(itemIdxU));
-    //UnitItems
-    if CurUnitAdr<>0 then
-    Begin
- 	  	inStream.Read(topIdxI, sizeof(topIdxI));
-    	inStream.Read(itemIdxI, sizeof(itemIdxI));
-    End;
-  End;
+    with inStream do
+    begin
+      Read(ps, sizeof(ps));
+      vtUnit.Header.SortColumn:=ps;
+      Read(CurUnitAdr, sizeof(CurUnitAdr));
+      Read(topIdxU, sizeof(topIdxU));
+      Read(itemIdxU, sizeof(itemIdxU));
+      //UnitItems
+      if CurUnitAdr<>0 then
+      Begin
+        Read(topIdxI, sizeof(topIdxI));
+        Read(itemIdxI, sizeof(itemIdxI));
+      End;
+    end;
 
   tsUnits.Enabled := true;
   ShowUnits(true);
@@ -9702,6 +9706,7 @@ var
   phRec:PROCHISTORYREC;
   root:TTreeNode;
   tmp:AnsiString;
+  uNode:PUnitNode;
   buf:Array[0..4095] of Byte;
 Begin
   if FileExists(FileName) then
@@ -9855,11 +9860,18 @@ Begin
     End;
     if num<>0 then
     Begin
-      outStream.Write(UnitSortField, sizeof(UnitSortField));
+      ps:=vtUnit.Header.SortColumn;
+      outStream.Write(ps, sizeof(ps));
       outStream.Write(CurUnitAdr, sizeof(CurUnitAdr));
-      topIdx := lbUnits.TopIndex;
+      topIdx := 0; // lbUnits.TopIndex;
       outStream.Write(topIdx, sizeof(topIdx));
-      itemIdx := lbUnits.ItemIndex;
+      //itemIdx := lbUnits.ItemIndex;
+      itemIdx:=0;
+      if Assigned(vtUnit.FocusedNode) then
+      Begin
+        uNode:=vtUnit.GetNodeData(vtUnit.FocusedNode);
+        itemIdx:=PUnitRec(Units[uNode.unit_index]).fromAdr;
+      end;
       outStream.Write(itemIdx, sizeof(itemIdx));
       //UnitItems
       if CurUnitAdr<>0 then
@@ -10606,15 +10618,12 @@ end;
 
 procedure TFMain.pmUnitsPopup(Sender : TObject);
 var
-  item:AnsiString;
-  adr:Integer;
   recU:PUnitRec;
+  uNode:PUnitNode;
 begin
-  if lbUnits.ItemIndex < 0 then Exit;
-
-  item := lbUnits.Items[lbUnits.ItemIndex];
-  sscanf(PAnsiChar(item)+1,'%lX',[@adr]);
-  recU := GetUnit(adr);
+  if not Assigned(vtUnit.FocusedNode) then Exit;
+  uNode:=vtUnit.GetNodeData(vtUnit.FocusedNode);
+  recU := Units[uNode.unit_index];
   miRenameUnit.Enabled := not recU.kb and (recU.names.Count <= 1);
 end;
 
@@ -11584,227 +11593,64 @@ end;
 
 Procedure TFMain.ShowUnits (showUnk:Boolean);
 var
-  oldItemIdx, selAdr, newItemIdx, wid, maxwid:Integer;
-  oldTopIdx,i,u,newTopIdx:Integer;
+  i,u,selAdr, wid, maxwid:Integer;
   recU:PUnitRec;
-  ci, cf:Char;
-  item,line:AnsiString;
   vNode:PVirtualNode;
   uNode:PUnitNode;
 Begin
-  oldItemIdx:=lbUnits.ItemIndex;
   selAdr:=0;
-  newItemIdx:=-1;
-  maxwid:=0;
-  if oldItemIdx <> -1 then
+  if Assigned(vtUnit.FocusedNode) Then
   Begin
-    item := lbUnits.Items[oldItemIdx];
-    sscanf(PAnsiChar(item)+1,'%lX',[@selAdr]);
-  End;
-  oldTopIdx := lbUnits.TopIndex;
-  lbUnits.Clear;
-  lbUnits.Items.BeginUpdate;
+    uNode:=vtUnit.GetNodeData(vtUnit.FocusedNode);
+    selAdr:=PUnitRec(Units[uNode.unit_index]).fromAdr;
+  end;
+  maxwid:=0;
   vtUnit.Clear;
   vtUnit.BeginUpdate;
-
-  if UnitsNum<>0 then
-    case UnitSortField of
-      0: Units.Sort(SortUnitsByAdr);
-      1: Units.Sort(SortUnitsByOrd);
-      2: Units.Sort(SortUnitsByNam);
-    End;
   for i := 0 to UnitsNum-1 do
   Begin
     vNode:=vtUnit.AddChild(Nil);
     uNode:=vtUnit.GetNodeData(vNode);
     recU := Units[i];
     uNode.unit_index:=i;
-    if recU.fromAdr = selAdr then newItemIdx := i;
-    if not recU.trivialIni then ci:='I' else ci:=' ';
-    if not recU.trivialFin then cf:='F' else cf:=' ';
-    line:=Format(' %8.8X #%.3d %s%s ', [recU.fromAdr, recU.iniOrder, ci, cf]);
-    if recU.names.Count<>0 then
-      for u := 0 to recU.names.Count-1 do
-      Begin
-        if Length(line) + Length(recU.names[u]) > 255 then
-        Begin
-          unode.names:=unode.names + '...';
-          line:=line + '...';
-          break;
-        End;
-        if u<>0 then
-        Begin
-          line:=line+';';
-          uNode.names:=unode.names+';'
-        end;
-        line:=line + recU.names[u];
-        uNode.names:=unode.names + recU.names[u];
-      End
-    else
+    if recU.fromAdr = selAdr then
     Begin
-      line:=line + Format('_Unit%d', [recU.iniOrder]);
-      uNode.names:='_Unit'+IntToStr(recU.iniOrder);
+      vtUnit.FocusedNode := vNode;
+      vtUnit.Selected[vNode]:=True;
     end;
-
     if i <> UnitsNum - 1 then
     Begin
       //Trivial units
       if recU.trivial then
-      Begin
-        line[1] := Chr(TRIV_UNIT);
-        uNode.unit_type:=[ut_Trivial];
-      end
+        uNode.unit_type:=[ut_Trivial]
       else if not recU.kb then
-      Begin
-        line[1] := Chr(USER_UNIT);
         uNode.unit_type:=[ut_User];
-      end;
     End
     //Last unit is user's
-    else
-    Begin
-      line[1] := Chr(USER_UNIT);
-      uNode.unit_type:=[ut_User];
-    end;
-
+    else uNode.unit_type:=[ut_User];
     //Unit has undefined bytes
     uNode.has_undef:=ContainsUnexplored(recU);
     if showUnk and ContainsUnexplored(recU) then
-    Begin
-      Byte(line[1]) := Byte(line[1]) or UNEXP_UNIT;
       Include(uNode.unit_type,ut_Unexplore);
-    end;
-    lbUnits.Items.Add(line);
-    wid := lbUnits.Canvas.TextWidth(line);
+    // compute Name width
+    if recU.names.Count<>0 then
+      for u := 0 to recU.names.Count-1 do
+      Begin
+        if u<>0 then uNode.names:=unode.names+';';
+        uNode.names:=unode.names + recU.names[u];
+      End
+    else uNode.names:='_Unit'+IntToStr(recU.iniOrder);
+
+    wid := vtUnit.Canvas.TextWidth('FF '+uNode.names);
     if wid > maxwid then maxwid := wid;
   End;
-  if newItemIdx = -1 then lbUnits.TopIndex := oldTopIdx
-  else
+  with vtUnit Do
   Begin
-    if newItemIdx <> oldItemIdx then
-    Begin
-      lbUnits.ItemIndex := newItemIdx;
-      newTopIdx := newItemIdx - (oldItemIdx - oldTopIdx);
-      if newTopIdx < 0 then newTopIdx := 0;
-      lbUnits.TopIndex := newTopIdx;
-    End
-    else
-    Begin
-      lbUnits.ItemIndex := newItemIdx;
-      lbUnits.TopIndex := oldTopIdx;
-    End;
+    Header.Columns[2].Width:=maxwid + (Margin + TextMargin)*2;
+    SortTree(Header.SortColumn,Header.SortDirection,False);
+    ScrollIntoView(FocusedNode,False,False);
+    EndUpdate;
   End;
-  lbUnits.ItemHeight := lbUnits.Canvas.TextHeight('T');
-  lbUnits.ScrollWidth := maxwid + 2;
-  lbUnits.Items.EndUpdate;
-  vtUnit.EndUpdate;
-end;
-
-procedure TFMain.lbUnitsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
-begin
-  if lbUnits.CanFocus then ActiveControl := lbUnits;
-end;
-
-procedure TFMain.lbUnitsClick(Sender : TObject);
-begin
-  UnitsSearchFrom := lbUnits.ItemIndex;
-  WhereSearch := SEARCH_UNITS;
-end;
-
-procedure TFMain.lbUnitsDblClick(Sender : TObject);
-var
-  adr:Integer;
-  item:AnsiString;
-  recU:PUnitRec;
-begin
-  item := lbUnits.Items[lbUnits.ItemIndex];
-  sscanf(PAnsiChar(item)+1,'%lX',[@adr]);
-  recU := GetUnit(adr);
-  if (CurUnitAdr=0) or (adr <> CurUnitAdr) then
-  begin
-    CurUnitAdr := adr;
-    ShowUnitItems(recU, 0, -1);
-  end
-  else ShowUnitItems(recU, lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
-  CurUnitAdr := adr;
-end;
-
-procedure TFMain.lbUnitsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
-begin
-  if Key = VK_RETURN then lbUnitsDblClick(Sender);
-end;
-
-procedure TFMain.lbUnitsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
-var
-  p, flags, len:Integer;
-  col:TColor;
-  lb:TListBox;
-  canva:TCanvas;
-  text, str1, str2:AnsiString;
-begin
-  lb := TListBox(Control);
-  canva := lb.Canvas;
-  SaveCanvas(canva);
-  if Index < lb.Count then
-  Begin
-    flags := Control.DrawTextBiDiModeFlags(DT_SINGLELINE or DT_VCENTER or DT_NOPREFIX);
-    if not Control.UseRightToLeftAlignment then
-      Inc(Rect.Left, 2)
-    else
-      Dec(Rect.Right, 2);
-
-    text := lb.Items[Index];
-    //lb.ItemHeight := canva.TextHeight(text);
-    canva.FillRect(Rect);
-
-    //*XXXXXXXX #XXX XX NAME
-    p := PosEx(' ',text,2);
-    len := p - 1;
-    str1 := Copy(text,2, len - 1);
-    str2 := Copy(text,len + 1, Length(text) - len);
-
-    if not (odSelected in State) then
-      col := TColor(0)        //Black
-    else
-      col := TColor($BBBBBB); //LightGray
-    Rect.Right := Rect.Left;
-    DrawOneItem(str1, canva, Rect, col, flags);
-
-    //Unit name
-    //Trivial unit - red
-    if (Byte(text[1]) and TRIV_UNIT)<>0 then
-    Begin
-      if not (odSelected in State) then
-        col := TColor($0000B0) //Red
-      else
-        col := TColor($BBBBBB); //LightGray
-    End
-    else
-    Begin
-      //User unit - green
-      if (Byte(text[1]) and USER_UNIT)<>0 then
-      Begin
-        if not (odSelected in State) then
-        Begin
-      	if (Byte(text[1]) and UNEXP_UNIT)<>0 then
-        	col := TColor($C0C0FF) //Light Red
-        else
-        	col := TColor($00B000); //Green
-        End
-        else col := TColor($BBBBBB); //LightGray
-      End
-      //From knowledge base - blue
-      else
-      Begin
-        if not (odSelected in State) then
-          col := TColor($C08000) //Blue
-        else
-          col := TColor($BBBBBB); //LightGray
-      End;
-    End;
-    DrawOneItem(str2, canva, Rect, col, flags);
-  End;
-  RestoreCanvas(canva);
 end;
 
 procedure TFMain.miSearchUnitClick(Sender : TObject);
@@ -11817,10 +11663,10 @@ begin
     FFindDlg.cbText.AddItem(UnitsSearchList[n], Nil);
   if (FFindDlg.ShowModal = mrOk) and (FFindDlg.cbText.Text <> '') then
   begin
-    if lbUnits.ItemIndex = -1 then
+    if Not Assigned(vtUnit.FocusedNode) then
       UnitsSearchFrom := 0
     else
-      UnitsSearchFrom := lbUnits.ItemIndex;
+      UnitsSearchFrom := Integer(vtUnit.FocusedNode);
     UnitsSearchText := FFindDlg.cbText.Text;
     if UnitsSearchList.IndexOf(UnitsSearchText) = -1 then UnitsSearchList.Add(UnitsSearchText);
     FindText(UnitsSearchText);
@@ -11829,30 +11675,29 @@ end;
 
 procedure TFMain.miRenameUnitClick(Sender : TObject);
 var
-  adr,u:Integer;
-  sName,item,txt:AnsiString;
+  u:Integer;
+  sName,txt:AnsiString;
   recU:PUnitRec;
+  uNode:PUnitNode;
 begin
-  if lbUnits.ItemIndex = -1 then Exit;
-
-  item := lbUnits.Items[lbUnits.ItemIndex];
-  sscanf(PAnsiChar(item)+1,'%lX',[@adr]);
-  recU := GetUnit(adr);
+  if not Assigned(vtUnit.FocusedNode) then Exit;
+  uNode:=vtUnit.GetNodeData(vtUnit.FocusedNode);
+  recU := Units[uNode.unit_index];
 
   txt := '';
   for u := 0 to recU.names.Count-1 do
   begin
-    if u<>0 then txt :=txt+ '+';
+    if u<>0 then txt :=txt+ ';';
     txt:=txt + recU.names[u];
   End;
-  sName := InputDialogExec('Enter UnitName', 'Name:', txt);
+  sName := Trim(InputDialogExec('Enter UnitName', 'Name:', txt));
   if sName <> '' then
   begin
     recU.names.Clear;
-    SetUnitName(recU, sName);
+    recU.names.Add(sName);
     ProjectModified := true;
     ShowUnits(true);
-    lbUnits.SetFocus;
+    vtUnit.SetFocus;
   end;
 end;
 
@@ -12168,7 +12013,7 @@ end;
 procedure TFMain.lbUnitItemsDblClick(Sender : TObject);
 var
   db:Byte;
-  p1,p2,p3,bytes,ps,adr,idx, len, size, refCnt:Integer;
+  bytes,ps,adr,idx, len, size, refCnt:Integer;
   use:TWordDynArray;
   tmpBuf:PAnsiChar;
   recN:InfoRec;
@@ -12442,7 +12287,7 @@ end;
 
 procedure TFMain.miEditFunctionIClick(Sender : TObject);
 var
-  p1,p2,refCnt, adr:Integer;
+  refCnt, adr:Integer;
   item,_name:AnsiString;
 begin
   if lbUnitItems.ItemIndex < 0 then Exit;
@@ -12508,7 +12353,7 @@ var
   line:AnsiString;
 Begin
   maxwid:=0;
-  canva:=lbUnits.Canvas;
+  canva:=lbRTTIs.Canvas;
   lbRTTIs.Clear;
   //as
   lbRTTIs.Items.BeginUpdate;
@@ -12535,7 +12380,7 @@ end;
 
 procedure TFMain.lbRTTIsDblClick(Sender : TObject);
 var
-  p1,p2,adr:Integer;
+  adr:Integer;
   _name,typeName:AnsiString;
 begin
   sscanf(PAnsiChar(lbRTTIs.Items[lbRTTIs.ItemIndex]),'%lX%ls%ls',[@adr,@_name,@typeName]);
@@ -12985,7 +12830,7 @@ end;
 
 procedure TFMain.lbXrefsDblClick(Sender : TObject);
 var
-  p1,adr,m:Integer;
+  adr,m:Integer;
   rec:PROCHISTORYREC;
   lb:TListBox;
   recN:InfoRec;
@@ -18323,7 +18168,7 @@ begin
     End;
     Screen.Cursor := crHourGlass;
     tmpList := TStringList.Create;
-    SetLength(use,128);
+    SetLength(use,200);
     for n := 0 to UnitsNum-1 do
     Begin
       recU := Units[n];
@@ -19183,7 +19028,7 @@ end;
 
 Procedure TFMain.SetupAllFonts (font:TFont);
 Begin
-  lbUnits.Font.Assign(font);
+  vtUnit.Font.Assign(font);
   lbRTTIs.Font.Assign(font);
   lbForms.Font.Assign(font);
   lbAliases.Font.Assign(font);
@@ -19579,7 +19424,7 @@ var
 begin
   CellText:='';
   Data:=Sender.GetNodeData(Node);
-  if Assigned(Data) and Assigned(Units) then
+  if Assigned(Data) and Assigned(Units) and (Units.Count<>0) then
   begin
     recU:=Units[Data^.unit_index];
     Case Column Of

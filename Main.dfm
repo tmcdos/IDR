@@ -466,38 +466,11 @@ object FMain: TFMain
     OnChange = pcInfoChange
     object tsUnits: TTabSheet
       Caption = 'Units (F2)'
-      object lbUnits: TListBox
+      object vtUnit: TVirtualStringTree
         Left = 0
         Top = 0
         Width = 207
-        Height = 308
-        Style = lbOwnerDrawFixed
-        AutoComplete = False
-        Align = alTop
-        Color = clWhite
-        Constraints.MinWidth = 200
-        ExtendedSelect = False
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -12
-        Font.Name = 'Courier New'
-        Font.Style = []
-        IntegralHeight = True
-        ItemHeight = 16
-        ParentFont = False
-        PopupMenu = pmUnits
-        TabOrder = 0
-        OnClick = lbUnitsClick
-        OnDblClick = lbUnitsDblClick
-        OnDrawItem = lbUnitsDrawItem
-        OnKeyDown = lbUnitsKeyDown
-        OnMouseMove = lbUnitsMouseMove
-      end
-      object vtUnit: TVirtualStringTree
-        Left = 0
-        Top = 308
-        Width = 207
-        Height = 308
+        Height = 616
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -530,17 +503,17 @@ object FMain: TFMain
         Header.Font.Height = -11
         Header.Font.Name = 'Tahoma'
         Header.Font.Style = []
-        Header.Options = [hoAutoResize, hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoAutoSpring, hoFullRepaintOnResize, hoHeaderClickAutoSort]
-        Header.PopupMenu = pmUnits
+        Header.Options = [hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
         Header.SortColumn = 0
         ParentFont = False
         ParentShowHint = False
+        PopupMenu = pmUnits
         ScrollBarOptions.AlwaysVisible = True
         ShowHint = True
-        TabOrder = 1
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toReportMode, toWheelPanning]
+        TabOrder = 0
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
         TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
-        TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toAlwaysSelectNode]
+        TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
         OnClick = vtUnitClick
         OnCompareNodes = vtUnitCompareNodes
         OnDblClick = vtUnitDblClick
@@ -694,7 +667,7 @@ object FMain: TFMain
             Font.Height = -12
             Font.Name = 'Courier New'
             Font.Style = []
-            ItemHeight = 0
+            ItemHeight = 15
             ParentFont = False
             Sorted = True
             TabOrder = 0

@@ -2845,7 +2845,7 @@ end;
 
 Function TDecompiler.SimulateCall (curAdr, callAdr:Integer; instrLen:Integer; mtd:PMethodRec; AClassAdr:Integer):Boolean;
 var
-  sep, fromKB, _vmt,savedBpBased:Boolean;
+  sep, fromKB, _vmt:Boolean;
   callKind:Byte;
   kind, retKind, methodKind:LKind;
   pp:PAnsiChar;
@@ -2866,6 +2866,9 @@ Begin
   idx:=-1;
   pp := Nil;
   ss := 0;
+  _esp:=0;
+  retKind:=ikUnknown;
+  methodKind:=ikUnknown;
   //call imm
   if IsValidCodeAdr(callAdr) then
   Begin
@@ -3093,8 +3096,8 @@ Begin
       line:=line + '(';
       if callKind in [0..3] then //fastcall, stdcall, pascal, cdecl 
       Begin
-         sep := false; 
-         _esp := _ESP_;
+        sep := false;
+        _esp := _ESP_;
         Inc(_ESP_, retBytes);
         //fastcall, pascal - reverse order of arguments
         if (callKind = 0) or (callKind = 2) then _esp := _ESP_;
