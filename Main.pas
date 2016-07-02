@@ -587,11 +587,10 @@ Uses Threads,Misc,StrUtils,Def_disasm,Heuristic,{Highlight,}ActiveX,ShlObj,
   StringInfo, Explorer, FindDlg, EditFieldsDlg,Def_res,IniFiles,TypeInfo,
   InputDlg,Def_thread, EditFunctionDlg,IDCGen,AboutDlg,ShellAPI,Contnrs,
   KBViewer, Legend,Decompiler, Hex2Double,Clipbrd, Plugins,ActiveProcesses,
-  Scanf,CodeSiteLogging;
+  Scanf{,CodeSiteLogging};
 
 Var
-  is_debug:Boolean;
-  Dest:TCodeSiteDestination;
+  //Dest:TCodeSiteDestination;
   DelphiLbId:Cardinal;
   DelphiThemesCount:Integer;
 
@@ -5080,12 +5079,12 @@ end;
 
 procedure TFMain.FormCreate(Sender : TObject);
 begin
-  DeleteFile('z:\IDR.csl');
-  Dest := TCodeSiteDestination.Create( Self );
-  Dest.LogFile.Active := True;
-  Dest.LogFile.FileName := 'IDR.csl';
-  Dest.LogFile.FilePath := 'z:\';
-  CodeSite.Destination := Dest;
+  //DeleteFile('z:\IDR.csl');
+  //Dest := TCodeSiteDestination.Create( Self );
+  //Dest.LogFile.Active := True;
+  //Dest.LogFile.FileName := 'IDR.csl';
+  //Dest.LogFile.FilePath := 'z:\';
+  //CodeSite.Destination := Dest;
 
   frmDisasm:=MDisasm.Create;
   if not frmDisasm.Init then
@@ -6119,13 +6118,11 @@ end;
 
 Procedure TFMain.AnalyzeProc (pass:Integer; procAdr:Integer);
 Begin
-if procAdr=4705128 then is_debug:=True;
   Case pass of
     0: AnalyzeProcInitial(procAdr);
     1: AnalyzeProc1(procAdr, #0, 0, 0, false);
     2: AnalyzeProc2(procAdr, true, true);
   End;
-is_debug:=False;
 end;
 
 //Scan proc calls
@@ -7238,6 +7235,7 @@ Begin
       if recM.kind = 'D' then
         dstList.Add('D' + Val2Str(recM.id,4) + ' #' + Val2Str(recM.address,8) + ' ' + recM.name);
     End;
+    dstList.Sort;
   end;
   Result:=dstList.Count;
 end;
@@ -11968,7 +11966,7 @@ Begin
     end;
     kind := recN.kind;
     //Skip calls, that are in the body of some asm-procs (for example, FloatToText from SysUtils)
-    if (kind >= ikRefine) and (kind <= ikFunc) and Assigned(recN.procInfo)
+    if (kind in [ikRefine..ikFunc]) and Assigned(recN.procInfo)
       and ((recN.procInfo.flags and cfEmbedded)<>0) then
     begin
       Inc(adr);
@@ -12103,7 +12101,7 @@ Begin
       end;
     End;
 
-    if (kind >= ikRefine) and (kind <= ikFunc) then
+    if kind in [ikRefine..ikFunc] then
     Begin
       if (recN.procInfo.flags and PF_VIRTUAL)<>0 then line := line + ' virtual';
       if (recN.procInfo.flags and PF_DYNAMIC)<>0 then line := line + ' dynamic';
@@ -12221,7 +12219,7 @@ begin
           recN := GetInfoRec(adr);
           if not Assigned(recN) then
             recN := InfoRec.Create(ps, ikRefine)
-          else if (recN.kind < ikRefine) or (recN.kind > ikFunc) then
+          else if not (recN.kind in [ikRefine..ikFunc]) then
           Begin
             recN.Free;
             recN := InfoRec.Create(ps, ikRefine);
@@ -13123,7 +13121,6 @@ var
   DisInfo:TDisInfo;
   CTab:Array[0..255] of Byte;
 Begin
-If is_debug Then CodeSite.Send('ENTER; fromAdr = %d',[fromAdr]);
   bpBased:=False;
   bpBase:=4;
   lastMovTarget := 0;
@@ -13137,9 +13134,6 @@ If is_debug Then CodeSite.Send('ENTER; fromAdr = %d',[fromAdr]);
   if (b1=0) and (b2=0) then Exit;
 
   recN := GetInfoRec(fromAdr);
-if is_debug then
-  If Assigned(recN) Then CodeSite.Send('recN = %s',[recN.Name])
-    else CodeSite.Send('recN = NIL');
 
   //Virtual constructor - don't analyze
   if Assigned(recN) and (Pos('class of ',recN._type) = 1) then Exit;
@@ -13507,7 +13501,6 @@ if is_debug then
       End;
       if DisInfo.OpType[0] = otIMM then
       Begin
-if is_debug then CodeSite.Send('OP_JMP; curAdr = %d',[curAdr]);
         Adr := DisInfo.Immediate;
         Pos0 := Adr2Pos(Adr);
         if (Pos0 < 0) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
@@ -13628,7 +13621,6 @@ if is_debug then CodeSite.Send('OP_JMP; curAdr = %d',[curAdr]);
       if ((Code[NPos] = #$64) and (Code[NPos + 1] = #255) and (Code[NPos + 2] in [#$30..#$37,#$75]))
         or (Code[NPos] = #$C3) then
       Begin
-If is_debug then CodeSite.Send('b1 = $68; curAdr = %d',[curAdr]);
         Adr := DisInfo.Immediate;      //Adr:=@1
         if Adr > lastAdr then lastAdr := Adr;
         Pos0 := Adr2Pos(Adr);
@@ -13636,10 +13628,8 @@ If is_debug then CodeSite.Send('b1 = $68; curAdr = %d',[curAdr]);
         delta := Pos0 - NPos;
         if (delta>=0) and (delta < MAX_DISASSEMBLE) then
         Begin
-If is_debug then CodeSite.Send('delta inside; curAdr = %d',[curAdr]);
           if Code[Pos0] = #$E9 then //jmp Handle...
           Begin
-If is_debug then CodeSite.Send('code = $E9; curAdr = %d',[curAdr]);
             if Code[NPos + 2] = #$35 then
             Begin
               SetFlag(cfTry, NPos - 6);
@@ -13760,16 +13750,13 @@ If is_debug then CodeSite.Send('code = $E9; curAdr = %d',[curAdr]);
     End;
     if DisInfo.Call then
     Begin
-If is_debug then CodeSite.Send('CALL; curAdr = %d',[curAdr]);
       SetFlag(cfCall, curPos);
       Adr := DisInfo.Immediate;
       if IsValidCodeAdr(Adr) and (Adr2Pos(Adr) >= 0) then
       Begin
-If is_debug then CodeSite.Send('valid code; curAdr = %d',[curAdr]);
         SetFlag(cfLoc, Adr2Pos(Adr));
         //If after call exists instruction pop ecx, it may be embedded procedure
         mbemb := Code[curPos + instrLen] = #$59;
-If is_debug then CodeSite.Send('AnalyzeProc_X = %d',[Adr]);
         AnalyzeProc1(Adr, 'C', fromAdr, curAdr - fromAdr, mbemb);
         recN1 := GetInfoRec(Adr);
         if Assigned(recN1) and Assigned(recN1.procInfo) then
@@ -13824,15 +13811,12 @@ If is_debug then CodeSite.Send('AnalyzeProc_X = %d',[Adr]);
     if (b1 in [$EB,$70..$7F]) or				 //short relative abs jmp or cond jmp
       ((b1 = 15) and (b2 in [$80..$8F])) then
     Begin
-If is_debug then CodeSite.Send('COND JMP; curAdr = %d',[curAdr]);
       Adr := DisInfo.Immediate;
       if IsValidCodeAdr(Adr) then
       Begin
-If is_debug then CodeSite.Send('valid Adr = %d',[Adr]);
         Pos0 := Adr2Pos(Adr);
         if not IsFlagSet(cfEmbedded, Pos0) then //Possible branch to start of Embedded proc (for ex. in proc TextToFloat))
         Begin
-If is_debug then CodeSite.Send('embedded, curAdr = %d',[curAdr]);
           SetFlag(cfLoc, Pos0);
           //Mark possible start of Loop
           if (Adr < curAdr) and not IsFlagSet(cfExcept or cfFinally, Adr2Pos(curAdr)) {and not IsFlagSet(cfExcept, Adr2Pos(curAdr))} then
@@ -13849,11 +13833,9 @@ If is_debug then CodeSite.Send('embedded, curAdr = %d',[curAdr]);
     End
     else if b1 = $E9 then    //relative abs jmp or cond jmp
     Begin
-If is_debug then CodeSite.Send('b1 = $E9; curAdr = %d',[curAdr]);
       Adr := DisInfo.Immediate;
       if IsValidCodeAdr(Adr) then
       Begin
-If is_debug then CodeSite.Send('valid Adr = %d',[Adr]);
         Pos0 := Adr2Pos(Adr);
         SetFlag(cfLoc, Pos0);
         //Mark possible start of Loop
@@ -13867,7 +13849,6 @@ If is_debug then CodeSite.Send('valid Adr = %d',[Adr]);
             recN1.SameName('@HandleAutoException') then
           begin
             recN1.AddXref('J', fromAdr, curAdr - fromAdr);
-If is_debug then CodeSite.Send('recN1 = %s, Adr = %d',[recN1.Name,Adr]);
           end;
         if not Assigned(recN1) and (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
       End;
@@ -13878,29 +13859,23 @@ If is_debug then CodeSite.Send('recN1 = %s, Adr = %d',[recN1.Name,Adr]);
     //Second operand - immediate and is valid address
     if DisInfo.OpType[1] = otIMM then
     Begin
-If is_debug then CodeSite.Send('otIMM, curAdr = %d',[curAdr]);
       Pos0 := Adr2Pos(DisInfo.Immediate);
       //imm32 must be valid code address outside current procedure
       if (Pos0 >= 0) and IsValidCodeAdr(DisInfo.Immediate) and ((DisInfo.Immediate < fromAdr) or (DisInfo.Immediate >= fromAdr + procSize)) then
       Begin
-If is_debug then CodeSite.Send('FlagList = %d',[FlagList[Pos0]]);
         //Position must be free
         if FlagList[Pos0]=0 then
         Begin
-If is_debug then CodeSite.Send('InfoList = %p',[Pointer(InfoList[Pos0])]);
           //No Name
           if InfoList[Pos0]=Nil then
           Begin
-If is_debug then CodeSite.Send('Imm = %d',[DisInfo.Immediate]);
             //Address must be outside current procedure
             if (DisInfo.Immediate < fromAdr) or (DisInfo.Immediate >= fromAdr + procSize) then
             Begin
               //If valid code lets user decide later
               codeValidity := IsValidCode(DisInfo.Immediate);
-If is_debug then CodeSite.Send('validity = %d',[codeValidity]);
               if codeValidity = 1 then //Code
               begin
-If is_debug then CodeSite.Send('AnalyzeProc_Y = %d',[DisInfo.Immediate]);
                 AnalyzeProc1(DisInfo.Immediate, 'D', fromAdr, curAdr - fromAdr, false);
               End;
             End;
@@ -13917,7 +13892,6 @@ If is_debug then CodeSite.Send('AnalyzeProc_Y = %d',[DisInfo.Immediate]);
     Inc(curPos, instrLen);
     Inc(curAdr, instrLen);
   End;
-if is_debug then CodeSite.Send('EXIT; curAdr = %d',[curAdr]);
 end;
 
 Procedure TFMain.AnalyzeProc2 (fromAdr:Integer; addArg, AnalyzeRetType:Boolean);
@@ -14113,6 +14087,7 @@ Begin
             Begin
               b := FlagList[Ps];
               if ((b and cfInstruction)<>0) and ((b and cfSkip)=0) then
+              // then // BROKEN BUG
               Begin
                 frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps),@DisInfo, Nil);
                 //If branch - break
@@ -16627,11 +16602,7 @@ Begin
               recN1 := GetInfoRec(itemAdr);
               if not Assigned(recN1) then recN1 := InfoRec.Create(itemPos, ikData);
               if not recN1.HasName and
-                (recN1.kind <> ikProc)        and
-                (recN1.kind <> ikFunc)        and
-                (recN1.kind <> ikConstructor) and
-                (recN1.kind <> ikDestructor)  and
-                (recN1.kind <> ikRefine) then
+                not (recN1.kind in [ikProc,ikFunc,ikConstructor,ikDestructor,ikRefine]) then
               Begin
                 if typeDef <> '' then recN1._type := typeDef;
               End;
@@ -16641,12 +16612,7 @@ Begin
         else
         Begin
           _kind := GetTypeKind(typeDef, size);
-          if (_kind = ikInteger)    or
-            (_kind = ikChar)        or
-            (_kind = ikEnumeration) or
-            (_kind = ikFloat)       or
-            (_kind = ikSet)         or
-            (_kind = ikWChar) then
+          if _kind in [ikInteger,ikChar,ikEnumeration,ikFloat,ikSet,ikWChar] then
           Begin
             idx := BSSInfos.IndexOf(Val2Str(itemAdr,8));
             if idx <> -1 then
@@ -19661,5 +19627,4 @@ begin
 end;
 
 end.
-
 

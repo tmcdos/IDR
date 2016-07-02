@@ -1167,29 +1167,32 @@ end;
 
 Function TransformString (str:PAnsiChar; len:Integer):AnsiString;
 var
-  z:Boolean;
+  z:Byte; // 0 = nothing, 1 = needs opening quote, 2 = needs closing quote
   c:char;
   p:PAnsiChar;
   k:Integer;
 Begin
-  z:=False;
+  z:=0;
   p:=str;
   Result:='';
   for k :=0 To len-1 do
   begin
     c := p^;
     Inc(p);
-    if (c >= #0) and (c <= #13) then
-    begin
-      if not z and (k<>0) then Result:=Result + COMENT_QUOTE;
-      result:=Result + '#' + IntToStr(Ord(c));
-      z := true;
+    if c in [' '..#126] then
+    Begin
+      if (z=1)or(Result='') then Result:=Result + COMENT_QUOTE;
+      result:=result + c;
+      z:=2;
     end
-    else z := false;
-    if (k=0) and not z then result:=result + COMENT_QUOTE;
-    if c > #13 then result:=result + c;
+    else
+    begin
+      if z=2 then result:=Result + COMENT_QUOTE;
+      Result:=Result + '#' + IntToStr(Ord(c));
+      z:=1;
+    end;
   End;
-  if not z Then result:=result + COMENT_QUOTE;
+  if z=2 Then result:=result + COMENT_QUOTE;
 end;
 
 Function TransformUString (codePage:Word; data:PWideChar; len:Integer):AnsiString;
@@ -1708,7 +1711,7 @@ Begin
     if str <> '' Then Result:=str
       else Result:=_default;
   end
-  else if kind = ikChar then Result:=Chr(Val)
+  else if kind = ikChar then Result:=COMENT_QUOTE + Chr(Val) + COMENT_QUOTE
   Else Result:=_default;
 end;
 
@@ -2134,7 +2137,7 @@ Function GetArraySize (arrType:AnsiString):Integer;
 Var
   c:char;
   p,b:Integer;
-  dim, _val, _pos, _lIdx, _hIdx, elTypeSize:Integer;
+  {dim,} _val, _pos, _lIdx, _hIdx, elTypeSize:Integer;
   item, item1, item2:AnsiString;
 Begin
   Result:=1;
@@ -2152,13 +2155,15 @@ Begin
   end;
   Inc(p);
   b := p;
-  dim := 0;
+  _lIdx := 0;
+  _hIdx := 0;
+  //dim := 0;
   while true do
   begin
     c := arrType[p];
     if (c = ',') or (c = ']') then
     begin
-      Inc(dim);
+      //Inc(dim);
       item := Trim(Copy(arrType,b,p-b));
       _pos := Pos('..',item);
       if _pos=0 then _lIdx := 0 //Type
@@ -2191,41 +2196,41 @@ end;
 
 Function GetArrayElement(arrType:AnsiString; offset:Integer):AnsiString;
 var
-  _arrSize, _elTypeSize:Integer;
+  arrSize{, elTypeSize}:Integer;
   p,b:Integer;
   c:Char;
-  _dim, _val, _pos, _lIdx, _hIdx:Integer;
-  _item, _item1, _item2:AnsiString;
+  {dim,} _val, _pos, lIdx, hIdx:Integer;
+  item, item1, item2:AnsiString;
 begin
   Result:='';
-  _arrSize := GetArraySize(arrType);
-  if _arrSize = 0 then Exit;
-  _elTypeSize := GetArrayElementTypeSize(arrType);
+  arrSize := GetArraySize(arrType);
+  if arrSize = 0 then Exit;
+  //elTypeSize := GetArrayElementTypeSize(arrType);
   p := Pos('[',arrType);
   if p=0 Then Exit;
   Inc(p);
   b := p;
-  _dim := 0;
+  //dim := 0;
   while true do
   begin
     c := arrType[p];
     if (c = ',') or (c = ']') then
     begin
-      Inc(_dim);
-      _item := Trim(Copy(arrType,b,p-b));
-      _pos := Pos('..',_item);
-      if _pos=0 then _lIdx := 0 //Type
+      //Inc(dim);
+      item := Trim(Copy(arrType,b,p-b));
+      _pos := Pos('..',item);
+      if _pos=0 then lIdx := 0 //Type
       else
       begin
-        _item1 := Copy(_item,1, _pos - 1);
-        if TryStrToInt(_item1, _val) then _lIdx := _val
-          else _lIdx := 0; //Type
-        _item2 := Copy(_item,_pos + 2, Length(_item));
-        if TryStrToInt(_item2, _val) then _hIdx := _val
-          else _hIdx := 0; //Type
+        item1 := Copy(item,1, _pos - 1);
+        if TryStrToInt(item1, _val) then lIdx := _val
+          else lIdx := 0; //Type
+        item2 := Copy(item,_pos + 2, Length(item));
+        if TryStrToInt(item2, _val) then hIdx := _val
+          else hIdx := 0; //Type
       End;
-      if _hIdx - _lIdx + 1 <= 0 then Exit;
-      if offset > _arrSize / (_hIdx - _lIdx + 1) then
+      if hIdx - lIdx + 1 <= 0 then Exit;
+      if offset > arrSize / (hIdx - lIdx + 1) then
       begin
 
       end;

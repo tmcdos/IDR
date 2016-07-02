@@ -3,7 +3,7 @@ Version=7.0
 [Compiler]
 A=8
 B=0
-C=0
+C=1
 D=1
 E=0
 F=0
@@ -15,7 +15,7 @@ K=0
 L=1
 M=0
 N=1
-O=0
+O=1
 P=1
 Q=0
 R=0
@@ -91,12 +91,12 @@ ImageBase=4194304
 ExeDescription=
 [Directories]
 OutputDir=
-UnitOutputDir=.\DCU
+UnitOutputDir=
 PackageDLLOutputDir=
 PackageDCPOutputDir=
-SearchPath=
-Packages=vcl;rtl;vclx;indy;inet;xmlrtl;vclie;inetdbbde;inetdbxpress;dbrtl;dsnap;vcldb;dsnapcon;soaprtl;VclSmp;dbexpress;dbxcds;inetdb;bdertl;vcldbx;webdsnap;websnap;adortl;ibxpress;teeui;teedb;tee;dss;visualclx;visualdbclx;vclactnband;vclshlctrls;dclOfficeXP;localizer7;EmbeddedWebBrowser_D7;EzBasic;EzSpecials;TMSUnicodeD7;EzPlanIT;KGrid_R7;tb2k_d7;RVHTMLD7;dclusr;rxctl;kprocs7;Misc;TBX_D7;llPDFLibD7;frxe7;frx7;frxDB7;frxTee7;fs7;fsTee7;NiceGridD7;TBXTaskBar_D7;TwoDesk_D7R;vc2;xhCntrls70;xhStd70;xhChart70;xhExport70;RaizeComponentsVcl;HotKeyMan;siplib7;kbmMemRunD7Pro;OverbyteIcsD7Run;NativeExcelD7;SpTBXTaskBar_D7;SpTBXLib_d7;RVword;tntExtendedEditors;VirtualTreesD7;VSTEditors;VirtualShellToolsD7;EasyListviewD7;GLvis;KZ;prgInternet6;XLS_ReadWrite;sgGrpVw7;zDesign7;EhLib70;GR32_DSGN_D7;GR32_D7;NxTBX;NxCollectionRun;NxCommonRun;clinetsuited7;EJ100R70
-Conditionals=EUREKALOG;EUREKALOG_VER6;USE_CODESITE
+SearchPath=..
+Packages=vcl;rtl;vclx;indy;inet;xmlrtl;vclie;inetdbbde;inetdbxpress;dbrtl;dsnap;vcldb;dsnapcon;soaprtl;VclSmp;dbexpress;dbxcds;inetdb;bdertl;vcldbx;webdsnap;websnap;adortl;ibxpress;teeui;teedb;tee;dss;visualclx;visualdbclx;vclactnband;vclshlctrls;dclOfficeXP;localizer7;EmbeddedWebBrowser_D7;EzBasic;EzSpecials;TMSUnicodeD7;EzPlanIT;KGrid_R7;tb2k_d7;RVHTMLD7;dclusr;rxctl;kprocs7;Misc;TBX_D7;llPDFLibD7;frxe7;frx7;frxDB7;frxTee7;fs7;fsTee7;NiceGridD7;TBXTaskBar_D7;TwoDesk_D7R;vc2;xhCntrls70;xhStd70;xhChart70;xhExport70;RaizeComponentsVcl;HotKeyMan;siplib7;kbmMemRunD7Pro;OverbyteIcsD7Run;NativeExcelD7;SpTBXTaskBar_D7;SpTBXLib_d7;RVword;tntExtendedEditors;VirtualTreesD7;VSTEditors;VirtualShellToolsD7;EasyListviewD7;GLvis;KZ;prgInternet6;XLS_ReadWrite;sgGrpVw7;zDesign7;EhLib70;GR32_DSGN_D7;GR32_D7;NxTBX;NxCollectionRun;NxCommonRun;clinetsuited7;EJ100R70;CodeSiteLoggingVcl;CodeSiteDBToolsVcl
+Conditionals=
 DebugSourceDirs=
 UsePackages=0
 [Parameters]
@@ -110,12 +110,12 @@ ActiveLang=
 ProjectLang=
 RootDir=C:\Program Files (x86)\Borland\Delphi7\Bin\
 [Version Info]
-IncludeVerInfo=1
+IncludeVerInfo=0
 AutoIncBuild=0
 MajorVer=1
 MinorVer=0
 Release=0
-Build=1141
+Build=0
 Debug=0
 PreRelease=0
 Special=0
@@ -126,7 +126,7 @@ CodePage=1251
 [Version Info Keys]
 CompanyName=
 FileDescription=
-FileVersion=1.0.0.1141
+FileVersion=1.0.0.0
 InternalName=
 LegalCopyright=
 LegalTrademarks=
@@ -136,19 +136,16 @@ ProductVersion=1.0.0.0
 Comments=
 [Excluded Packages]
 c:\Program Files (x86)\Borland\Bpl\kctrls6.bpl=KStringGrid component
-[HistoryLists\hlConditionals]
-Count=1
-Item0=EUREKALOG;EUREKALOG_VER6;USE_CODESITE
 [HistoryLists\hlUnitAliases]
 Count=1
 Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
-[HistoryLists\hlUnitOutputDirectory]
+[HistoryLists\hlSearchPath]
 Count=1
-Item0=.\DCU
+Item0=..
 [Exception Log]
 EurekaLog Version=6105
-Activate=1
-Activate Handle=0
+Activate=0
+Activate Handle=1
 Save Log File=0
 Foreground Tab=1
 Freeze Activate=0
@@ -278,7 +275,7 @@ sndAddComputerNameInFileName=0
 edoSendErrorReportChecked=1
 edoAttachScreenshotChecked=1
 edoShowCopyToClipOption=0
-edoShowDetailsButton=1
+edoShowDetailsButton=0
 edoShowInDetailedMode=1
 edoShowInTopMostMode=0
 edoUseEurekaLogLookAndFeel=0
@@ -290,11 +287,11 @@ csoShowBPLs=1
 csoShowBorlandThreads=1
 csoShowWindowsThreads=1
 csoDoNotStoreProcNames=0
-boPauseBorlandThreads=1
+boPauseBorlandThreads=0
 boDoNotPauseMainThread=0
-boPauseWindowsThreads=1
+boPauseWindowsThreads=0
 boUseMainModuleOptions=1
-boCopyLogInCaseOfError=0
+boCopyLogInCaseOfError=1
 boSaveCompressedCopyInCaseOfError=0
 boHandleSafeCallExceptions=1
 boCallRTLExceptionEvent=0
@@ -304,7 +301,7 @@ loGroupsSonLeaks=1
 loHideBorlandLeaks=1
 loFreeAllLeaks=1
 loCatchLeaksExceptions=1
-cfoReduceFileSize=0
+cfoReduceFileSize=1
 cfoCheckFileCorruption=0
 cfoUseEL7=0
 Count mtInformationMsgCaption=1
