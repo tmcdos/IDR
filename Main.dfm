@@ -50,7 +50,7 @@ object FMain: TFMain
     Top = 0
     Width = 903
     Height = 644
-    ActivePage = tsCodeView
+    ActivePage = tsSourceCode
     Align = alClient
     TabOrder = 1
     OnChange = pcWorkAreaChange
@@ -278,36 +278,13 @@ object FMain: TFMain
     object tsStrings: TTabSheet
       Caption = 'Strings (F8)'
       ImageIndex = 2
-      object lbStrings: TListBox
-        Left = 0
-        Top = 25
-        Width = 785
-        Height = 591
-        Style = lbOwnerDrawFixed
-        AutoComplete = False
-        Align = alClient
-        Color = clWhite
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -12
-        Font.Name = 'Courier New'
-        Font.Style = []
-        ItemHeight = 13
-        ParentFont = False
-        PopupMenu = pmStrings
-        TabOrder = 0
-        OnClick = lbStringsClick
-        OnDblClick = lbStringsDblClick
-        OnDrawItem = lbStringsDrawItem
-        OnMouseMove = lbStringsMouseMove
-      end
       object Panel3: TPanel
         Left = 0
         Top = 0
         Width = 895
         Height = 25
         Align = alTop
-        TabOrder = 1
+        TabOrder = 0
         object ShowSXrefs: TPanel
           Left = 784
           Top = 1
@@ -334,11 +311,70 @@ object FMain: TFMain
         Font.Style = []
         ItemHeight = 16
         ParentFont = False
-        TabOrder = 2
+        TabOrder = 1
         OnDblClick = lbXrefsDblClick
         OnDrawItem = lbXrefsDrawItem
         OnKeyDown = lbXrefsKeyDown
         OnMouseMove = lbXrefsMouseMove
+      end
+      object vtString: TVirtualStringTree
+        Left = 0
+        Top = 25
+        Width = 785
+        Height = 591
+        Align = alClient
+        DefaultText = 'Node'
+        Font.Charset = RUSSIAN_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -12
+        Font.Name = 'Fixedsys'
+        Font.Style = []
+        Header.AutoSizeIndex = 2
+        Header.Columns = <
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 0
+            Text = 'Address'
+            Width = 80
+          end
+          item
+            Hint = 'Kind of string'
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 1
+            Text = 'Type'
+            Width = 90
+          end
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus, coDisableAnimatedResize]
+            Position = 2
+            Text = 'String value'
+            Width = 200
+          end>
+        Header.Font.Charset = DEFAULT_CHARSET
+        Header.Font.Color = clWindowText
+        Header.Font.Height = -11
+        Header.Font.Name = 'Tahoma'
+        Header.Font.Style = []
+        Header.Options = [hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
+        Header.SortColumn = 0
+        Margin = 0
+        ParentFont = False
+        ParentShowHint = False
+        PopupMenu = pmStrings
+        ScrollBarOptions.AlwaysVisible = True
+        ShowHint = True
+        TabOrder = 2
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
+        TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
+        OnClick = vtStringClick
+        OnCompareNodes = vtStringCompareNodes
+        OnDblClick = vtStringDblClick
+        OnFocusChanged = vtStringFocusChanged
+        OnFreeNode = vtStringFreeNode
+        OnGetText = vtStringGetText
+        OnPaintText = vtStringPaintText
+        OnMouseMove = vtUnitMouseMove
       end
     end
     object tsItems: TTabSheet
@@ -367,30 +403,13 @@ object FMain: TFMain
     object tsNames: TTabSheet
       Caption = 'Names (F9)'
       ImageIndex = 4
-      object lbNames: TListBox
-        Left = 0
-        Top = 25
-        Width = 785
-        Height = 591
-        AutoComplete = False
-        Align = alClient
-        Font.Charset = RUSSIAN_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -12
-        Font.Name = 'Courier New'
-        Font.Style = []
-        ItemHeight = 15
-        ParentFont = False
-        TabOrder = 0
-        OnClick = lbNamesClick
-      end
       object Panel5: TPanel
         Left = 0
         Top = 0
         Width = 895
         Height = 25
         Align = alTop
-        TabOrder = 1
+        TabOrder = 0
         object ShowNXrefs: TPanel
           Left = 784
           Top = 1
@@ -417,11 +436,67 @@ object FMain: TFMain
         Font.Style = []
         ItemHeight = 16
         ParentFont = False
-        TabOrder = 2
+        TabOrder = 1
         OnDblClick = lbXrefsDblClick
         OnDrawItem = lbXrefsDrawItem
         OnKeyDown = lbXrefsKeyDown
         OnMouseMove = lbXrefsMouseMove
+      end
+      object vtName: TVirtualStringTree
+        Left = 0
+        Top = 25
+        Width = 785
+        Height = 591
+        Align = alClient
+        DefaultText = 'Node'
+        Font.Charset = RUSSIAN_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -12
+        Font.Name = 'Fixedsys'
+        Font.Style = []
+        Header.AutoSizeIndex = 1
+        Header.Columns = <
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 0
+            Text = 'Address'
+            Width = 80
+          end
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 1
+            Text = 'Name'
+            Width = 200
+          end
+          item
+            Hint = 'Item typedef'
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus, coDisableAnimatedResize]
+            Position = 2
+            Text = 'Type'
+            Width = 60
+          end>
+        Header.Font.Charset = DEFAULT_CHARSET
+        Header.Font.Color = clWindowText
+        Header.Font.Height = -11
+        Header.Font.Name = 'Tahoma'
+        Header.Font.Style = []
+        Header.Options = [hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
+        Header.SortColumn = 0
+        Margin = 0
+        ParentFont = False
+        ParentShowHint = False
+        ScrollBarOptions.AlwaysVisible = True
+        ShowHint = True
+        TabOrder = 2
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
+        TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
+        OnClick = vtNameClick
+        OnCompareNodes = vtNameCompareNodes
+        OnFocusChanged = vtNameFocusChanged
+        OnFreeNode = vtNameFreeNode
+        OnGetText = vtNameGetText
+        OnMouseMove = vtUnitMouseMove
       end
     end
     object tsSourceCode: TTabSheet
@@ -505,6 +580,7 @@ object FMain: TFMain
         Header.Font.Style = []
         Header.Options = [hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
         Header.SortColumn = 0
+        Margin = 0
         ParentFont = False
         ParentShowHint = False
         PopupMenu = pmUnits
@@ -527,27 +603,64 @@ object FMain: TFMain
     object tsRTTIs: TTabSheet
       Caption = 'Types (F4)'
       ImageIndex = 1
-      object lbRTTIs: TListBox
+      object vtRTTI: TVirtualStringTree
         Left = 0
         Top = 0
         Width = 207
         Height = 616
-        AutoComplete = False
         Align = alClient
-        Color = clWhite
-        Font.Charset = DEFAULT_CHARSET
+        DefaultText = 'Node'
+        Font.Charset = RUSSIAN_CHARSET
         Font.Color = clWindowText
         Font.Height = -12
-        Font.Name = 'Courier New'
+        Font.Name = 'Fixedsys'
         Font.Style = []
-        ItemHeight = 15
+        Header.AutoSizeIndex = 2
+        Header.Columns = <
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 0
+            Text = 'Address'
+            Width = 80
+          end
+          item
+            Hint = 'Item typedef'
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 1
+            Text = 'Type'
+            Width = 80
+          end
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus, coDisableAnimatedResize]
+            Position = 2
+            Text = 'Name'
+          end>
+        Header.Font.Charset = DEFAULT_CHARSET
+        Header.Font.Color = clWindowText
+        Header.Font.Height = -11
+        Header.Font.Name = 'Tahoma'
+        Header.Font.Style = []
+        Header.Options = [hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
+        Header.SortColumn = 0
+        HintMode = hmHint
+        Margin = 0
         ParentFont = False
+        ParentShowHint = False
         PopupMenu = pmRTTIs
+        ScrollBarOptions.AlwaysVisible = True
+        ShowHint = True
         TabOrder = 0
-        OnClick = lbRTTIsClick
-        OnDblClick = lbRTTIsDblClick
-        OnKeyDown = lbRTTIsKeyDown
-        OnMouseMove = lbRTTIsMouseMove
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
+        TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
+        OnClick = vtRTTIClick
+        OnCompareNodes = vtRTTICompareNodes
+        OnDblClick = vtRTTIDblClick
+        OnFreeNode = vtRTTIFreeNode
+        OnGetText = vtRTTIGetText
+        OnGetHint = vtRTTIGetHint
+        OnKeyDown = vtUnitKeyDown
+        OnMouseMove = vtUnitMouseMove
       end
     end
     object tsForms: TTabSheet
@@ -644,6 +757,9 @@ object FMain: TFMain
           Align = alBottom
           TabOrder = 1
           Visible = False
+          DesignSize = (
+            205
+            93)
           object lClassName: TLabel
             Left = 7
             Top = 5
@@ -658,10 +774,11 @@ object FMain: TFMain
             ParentFont = False
           end
           object cbAliases: TComboBox
-            Left = 24
+            Left = 12
             Top = 31
-            Width = 202
+            Width = 181
             Height = 23
+            Anchors = [akLeft, akTop, akRight]
             Font.Charset = RUSSIAN_CHARSET
             Font.Color = clWindowText
             Font.Height = -12
@@ -1146,30 +1263,12 @@ object FMain: TFMain
   end
   object pmRTTIs: TPopupMenu
     AutoHotkeys = maManual
-    OnPopup = pmRTTIsPopup
     Left = 80
     Top = 96
     object miSearchRTTI: TMenuItem
       Caption = 'Search Type'
       Enabled = False
       OnClick = miSearchRTTIClick
-    end
-    object miSortRTTI: TMenuItem
-      Caption = 'Sort Types by'
-      Enabled = False
-      object miSortRTTIsByAdr: TMenuItem
-        Caption = 'Address'
-        Checked = True
-        OnClick = miSortRTTIsByAdrClick
-      end
-      object miSortRTTIsByKnd: TMenuItem
-        Caption = 'Type Kind'
-        OnClick = miSortRTTIsByKndClick
-      end
-      object miSortRTTIsByNam: TMenuItem
-        Caption = 'Name'
-        OnClick = miSortRTTIsByNamClick
-      end
     end
     object Appearance2: TMenuItem
       Caption = 'Appearance'
@@ -1248,7 +1347,6 @@ object FMain: TFMain
   end
   object pmStrings: TPopupMenu
     AutoHotkeys = maManual
-    OnPopup = pmStringsPopup
     Left = 424
     Top = 96
     object miSearchString: TMenuItem

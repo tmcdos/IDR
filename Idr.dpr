@@ -6,7 +6,7 @@ uses
   ExceptionLog,
   Forms,
   Classes,
-  TypeInfo in 'TypeInfo.pas' {FTypeInfo},
+  TypeInfos in 'TypeInfos.pas' {FTypeInfo},
   StringInfo in 'StringInfo.pas' {FStringInfo},
   Main in 'Main.pas' {FMain},
   Explorer in 'Explorer.pas' {FExplorer},

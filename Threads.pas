@@ -1307,7 +1307,8 @@ end;
 //Collect information from VMT structure
 Procedure TAnalyzeThread.FindVMTs;
 var
-  b,len,typeKind,paramCnt:Byte;
+  typeKind:LKind;
+  b,len,paramCnt:Byte;
   Num16,skipBytes,dw:Word;
   Num32:Integer;
   bytes, _pos, pos1, posv, EntryCount, stepMask:Integer;
@@ -1393,8 +1394,8 @@ Begin
         end;
         //ѕо адресу typeInfoAdr должны быть данные о типе, начинающиес€ с определенной информации
         _pos := Adr2Pos(typeInfoAdr);
-        typeKind := Byte(Code[_pos]);
-        if Ord(typeKind) > Ord(ikProcedure) then
+        typeKind := LKind(Code[_pos]);
+        if typeKind > ikProcedure then
         Begin
           Inc(i,4);
           continue;

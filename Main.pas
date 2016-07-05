@@ -20,7 +20,6 @@ Type
     pcInfo: TPageControl;
     tsUnits: TTabSheet;
     tsRTTIs: TTabSheet;
-    lbRTTIs: TListBox;
     miOpenProject: TMenuItem;
     pcWorkArea: TPageControl;
     tsCodeView: TTabSheet;
@@ -38,17 +37,12 @@ Type
     tsClassView: TTabSheet;
     tvClassesFull: TTreeView;
     tsStrings: TTabSheet;
-    lbStrings: TListBox;
     Panel1: TPanel;
     pmUnits: TPopupMenu;
     miSearchUnit: TMenuItem;
     pmRTTIs: TPopupMenu;
     pmVMTs: TPopupMenu;
     miSearchRTTI: TMenuItem;
-    miSortRTTI: TMenuItem;
-    miSortRTTIsByAdr: TMenuItem;
-    miSortRTTIsByKnd: TMenuItem;
-    miSortRTTIsByNam: TMenuItem;
     miSearchVMT: TMenuItem;
     miCopyCode: TMenuItem;
     miRenameUnit: TMenuItem;
@@ -129,7 +123,6 @@ Type
     miUnitDumper: TMenuItem;
     tsNames: TTabSheet;
     Names1: TMenuItem;
-    lbNames: TListBox;
     Panel4: TPanel;
     Splitter1: TSplitter;
     lbAliases: TListBox;
@@ -184,6 +177,9 @@ Type
     miDelphiXE3: TMenuItem;
     miDelphiXE4: TMenuItem;
     vtUnit: TVirtualStringTree;
+    vtRTTI: TVirtualStringTree;
+    vtName: TVirtualStringTree;
+    vtString: TVirtualStringTree;
     procedure miExitClick(Sender : TObject);
     procedure miAutodetectVersionClick(Sender : TObject);
     procedure FormCreate(Sender : TObject);
@@ -192,8 +188,6 @@ Type
     procedure miOpenProjectClick(Sender : TObject);
     procedure lbCodeDblClick(Sender : TObject);
     procedure bEPClick(Sender : TObject);
-    procedure lbStringsDblClick(Sender : TObject);
-    procedure lbRTTIsDblClick(Sender : TObject);
     procedure lbUnitItemsDblClick(Sender : TObject);
     procedure miGoToClick(Sender : TObject);
     procedure miExploreAdrClick(Sender : TObject);
@@ -205,9 +199,6 @@ Type
     procedure miSearchUnitClick(Sender : TObject);
     procedure miSearchVMTClick(Sender : TObject);
     procedure miSearchRTTIClick(Sender : TObject);
-    procedure miSortRTTIsByAdrClick(Sender : TObject);
-    procedure miSortRTTIsByKndClick(Sender : TObject);
-    procedure miSortRTTIsByNamClick(Sender : TObject);
     procedure miCopyCodeClick(Sender : TObject);
     procedure miRenameUnitClick(Sender : TObject);
     procedure FormClose(Sender : TObject; Var Action:TCloseAction);
@@ -221,17 +212,14 @@ Type
     procedure miSearchItemClick(Sender : TObject);
     procedure ShowCXrefsClick(Sender : TObject);
     procedure lbUnitItemsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
-    procedure lbRTTIsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbFormsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbCodeMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure tvClassesFullMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
-    procedure lbStringsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbUnitItemsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbXrefsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure rgViewerModeClick(Sender : TObject);
     procedure tvClassesShortMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure miClassTreeBuilderClick(Sender : TObject);
-    procedure lbRTTIsClick(Sender : TObject);
     procedure lbUnitItemsClick(Sender : TObject);
     procedure tvClassesShortClick(Sender : TObject);
     procedure tvClassesFullClick(Sender : TObject);
@@ -269,7 +257,6 @@ Type
     procedure miDelphi2006Click(Sender : TObject);
     procedure miDelphi2007Click(Sender : TObject);
     procedure lbXrefsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
-    procedure lbRTTIsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure lbFormsKeyDown(Sender : TObject; Var Key:Word; Shift:TShiftState);
     procedure tvClassesShortKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure lbUnitItemsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
@@ -277,20 +264,16 @@ Type
     procedure bCodeNextClick(Sender : TObject);
     procedure miEditFunctionIClick(Sender : TObject);
     procedure miSearchStringClick(Sender : TObject);
-    procedure lbStringsClick(Sender : TObject);
     procedure miViewClassClick(Sender : TObject);
     procedure pmVMTsPopup(Sender : TObject);
-    procedure lbStringsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
     procedure ShowSXrefsClick(Sender : TObject);
     procedure miAboutClick(Sender : TObject);
     procedure miHelpClick(Sender : TObject);
-    procedure pmRTTIsPopup(Sender : TObject);
     procedure FormCloseQuery(Sender : TObject; Var CanClose:Boolean);
     procedure miEditClassClick(Sender : TObject);
     procedure miCtdPasswordClick(Sender : TObject);
     procedure pmCodePanelPopup(Sender : TObject);
     procedure miEmptyHistoryClick(Sender : TObject);
-    procedure pmStringsPopup(Sender : TObject);
     procedure Units1Click(Sender : TObject);
     procedure RTTI1Click(Sender : TObject);
     procedure Forms1Click(Sender : TObject);
@@ -302,7 +285,6 @@ Type
     procedure miFuzzyScanKBClick(Sender : TObject);
     procedure miDelphi2009Click(Sender : TObject);
     procedure miDelphi2010Click(Sender : TObject);
-    procedure lbNamesClick(Sender : TObject);
     procedure bApplyAliasClick(Sender : TObject);
     procedure bCancelAliasClick(Sender : TObject);
     procedure lbAliasesDblClick(Sender : TObject);
@@ -338,6 +320,24 @@ Type
     procedure miDelphiXE4Click(Sender : TObject);
     Procedure miProcessDumperClick(Sender:TObject);
     procedure miDelphiXE2Click(Sender: TObject);
+    procedure vtNameClick(Sender: TObject);
+    procedure vtNameCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+    procedure vtNameFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
+    procedure vtNameFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure vtNameGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+    procedure vtRTTIClick(Sender: TObject);
+    procedure vtRTTICompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+    procedure vtRTTIDblClick(Sender: TObject);
+    procedure vtRTTIFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure vtRTTIGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: WideString);
+    procedure vtRTTIGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+    procedure vtStringClick(Sender: TObject);
+    procedure vtStringCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+    procedure vtStringDblClick(Sender: TObject);
+    procedure vtStringFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
+    procedure vtStringFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure vtStringGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+    procedure vtStringPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
     procedure vtUnitClick(Sender: TObject);
     procedure vtUnitCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
     procedure vtUnitDblClick(Sender: TObject);
@@ -409,11 +409,11 @@ Type
     SysProcsNum:Integer;    //Number of elements in SysProcs array
     WhereSearch:Integer;
     //UNITS
-    UnitsSearchFrom:Integer;
+    UnitsSearchFrom:PVirtualNode;
     UnitsSearchList:TStringList;
     UnitsSearchText:AnsiString;
     //RTTIS
-    RTTIsSearchFrom:Integer;
+    RTTIsSearchFrom:PVirtualNode;
     RTTIsSearchList:TStringList;
     RTTIsSearchText:AnsiString;
     //UNITITEMS
@@ -430,11 +430,11 @@ Type
     VMTsSearchList:TStringList;
     VMTsSearchText:AnsiString;
     //STRINGS
-    StringsSearchFrom:Integer;
+    StringsSearchFrom:PVirtualNode;
     StringsSearchList:TStringList;
     StringsSearchText:AnsiString;
     //NAMES
-    NamesSearchFrom:Integer;
+    NamesSearchFrom:PVirtualNode;
     NamesSearchList:TStringList;
     NamesSearchText:AnsiString;
 
@@ -479,8 +479,8 @@ Type
     Function GetCommonType(Name1, Name2:AnsiString):AnsiString;
     Procedure PropagateVMTNames(adr:Integer);
 
-    Procedure ShowStrings(idx:Integer);
-    Procedure ShowNames(idx:Integer);
+    Procedure ShowStrings;
+    procedure ShowNames;
     //Procedure ScanImports;
     Procedure RedrawCode;
     function AddAsmLine(adr:Integer; _text:AnsiString; Flags:Byte): Integer;
@@ -578,10 +578,10 @@ implementation
 {$R *.DFM}
 
 Uses Threads,Misc,StrUtils,Def_disasm,Heuristic,{Highlight,}ActiveX,ShlObj,
-  StringInfo, Explorer, FindDlg, EditFieldsDlg,Def_res,IniFiles,TypeInfo,
+  StringInfo, Explorer, FindDlg, EditFieldsDlg,Def_res,IniFiles,TypeInfos,
   InputDlg,Def_thread, EditFunctionDlg,IDCGen,AboutDlg,ShellAPI,Contnrs,
   KBViewer, Legend,Decompiler, Hex2Double,Clipbrd, Plugins,ActiveProcesses,
-  Scanf{,CodeSiteLogging};
+  Scanf,TypInfo{,CodeSiteLogging};
 
 Var
   //Dest:TCodeSiteDestination;
@@ -614,9 +614,6 @@ Var
   ExpFuncList:TList;   //Exported functions list (temporary)
   ImpFuncList:TList;   //Imported functions list (temporary)
   ImpModuleList:TStringList; //Imported modules   list (temporary)
-
-  //Types
-  RTTISortField:Integer; //0 - по адресу, 1 - по виду, 2 - по имени
 
   CurProcSize:Integer;
   LastTls:Integer;            //ѕоследний зан€тый индекс Tls, показывает, сколько ThreadVars в программе
@@ -711,7 +708,7 @@ begin
   //if tsRTTIs.Enabled then
   //begin
     pcInfo.ActivePage := tsRTTIs;
-    if lbRTTIs.CanFocus then ActiveControl := lbRTTIs;
+    if vtRTTI.CanFocus then ActiveControl := vtRTTI;
   //end;
 end;
 
@@ -749,7 +746,7 @@ begin
   //if tsStrings.Enabled then
   //begin
     pcWorkArea.ActivePage := tsStrings;
-    if lbStrings.CanFocus then ActiveControl := lbStrings;
+    if vtString.CanFocus then ActiveControl := vtString;
   //end;
 end;
 
@@ -758,7 +755,7 @@ begin
   //if tsNames.Enabled then
   //begin
     pcWorkArea.ActivePage := tsNames;
-    if lbNames.CanFocus then ActiveControl := lbNames;
+    if vtName.CanFocus then ActiveControl := vtName;
   //end;
 end;
 
@@ -797,10 +794,10 @@ Begin
   CtdRegAdr := 0;
 
   WhereSearch := SEARCH_UNITS;
-  UnitsSearchFrom := -1;
+  UnitsSearchFrom := Nil;
   UnitsSearchText := '';
 
-  RTTIsSearchFrom := -1;
+  RTTIsSearchFrom := Nil;
   RTTIsSearchText := '';
 
   FormsSearchFrom := -1;
@@ -816,7 +813,7 @@ Begin
   StringsSearchFrom := 0;
   StringsSearchText := '';
 
-  NamesSearchFrom := 0;
+  NamesSearchFrom := Nil;
   NamesSearchText := '';
 
   //Init Menu
@@ -844,13 +841,8 @@ Begin
   tsUnits.Enabled := false;
 
   //Init RTTIs
-  lbRTTIs.Clear;
+  vtRTTI.Clear;
   miSearchRTTI.Enabled := false;
-  miSortRTTI.Enabled := false;
-  RTTISortField := 0;
-  miSortRTTIsByAdr.Checked := true;
-  miSortRTTIsByKnd.Checked := false;
-  miSortRTTIsByNam.Checked := false;
   tsRTTIs.Enabled := false;
 
   //Init Forms
@@ -881,11 +873,11 @@ Begin
   lbCXrefs.Visible := true;
 
   //Init Strings
-  lbStrings.Clear;
+  vtString.Clear;
   miSearchString.Enabled := false;
   tsStrings.Enabled := false;
   //Init Names
-  lbNames.Clear;
+  vtName.Clear;
   tsNames.Enabled := false;
 
   //Xrefs
@@ -1468,7 +1460,7 @@ Begin
         Begin
           aInfo.Tag := Byte(p^);
           Inc(p);
-          locflags := PInteger(p)^; 
+          locflags := PInteger(p)^;
           Inc(p, 4);
           aInfo.in_Reg := (locflags and 8)<>0;
           //Ndx
@@ -5127,7 +5119,7 @@ begin
   Init;
 
   vtUnit.Canvas.Font.Assign(vtUnit.Font);
-  lbRTTIs.Canvas.Font.Assign(lbRTTIs.Font);
+  vtRTTI.Canvas.Font.Assign(vtRTTI.Font);
   lbForms.Canvas.Font.Assign(lbForms.Font);
   lbCode.Canvas.Font.Assign(lbCode.Font);
   lbUnitItems.Canvas.Font.Assign(lbUnitItems.Font);
@@ -5145,6 +5137,9 @@ begin
   ShowNXrefs.Width := lbNXrefs.Width;
 
   vtUnit.NodeDataSize:=SizeOf(vtUnitNode);
+  vtRTTI.NodeDataSize:=SizeOf(TypeRec);
+  vtName.NodeDataSize:=SizeOf(vtNameNode);
+  vtString.NodeDataSize:=SizeOf(vtStringNode);
   {
   //----Highlighting------
 	if InitHighlight then
@@ -7821,7 +7816,7 @@ begin
   case WhereSearch of
     SEARCH_UNITS:
       begin
-        uNode:=Pointer(UnitsSearchFrom);
+        uNode:=UnitsSearchFrom;
         if not Assigned(uNode) then uNode:=vtUnit.GetFirst;
         while Assigned(uNode) do
         Begin
@@ -7831,7 +7826,7 @@ begin
         end;
         if Not Assigned(uNode) then
         begin
-          uNode:=Pointer(UnitsSearchFrom);
+          uNode:=UnitsSearchFrom;
           if Assigned(uNode) then uNode:=uNode.PrevSibling;
           while Assigned(uNode) do
           Begin
@@ -7842,7 +7837,7 @@ begin
         end;
         if Assigned(uNode) then
         Begin
-        	UnitsSearchFrom := Integer(uNode);
+        	UnitsSearchFrom := uNode;
           with vtUnit do
           begin
             FocusedNode:=uNode;
@@ -7879,25 +7874,35 @@ begin
       end;
     SEARCH_RTTIS:
       begin
-        for n := RTTIsSearchFrom to lbRTTIs.Items.Count-1 do
-          if AnsiContainsText(lbRTTIs.Items.Strings[n], str) then
-          Begin
-          	idx := n;
-            break;
-          End;
-        if idx = -1 then
-          for n := 0 to RTTIsSearchFrom-1 do
-            if AnsiContainsText(lbRTTIs.Items.Strings[n], str) then
-            Begin
-            	idx := n;
-              break;
-            End;
-        if idx <> -1 then
+        uNode:=RTTIsSearchFrom;
+        if not Assigned(uNode) then uNode:=vtRTTI.GetFirst;
+        while Assigned(uNode) do
         Begin
-        	if idx < lbRTTIs.Items.Count - 1 then RTTIsSearchFrom := idx + 1
-        	  else RTTIsSearchFrom := 0;
-          lbRTTIs.ItemIndex := idx;
-        	lbRTTIs.SetFocus;
+          If AnsiContainsText(vtRTTI.Text[uNode,0], str) Or
+            AnsiContainsText(vtRTTI.Text[uNode,2], str) then break;
+          uNode:=uNode.NextSibling;
+        end;
+        if Not Assigned(uNode) then
+        begin
+          uNode:=RTTIsSearchFrom;
+          if Assigned(uNode) then uNode:=uNode.PrevSibling;
+          while Assigned(uNode) do
+          Begin
+            If AnsiContainsText(vtRTTI.Text[uNode,0], str) Or
+              AnsiContainsText(vtRTTI.Text[uNode,2], str) then break;
+            uNode:=uNode.PrevSibling;
+          End;
+        end;
+        if Assigned(uNode) then
+        Begin
+        	RTTIsSearchFrom := uNode;
+          with vtRTTI do
+          begin
+            FocusedNode:=uNode;
+            Selected[uNode]:=True;
+            ScrollIntoView(uNode,False,False);
+            SetFocus;
+          end;
         End
         else ShowMessage(msg);
       end;
@@ -8008,69 +8013,69 @@ begin
       end;
     SEARCH_STRINGS:
       begin
-        for n := StringsSearchFrom to lbStrings.Items.Count-1 do
+        uNode:=StringsSearchFrom;
+        if not Assigned(uNode) then uNode:=vtString.GetFirst;
+        while Assigned(uNode) do
         Begin
-        	line := lbStrings.Items[n];
-        	ps := Pos('''',line);
-        	line := Copy(line,ps + 1, Length(line) - ps);
-          if AnsiContainsText(line, str) then
+          If AnsiContainsText(vtString.Text[uNode,0], str) Or
+            AnsiContainsText(vtString.Text[uNode,2], str) then break;
+          uNode:=uNode.NextSibling;
+        end;
+        if Not Assigned(uNode) then
+        begin
+          uNode:=StringsSearchFrom;
+          if Assigned(uNode) then uNode:=uNode.PrevSibling;
+          while Assigned(uNode) do
           Begin
-            idx := n;
-            break;
+            If AnsiContainsText(vtString.Text[uNode,0], str) Or
+              AnsiContainsText(vtString.Text[uNode,2], str) then break;
+            uNode:=uNode.PrevSibling;
           End;
-        End;
-        if idx = -1 then
-          for n := 0 to StringsSearchFrom-1 do
-          Begin
-            line := lbStrings.Items[n];
-            ps := Pos('''',line);
-            line := Copy(line,ps + 1, Length(line) - ps);
-            if AnsiContainsText(line, str) then
-            Begin
-              idx := n;
-              break;
-            End;
-          End;
-        if idx <> -1 then
+        end;
+        if Assigned(uNode) then
         Begin
-        	if idx < lbStrings.Items.Count - 1 then StringsSearchFrom := idx + 1
-        	  else StringsSearchFrom := 0;
-          lbStrings.ItemIndex := idx;
-          lbStrings.SetFocus;
+        	StringsSearchFrom := uNode;
+          with vtString do
+          begin
+            FocusedNode:=uNode;
+            Selected[uNode]:=True;
+            ScrollIntoView(uNode,False,False);
+            SetFocus;
+          end;
         End
         else ShowMessage(msg);
   	  end;
     SEARCH_NAMES:
       begin
-        for n := NamesSearchFrom to lbNames.Items.Count-1 do
+        uNode:=NamesSearchFrom;
+        if not Assigned(uNode) then uNode:=vtName.GetFirst;
+        while Assigned(uNode) do
         Begin
-        	line := lbNames.Items[n];
-        	ps := Pos('''',line);
-        	line := Copy(line,ps + 1, Length(line) - ps);
-          if AnsiContainsText(line, str) then
+          If AnsiContainsText(vtName.Text[uNode,0], str) Or
+            AnsiContainsText(vtName.Text[uNode,1], str) then break;
+          uNode:=uNode.NextSibling;
+        end;
+        if Not Assigned(uNode) then
+        begin
+          uNode:=NamesSearchFrom;
+          if Assigned(uNode) then uNode:=uNode.PrevSibling;
+          while Assigned(uNode) do
           Begin
-            idx := n;
-            break;
+            If AnsiContainsText(vtName.Text[uNode,0], str) Or
+              AnsiContainsText(vtName.Text[uNode,1], str) then break;
+            uNode:=uNode.PrevSibling;
           End;
-        End;
-        if idx = -1 then
-          for n := 0 to NamesSearchFrom-1 do
-          Begin
-            line := lbNames.Items[n];
-            ps := Pos('''',line);
-            line := Copy(line,ps + 1, Length(line) - ps);
-            if AnsiContainsText(line, str) then
-            Begin
-              idx := n;
-              break;
-            End;
-          End;
-        if idx <> -1 then
+        end;
+        if Assigned(uNode) then
         Begin
-        	if idx < lbNames.Items.Count - 1 then NamesSearchFrom := idx + 1
-        	  else NamesSearchFrom := 0;
-          lbNames.ItemIndex := idx;
-          lbNames.SetFocus;
+        	NamesSearchFrom := uNode;
+          with vtName do
+          begin
+            FocusedNode:=uNode;
+            Selected[uNode]:=True;
+            ScrollIntoView(uNode,False,False);
+            SetFocus;
+          end;
         End
         else ShowMessage(msg);
     	end;
@@ -8166,6 +8171,7 @@ Begin
   End;
   pcInfo.Width := iniFile.ReadInteger('MainForm', 'LeftWidth', pcInfo.Constraints.MinWidth);
   pcInfo.ActivePage := tsUnits;
+  pcWorkArea.ActivePage:= tsCodeView;
   lbUnitItems.Height := iniFile.ReadInteger('MainForm', 'BottomHeight', lbUnitItems.Constraints.MinHeight);
   //Most Recent Files
   m:=0;
@@ -9322,33 +9328,15 @@ Begin
     recT.name := MakeString(buf, len);
     OwnTypeList.Add(recT);
   End;
-  RTTISortField := 0;
-  if num<>0 then inStream.Read(RTTISortField, sizeof(RTTISortField));
+  vtRTTI.Header.SortColumn := 0;
+  if num<>0 then
+  Begin
+    inStream.Read(ps, sizeof(ps));
+    vtRTTI.Header.SortColumn:=ps;
+  end;
   //UpdateRTTIs
   tsRTTIs.Enabled := true;
   miSearchRTTI.Enabled := true;
-  miSortRTTI.Enabled := true;
-
-  case RTTISortField of
-    0:
-      begin
-        miSortRTTIsByAdr.Checked := true;
-        miSortRTTIsByKnd.Checked := false;
-        miSortRTTIsByNam.Checked := false;
-      end;
-    1:
-      begin
-        miSortRTTIsByAdr.Checked := false;
-        miSortRTTIsByKnd.Checked := true;
-        miSortRTTIsByNam.Checked := false;
-      end;
-    2:
-      begin
-        miSortRTTIsByAdr.Checked := false;
-        miSortRTTIsByKnd.Checked := false;
-        miSortRTTIsByNam.Checked := true;
-      end;
-  End;
   ShowRTTIs;
 
   //Forms
@@ -9491,10 +9479,10 @@ Begin
   //UpdateStrings
   tsStrings.Enabled := true;
   miSearchString.Enabled := true;
-  ShowStrings(0);
+  ShowStrings;
   //UpdateNames
   tsNames.Enabled := true;
-  ShowNames(0);
+  ShowNames;
   Update;
 
   //Class Viewer
@@ -9899,7 +9887,11 @@ Begin
       outStream.Write(len, sizeof(len));
       outStream.Write(recT.name[1], len);
     End;
-    if num<>0 then outStream.Write(RTTISortField, sizeof(RTTISortField));
+    if num<>0 then
+    Begin
+      ps:=vtRTTI.Header.SortColumn;
+      outStream.Write(ps, sizeof(ps));
+    end;
 
     //Forms
     num := ResInfo.FormList.Count;
@@ -11604,52 +11596,55 @@ Begin
     uNode:=vtUnit.GetNodeData(vtUnit.FocusedNode);
     selAdr:=PUnitRec(Units[uNode.unit_index]).fromAdr;
   end;
-  maxwid:=0;
+  maxwid:=50;
   vtUnit.Clear;
   vtUnit.BeginUpdate;
-  for i := 0 to UnitsNum-1 do
-  Begin
-    vNode:=vtUnit.AddChild(Nil);
-    uNode:=vtUnit.GetNodeData(vNode);
-    recU := Units[i];
-    uNode.unit_index:=i;
-    if recU.fromAdr = selAdr then
+  try
+    for i := 0 to UnitsNum-1 do
     Begin
-      vtUnit.FocusedNode := vNode;
-      vtUnit.Selected[vNode]:=True;
-    end;
-    if i <> UnitsNum - 1 then
-    Begin
-      //Trivial units
-      if recU.trivial then
-        uNode.unit_type:=[ut_Trivial]
-      else if not recU.kb then
-        uNode.unit_type:=[ut_User];
-    End
-    //Last unit is user's
-    else uNode.unit_type:=[ut_User];
-    //Unit has undefined bytes
-    uNode.has_undef:=ContainsUnexplored(recU);
-    if showUnk and ContainsUnexplored(recU) then
-      Include(uNode.unit_type,ut_Unexplore);
-    // compute Name width
-    if recU.names.Count<>0 then
-      for u := 0 to recU.names.Count-1 do
+      vNode:=vtUnit.AddChild(Nil);
+      uNode:=vtUnit.GetNodeData(vNode);
+      recU := Units[i];
+      uNode.unit_index:=i;
+      if recU.fromAdr = selAdr then
       Begin
-        if u<>0 then uNode.names:=unode.names+';';
-        uNode.names:=unode.names + recU.names[u];
+        vtUnit.FocusedNode := vNode;
+        vtUnit.Selected[vNode]:=True;
+      end;
+      if i <> UnitsNum - 1 then
+      Begin
+        //Trivial units
+        if recU.trivial then
+          uNode.unit_type:=[ut_Trivial]
+        else if not recU.kb then
+          uNode.unit_type:=[ut_User];
       End
-    else uNode.names:='_Unit'+IntToStr(recU.iniOrder);
+      //Last unit is user's
+      else uNode.unit_type:=[ut_User];
+      //Unit has undefined bytes
+      uNode.has_undef:=ContainsUnexplored(recU);
+      if showUnk and ContainsUnexplored(recU) then
+        Include(uNode.unit_type,ut_Unexplore);
+      // compute Name width
+      if recU.names.Count<>0 then
+        for u := 0 to recU.names.Count-1 do
+        Begin
+          if u<>0 then uNode.names:=unode.names+';';
+          uNode.names:=unode.names + recU.names[u];
+        End
+      else uNode.names:='_Unit'+IntToStr(recU.iniOrder);
 
-    wid := vtUnit.Canvas.TextWidth('FF '+uNode.names);
-    if wid > maxwid then maxwid := wid;
-  End;
-  with vtUnit Do
-  Begin
-    Header.Columns[2].Width:=maxwid + (Margin + TextMargin)*2;
-    SortTree(Header.SortColumn,Header.SortDirection,False);
-    ScrollIntoView(FocusedNode,False,False);
-    EndUpdate;
+      wid := vtUnit.Canvas.TextWidth('FF '+uNode.names);
+      if wid > maxwid then maxwid := wid;
+    End;
+    with vtUnit Do
+    Begin
+      Header.Columns[2].Width:=maxwid + (Margin + TextMargin)*2;
+      SortTree(Header.SortColumn,Header.SortDirection,False);
+      ScrollIntoView(FocusedNode,False,False);
+    End;
+  Finally
+    vtUnit.EndUpdate;
   End;
 end;
 
@@ -11663,10 +11658,7 @@ begin
     FFindDlg.cbText.AddItem(UnitsSearchList[n], Nil);
   if (FFindDlg.ShowModal = mrOk) and (FFindDlg.cbText.Text <> '') then
   begin
-    if Not Assigned(vtUnit.FocusedNode) then
-      UnitsSearchFrom := 0
-    else
-      UnitsSearchFrom := Integer(vtUnit.FocusedNode);
+    UnitsSearchFrom := vtUnit.FocusedNode;
     UnitsSearchText := FFindDlg.cbText.Text;
     if UnitsSearchList.IndexOf(UnitsSearchText) = -1 then UnitsSearchList.Add(UnitsSearchText);
     FindText(UnitsSearchText);
@@ -12347,61 +12339,46 @@ End;
 
 Procedure TFMain.ShowRTTIs;
 var
-  n,wid, maxwid:Integer;
-  canva:TCanvas;
-  recT:PTypeRec;
-  line:AnsiString;
+  selAdr,n,wid, maxwid:Integer;
+  recT,ndata:PTypeRec;
+  node:PVirtualNode;
 Begin
-  maxwid:=0;
-  canva:=lbRTTIs.Canvas;
-  lbRTTIs.Clear;
-  //as
-  lbRTTIs.Items.BeginUpdate;
-  if OwnTypeList.Count<>0 then
-  case RTTISortField of
-    0: OwnTypeList.Sort(SortRTTIsByAdr);
-    1: OwnTypeList.Sort(SortRTTIsByKnd);
-    2: OwnTypeList.Sort(SortRTTIsByNam);
+  maxwid:=50;
+  selAdr:=0;
+  if Assigned(vtRTTI.FocusedNode) Then
+  Begin
+    ndata:=vtRTTI.GetNodeData(vtRTTI.FocusedNode);
+    selAdr:=ndata.adr;
   end;
-  for n := 0 to OwnTypeList.Count-1 do
-  begin
-    recT := OwnTypeList[n];
-    if recT.kind = ikVMT then
-      line := Val2Str(recT.adr,8) + ' <VMT> ' + recT.name
-    else
-      line := Val2Str(recT.adr,8) + ' <' + TypeKind2Name(recT.kind) + '> ' + recT.name;
-    lbRTTIs.Items.Add(line);
-    wid := canva.TextWidth(line);
-    if wid > maxwid then maxwid := wid;
+  vtRTTI.Clear;
+  vtRTTI.BeginUpdate;
+  try
+    for n := 0 to OwnTypeList.Count-1 do
+    begin
+      recT := OwnTypeList[n];
+      node:=vtRTTI.AddChild(Nil);
+      ndata:=vtRTTI.GetNodeData(node);
+      ndata.kind:=recT.kind;
+      ndata.adr:=recT.adr;
+      //Pointer(ndata.name):=Nil; // to prevent exceptions
+      ndata.name:=recT.name;
+      wid := vtRTTI.Canvas.TextWidth(ndata.name);
+      if wid > maxwid then maxwid := wid;
+      if recT.adr = selAdr then
+      Begin
+        vtRTTI.FocusedNode := node;
+        vtRTTI.Selected[Node]:=True;
+      end;
+    end;
+    with vtRTTI Do
+    Begin
+      Header.Columns[2].Width:=maxwid + (Margin + TextMargin)*2;
+      SortTree(Header.SortColumn,Header.SortDirection,False);
+      ScrollIntoView(FocusedNode,False,False);
+    End;
+  Finally
+    vtRTTI.EndUpdate;
   end;
-  lbRTTIs.Items.EndUpdate;
-  lbRTTIs.ScrollWidth := maxwid + 2;
-end;
-
-procedure TFMain.lbRTTIsDblClick(Sender : TObject);
-var
-  adr:Integer;
-  _name,typeName:AnsiString;
-begin
-  sscanf(PAnsiChar(lbRTTIs.Items[lbRTTIs.ItemIndex]),'%lX%ls%ls',[@adr,@_name,@typeName]);
-  if SameText(_name, '<VMT>') and tsClassView.TabVisible then ShowClassViewer(adr)
-    else FTypeInfo.ShowRTTI(adr);
-end;
-
-procedure TFMain.lbRTTIsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
-begin
-  if lbRTTIs.CanFocus then ActiveControl := lbRTTIs;
-end;
-
-procedure TFMain.lbRTTIsClick(Sender : TObject);
-begin
-  RTTIsSearchFrom := lbRTTIs.ItemIndex;
-  WhereSearch := SEARCH_RTTIS;
-end;
-
-procedure TFMain.lbRTTIsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
-begin
-  if Key = VK_RETURN then lbRTTIsDblClick(Sender);
 end;
 
 procedure TFMain.miSearchRTTIClick(Sender : TObject);
@@ -12414,190 +12391,92 @@ begin
     FFindDlg.cbText.AddItem(RTTIsSearchList[n], Nil);
   if (FFindDlg.ShowModal = mrOk) and (FFindDlg.cbText.Text <> '') then
   begin
-    if lbRTTIs.ItemIndex < 0 then
-      RTTIsSearchFrom := 0
-    else
-      RTTIsSearchFrom := lbRTTIs.ItemIndex;
+    RTTIsSearchFrom := vtRTTI.FocusedNode;
     RTTIsSearchText := FFindDlg.cbText.Text;
     if RTTIsSearchList.IndexOf(RTTIsSearchText) = -1 then RTTIsSearchList.Add(RTTIsSearchText);
     FindText(RTTIsSearchText);
   end;
 end;
 
-procedure TFMain.pmRTTIsPopup(Sender : TObject);
-begin
-	if lbRTTIs.ItemIndex < 0 then Exit;
-end;
-
-procedure TFMain.miSortRTTIsByAdrClick(Sender : TObject);
-begin
-  miSortRTTIsByAdr.Checked := true;
-  miSortRTTIsByKnd.Checked := false;
-  miSortRTTIsByNam.Checked := false;
-  RTTISortField := 0;
-  ShowRTTIs;
-end;
-
-procedure TFMain.miSortRTTIsByKndClick(Sender : TObject);
-begin
-  miSortRTTIsByAdr.Checked := false;
-  miSortRTTIsByKnd.Checked := true;
-  miSortRTTIsByNam.Checked := false;
-  RTTISortField := 1;
-  ShowRTTIs;
-end;
-
-procedure TFMain.miSortRTTIsByNamClick(Sender : TObject);
-begin
-  miSortRTTIsByAdr.Checked := false;
-  miSortRTTIsByKnd.Checked := false;
-  miSortRTTIsByNam.Checked := true;
-  RTTISortField := 2;
-  ShowRTTIs;
-end;
-
-Procedure TFMain.ShowStrings (idx:Integer);
+Procedure TFMain.ShowStrings;
 var
-  n, wid, maxwid:Integer;
+  n, wid, wid2, maxwid, maxwid2:Integer;
   recN:InfoRec;
   line, line1, str:AnsiString;
-  canva:TCanvas;
+  node:PVirtualNode;
+  data:PStringNode;
 Begin
   maxwid:=0;
-  canva:=lbStrings.Canvas;
-  lbStrings.Clear;
-  lbStrings.Items.BeginUpdate;
-  for n := 0 to CodeSize-1 do
-  begin
-    recN := GetInfoRec(Pos2Adr(n));
-    if Assigned(recN) and Not IsFlagSet(cfRTTI, n) then
+  vtString.Clear;
+  vtString.BeginUpdate;
+  try
+    for n := 0 to CodeSize-1 do
     begin
-      if (recN.kind = ikResString) and (recN.rsInfo <> '') then
+      recN := GetInfoRec(Pos2Adr(n));
+      if Assigned(recN) and Not IsFlagSet(cfRTTI, n) then
       begin
-        line := ' ' + Val2Str(Pos2Adr(n),8) + ' <ResString> ' + recN.rsInfo;
-        if Length(recN.rsInfo) <= MAXLEN then line1 := line
-          else line1 := Copy(line,1, MAXLEN) + '...';
-        Byte(line1[1]) := Byte(line1[1]) xor 1;
-        lbStrings.Items.Add(line1);
-        wid := canva.TextWidth(line1);
-        if wid > maxwid then maxwid := wid;
-        continue;
-      end;
-      if recN.HasName then
-      begin
-        case recN.kind of
-          ikString: str := '<ShortString>';
-          ikLString: str := '<AnsiString>';
-          ikWString: str := '<WideString>';
-          ikCString: str := '<PAnsiChar>';
-          ikWCString: str := '<PWideChar>';
-          ikUString:  str := '<UString>';
-        Else str := '';
-        end;
-        if str <> '' then
+        if (recN.kind = ikResString) and (recN.rsInfo <> '') then
         begin
-          line := ' ' + Val2Str(Pos2Adr(n),8) + ' ' + str + ' ' + recN.Name;
-          if recN.NameLength <= MAXLEN then line1 := line
-            else line1 := Copy(line,1, MAXLEN) + '...';
-          Byte(line1[1]):=Byte(line1[1]) xor 1;
-          lbStrings.Items.Add(line1);
-          wid := canva.TextWidth(line1);
+          node:=vtString.AddChild(Nil);
+          data:=vtString.GetNodeData(node);
+          data.adr:=Pos2Adr(n);
+          data.item_type:='ResString';
+          data.item_name:=recN.rsInfo;
+          data.is_resource:=True;
+          wid := vtString.Canvas.TextWidth(data.item_type);
           if wid > maxwid then maxwid := wid;
+          wid2 := vtString.Canvas.TextWidth(data.item_name);
+          if wid2 > maxwid2 then maxwid2 := wid2;
+        end
+        Else if recN.HasName then
+        begin
+          case recN.kind of
+            ikString: str := 'ShortString';
+            ikLString: str := 'AnsiString';
+            ikWString: str := 'WideString';
+            ikCString: str := 'PAnsiChar';
+            ikWCString: str := 'PWideChar';
+            ikUString:  str := 'UString';
+          Else str := '';
+          end;
+          if str <> '' then
+          begin
+            node:=vtString.AddChild(Nil);
+            data:=vtString.GetNodeData(node);
+            data.adr:=Pos2Adr(n);
+            data.item_type:=str;
+            data.item_name:=recN.Name;
+            data.is_resource:=False;
+            wid := vtString.Canvas.TextWidth(data.item_type);
+            if wid > maxwid then maxwid := wid;
+            wid2 := vtString.Canvas.TextWidth(data.item_name);
+            if wid2 > maxwid2 then maxwid2 := wid2;
+          end;
         end;
       end;
     end;
+    with vtString Do
+    Begin
+      Header.Columns[1].Width:=maxwid + (Margin + TextMargin)*2;
+      Header.Columns[2].Width:=maxwid2 + (Margin + TextMargin)*2;
+      SortTree(Header.SortColumn,Header.SortDirection,False);
+      ScrollIntoView(FocusedNode,False,False);
+    End;
+  Finally
+    vtString.EndUpdate;
   end;
-  with lbStrings do
+  if Assigned(vtString.FocusedNode) then
   begin
-    ItemIndex := idx;
-    ScrollWidth := maxwid + 2;
-    ItemHeight := Canvas.TextHeight('T');
-    Items.EndUpdate;
+    data:=vtName.GetNodeData(vtName.FocusedNode);
+    ShowStringXrefs(Data.adr, -1);
   end;
-end;
-
-procedure TFMain.lbStringsClick(Sender : TObject);
-var
-  adr:Integer;
-  line:AnsiString;
-begin
-  StringsSearchFrom := lbStrings.ItemIndex;
-  WhereSearch := SEARCH_STRINGS;
-  if lbStrings.ItemIndex >= 0 then
-  begin
-    line := lbStrings.Items[lbStrings.ItemIndex];
-    sscanf(PAnsiChar(line)+1,'%lX',[@adr]);
-    ShowStringXrefs(adr, -1);
-  end;
-end;
-
-procedure TFMain.lbStringsDblClick(Sender : TObject);
-var
-  adr:Integer;
-  line:AnsiString;
-  recN:InfoRec;
-begin
-  line := lbStrings.Items[lbStrings.ItemIndex];
-  sscanf(PAnsiChar(line)+1,'%lX',[@adr]);
-  if IsValidImageAdr(adr) then
-  With FStringInfo do
-  begin
-    recN := GetInfoRec(adr);
-    if recN.kind = ikResString then
-    begin
-      Caption := 'ResString context';
-      memStringInfo.Clear;
-      memStringInfo.Lines.Add(recN.rsInfo);
-      ShowModal;
-    end
-    else
-    begin
-      Caption := 'String context';
-      memStringInfo.Clear;
-      memStringInfo.Lines.Add(recN.Name);
-      ShowModal;
-    end;
-  end;
-end;
-
-procedure TFMain.lbStringsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
-var
-  flags:Integer;
-  col:TColor;
-  lb:TListBox;
-  canva:TCanvas;
-  text, str:AnsiString;
-begin
-  lb := TListBox(Control);
-  canva := lb.Canvas;
-  SaveCanvas(canva);
-  if Index < lb.Count then
-  begin
-    flags := Control.DrawTextBiDiModeFlags(DT_SINGLELINE or DT_VCENTER or DT_NOPREFIX);
-    if not Control.UseRightToLeftAlignment then
-      Inc(Rect.Left,2)
-    else
-      Dec(Rect.Right,2);
-    canva.FillRect(Rect);
-    text := lb.Items[Index];
-    //lb.ItemHeight := canva.TextHeight(text);
-    str := Copy(text,2, Length(text) - 1);
-
-    //Long strings
-    if (Byte(text[1]) and 1)<>0 then
-      col := TColor($BBBBBB) //LightGray
-    else
-      col := TColor(0);//Black
-    Rect.Right := Rect.Left;
-    DrawOneItem(str, canva, Rect, col, flags);
-  end;
-  RestoreCanvas(canva);
 end;
 
 procedure TFMain.miSearchStringClick(Sender : TObject);
 var
   n,adr:Integer;
   line:AnsiString;
+  data:PStringNode;
 begin
   WhereSearch := SEARCH_STRINGS;
   FFindDlg.cbText.Clear;
@@ -12605,22 +12484,16 @@ begin
     FFindDlg.cbText.AddItem(StringsSearchList[n], Nil);
   if (FFindDlg.ShowModal = mrOk) and (FFindDlg.cbText.Text <> '') then
   begin
-    if lbRTTIs.ItemIndex < 0 then
-      StringsSearchFrom := 0
-    else
-      StringsSearchFrom := lbStrings.ItemIndex;
+    StringsSearchFrom := vtString.FocusedNode;
     StringsSearchText := FFindDlg.cbText.Text;
     if StringsSearchList.IndexOf(StringsSearchText) = -1 then StringsSearchList.Add(StringsSearchText);
     FindText(StringsSearchText);
-    line := lbStrings.Items[lbStrings.ItemIndex];
-    sscanf(PAnsiChar(line)+1,'%lX',[@adr]);
-    ShowStringXrefs(adr, -1);
+    if Assigned(vtString.FocusedNode) Then
+    begin
+      data:=vtString.GetNodeData(vtString.FocusedNode);
+      ShowStringXrefs(Data.adr, -1);
+    end;
   end;
-end;
-
-procedure TFMain.lbStringsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
-begin
-  if lbStrings.CanFocus then ActiveControl := lbStrings;
 end;
 
 procedure TFMain.ShowSXrefsClick(Sender : TObject);
@@ -12678,49 +12551,62 @@ Begin
   end;
 end;
 
-procedure TFMain.pmStringsPopup(Sender : TObject);
-begin
-  if lbStrings.ItemIndex < 0 then Exit;
-end;
-
-Procedure TFMain.ShowNames (idx:Integer);
+Procedure TFMain.ShowNames;
 var
-  n, wid, maxwid:Integer;
+  n, wid, wid2, maxwid,maxwid2:Integer;
   recN:InfoRec;
   line:AnsiString;
-  canva:TCanvas;
+  node:PVirtualNode;
+  data:PNameNode;
 Begin
-  maxwid:=0;
-  canva:=lbNames.Canvas;
-  lbNames.Clear;
-  lbNames.Items.BeginUpdate;
-  for n := CodeSize to TotalSize-1 do
-  begin
-    if IsFlagSet(cfImport, n) then continue;
-    recN := GetInfoRec(Pos2Adr(n));
-    if Assigned(recN) and recN.HasName then
+  maxwid:=200;
+  maxwid2:=60;
+  vtName.Clear;
+  vtName.BeginUpdate;
+  try
+    for n := CodeSize to TotalSize-1 do
     begin
-      line := Val2Str(Pos2Adr(n),8) + ' ' + recN.Name;
-      if recN._type <> '' then line := line + ':' + recN._type;
-      lbNames.Items.Add(line);
-      wid := canva.TextWidth(line);
+      if IsFlagSet(cfImport, n) then continue;
+      recN := GetInfoRec(Pos2Adr(n));
+      if Assigned(recN) and recN.HasName then
+      begin
+        node:=vtName.AddChild(Nil);
+        data:=vtName.GetNodeData(node);
+        data.adr:=Pos2Adr(n);
+        data.item_name:=recN.Name;
+        data.item_type:=recN._type;
+        wid := vtName.Canvas.TextWidth(recN.Name);
+        if wid > maxwid then maxwid := wid;
+        wid2 := vtName.Canvas.TextWidth(recN._type);
+        if wid2 > maxwid2 then maxwid2 := wid2;
+      end;
+    End;
+    for n := 0 to BSSInfos.Count-1 do
+    begin
+      recN := InfoRec(BSSInfos.Objects[n]);
+      node:=vtName.AddChild(Nil);
+      data:=vtName.GetNodeData(node);
+      data.adr:=StrToInt('$'+BSSInfos[n]);
+      data.item_name:=recN.Name;
+      data.item_type:=recN._type;
+      wid := vtName.Canvas.TextWidth(recN.Name);
       if wid > maxwid then maxwid := wid;
+      wid2 := vtName.Canvas.TextWidth(recN._type);
+      if wid2 > maxwid2 then maxwid2 := wid2;
     end;
-  End;
-  for n := 0 to BSSInfos.Count-1 do
-  begin
-    recN := InfoRec(BSSInfos.Objects[n]);
-    line := BSSInfos[n] + ' ' + recN.Name;
-    if recN._type <> '' Then line :=line + ':' + recN._type;
-    lbNames.Items.Add(line);
-    wid := canva.TextWidth(line);
-    if wid > maxwid then maxwid := wid;
+    with vtName Do
+    Begin
+      Header.Columns[1].Width:=maxwid + (Margin + TextMargin)*2;
+      Header.Columns[2].Width:=maxwid2 + (Margin + TextMargin)*2;
+      SortTree(Header.SortColumn,Header.SortDirection,False);
+    End;
+  Finally
+    vtName.EndUpdate;
   end;
-  with lbNames do
+  if Assigned(vtName.FocusedNode) then
   begin
-    Items.EndUpdate;
-    ItemIndex := idx;
-    ScrollWidth := maxwid + 2;
+    data:=vtName.GetNodeData(vtName.FocusedNode);
+    ShowNameXrefs(Data.adr, -1);
   end;
 end;
 
@@ -12762,22 +12648,6 @@ Begin
       ScrollWidth := maxwid + 2;
       ItemIndex := selIdx;
     end;
-  end;
-end;
-
-procedure TFMain.lbNamesClick(Sender : TObject);
-var
-  adr:Integer;
-  line:AnsiString;
-begin
-  //NamesSearchFrom := lbNames.ItemIndex;
-  //WhereSearch := SEARCH_NAMES;
-
-  if lbNames.ItemIndex >= 0 Then
-  begin
-    line := lbNames.Items[lbNames.ItemIndex];
-    sscanf(PAnsiChar(line)+1,'%lX',[@adr]);
-    ShowNameXrefs(adr, -1);
   end;
 end;
 
@@ -17045,7 +16915,8 @@ Begin
       if not kb and bpBased and (DisInfo.BaseReg = 21) and (DisInfo.IndxReg = -1) and (DisInfo.Offset > 0) then
       Begin
         recN1 := GetInfoRec(fromAdr);
-        //For embedded procs we have on1 additional argument (pushed on stack first), that poped from stack by instrcution pop ecx
+        // For embedded procs we have one additional argument (pushed on stack first),
+        // that popped from stack by instrcution POP ECX
         if not emb or (DisInfo.Offset <> retBytes + bpBase) then
         Begin
           argSize := DisInfo.MemSize;
@@ -18267,7 +18138,6 @@ Begin
     taUpdateRTTIs:
       Begin
         miSearchRTTI.Enabled := true;
-        miSortRTTI.Enabled := true;
         tsRTTIs.Enabled := true;
         ShowRTTIs;
       End;
@@ -18280,9 +18150,9 @@ Begin
       Begin
         tsStrings.Enabled := true;
         miSearchString.Enabled := true;
-        ShowStrings(0);
+        ShowStrings;
         tsNames.Enabled := true;
-        ShowNames(0);
+        ShowNames;
       End;
     taUpdateCode:
       Begin
@@ -19029,12 +18899,12 @@ end;
 Procedure TFMain.SetupAllFonts (font:TFont);
 Begin
   vtUnit.Font.Assign(font);
-  lbRTTIs.Font.Assign(font);
+  vtRTTI.Font.Assign(font);
   lbForms.Font.Assign(font);
   lbAliases.Font.Assign(font);
   lbCode.Font.Assign(font);
-  lbStrings.Font.Assign(font);
-  lbNames.Font.Assign(font);
+  vtString.Font.Assign(font);
+  vtName.Font.Assign(font);
   lbNXrefs.Font.Assign(font);
   lbSXrefs.Font.Assign(font);
   lbCXrefs.Font.Assign(font);
@@ -19138,7 +19008,7 @@ end;
 
 procedure TFMain.lbFormsClick(Sender : TObject);
 begin
-  RTTIsSearchFrom := lbRTTIs.ItemIndex;
+  FormsSearchFrom := lbForms.ItemIndex;
   WhereSearch := SEARCH_FORMS;
 end;
 
@@ -19238,10 +19108,7 @@ Begin
     FFindDlg.cbText.AddItem(NamesSearchList[n], Nil);
   if (FFindDlg.ShowModal = mrOk) and (FFindDlg.cbText.Text <> '') then
   begin
-    if lbNames.ItemIndex = -1 then
-      NamesSearchFrom := 0
-    else
-      NamesSearchFrom := lbNames.ItemIndex;
+    NamesSearchFrom := vtName.FocusedNode;
     NamesSearchText := FFindDlg.cbText.Text;
     if NamesSearchList.IndexOf(NamesSearchText) = -1 then NamesSearchList.Add(NamesSearchText);
     FindText(NamesSearchText);
@@ -19269,12 +19136,22 @@ begin
   end;
   FPlugins.PluginsPath := PluginsPath;
   FPlugins.PluginName := '';
-  if FPlugins.ShowModal = mrOk then ResInfo.FormPluginName := FPlugins.PluginName; //
+  if FPlugins.ShowModal = mrOk then ResInfo.FormPluginName := FPlugins.PluginName;
 end;
 
 procedure TFMain.miCopyStringsClick(Sender : TObject);
+var
+  s:TStringList;
 begin
-  Copy2Clipboard(lbStrings.Items, 0, false);
+  s:=Nil;
+  if vtString.RootNodeCount<>0 Then
+  try
+    s:=TStringList.Create;
+    vtString.GetDataFromGrid(s,False);
+    Copy2Clipboard(s, 0, false);
+  Finally
+    s.Free;
+  end;
 end;
 
 procedure TFMain.miViewAllClick(Sender : TObject);
@@ -19358,9 +19235,221 @@ Begin
   FActiveProcesses.ShowModal;
 end;
 
+procedure TFMain.vtNameClick(Sender: TObject);
+begin
+  WhereSearch:=SEARCH_NAMES;
+end;
+
+procedure TFMain.vtNameCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+var
+  D1,D2:PNameNode;
+begin
+  D1:=Sender.GetNodeData(Node1);
+  D2:=Sender.GetNodeData(Node2);
+  Case Column Of
+    0: // Address
+      if D1.adr < D2.adr then Result:=-1
+      else if D1.adr > D2.adr then Result:=1
+      else Result:=0;
+    1: // Item name
+      Result:=CompareStr(D1.item_name,D2.item_name);
+    2: // Item type
+      Result:=CompareStr(D1.item_type,D2.item_type);
+  End;
+end;
+
+procedure TFMain.vtNameFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
+var
+  adr:Integer;
+  Data:PNameNode;
+begin
+  if Assigned(Node) Then
+  begin
+    Data:=vtName.GetNodeData(Node);
+    if Assigned(Data) then ShowNameXrefs(Data.adr, -1);
+  end;
+end;
+
+procedure TFMain.vtNameFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+var
+  Data:PNameNode;
+begin
+  Data:=Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+procedure TFMain.vtNameGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+var
+  Data:PNameNode;
+begin
+  CellText:='';
+  Data:=Sender.GetNodeData(Node);
+  if Assigned(Data)  then
+  Case Column Of
+    0: CellText:=IntToHex(Data.adr,8); // Address
+    1: CellText:=Data.item_name;
+    2: CellText:=Data.item_type;
+  end;
+end;
+
+procedure TFMain.vtRTTIClick(Sender: TObject);
+begin
+  RTTIsSearchFrom := vtRTTI.FocusedNode;
+  WhereSearch := SEARCH_RTTIS;
+end;
+
+procedure TFMain.vtRTTICompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+var
+  D1,D2:PTypeRec;
+begin
+  D1:=Sender.GetNodeData(Node1);
+  D2:=Sender.GetNodeData(Node2);
+  Case Column Of
+    0: // Address
+      if D1.adr < D2.adr then Result:=-1
+      else if D1.adr > D2.adr then Result:=1
+      else Result:=0;
+    1: // Type kind
+      if D1.kind < D2.kind then Result:=-1
+      else if D1.kind > D2.kind then Result:=1
+      else Result:=0;
+    2: // names
+      Result:=CompareStr(D1.name,D2.name);
+  End;
+end;
+
+procedure TFMain.vtRTTIDblClick(Sender: TObject);
+var
+  Data:PTypeRec;
+begin
+  if Assigned(vtRTTI.FocusedNode) Then
+  begin
+    Data:=vtRTTI.GetNodeData(vtRTTI.FocusedNode);
+    if Assigned(Data) then
+    begin
+      if SameText(Data.name, '<VMT>') and tsClassView.TabVisible then ShowClassViewer(Data.adr)
+        else FTypeInfo.ShowRTTI(Data.adr);
+    end;
+  End;
+end;
+
+procedure TFMain.vtRTTIFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+var
+  Data:PTypeRec;
+begin
+  Data:=Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+procedure TFMain.vtRTTIGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: WideString);
+begin
+  TVirtualStringTree(Sender).OnGetText(Sender,Node,Column,ttNormal,HintText);
+end;
+
+procedure TFMain.vtRTTIGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+var
+  RTTI:PTypeRec;
+begin
+  CellText:='';
+  RTTI:=Sender.GetNodeData(Node);
+  if Assigned(RTTI)  then
+  Case Column Of
+    0: CellText:=IntToHex(RTTI.adr,8); // Address
+    1: CellText:=Copy(TypeKind2Name(RTTI.kind),3,100); // Type kind
+    2: CellText:=RTTI.name; // name
+  end;
+end;
+
+procedure TFMain.vtStringClick(Sender: TObject);
+begin
+  WhereSearch := SEARCH_STRINGS;
+end;
+
+procedure TFMain.vtStringCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+var
+  D1,D2:PStringNode;
+begin
+  D1:=Sender.GetNodeData(Node1);
+  D2:=Sender.GetNodeData(Node2);
+  Case Column Of
+    0: // Address
+      if D1.adr < D2.adr then Result:=-1
+      else if D1.adr > D2.adr then Result:=1
+      else Result:=0;
+    1: // Item type
+      Result:=CompareStr(D1.item_type,D2.item_type);
+    2: // Item name
+      Result:=CompareStr(D1.item_name,D2.item_name);
+  End;
+end;
+
+procedure TFMain.vtStringDblClick(Sender: TObject);
+var
+  data:PStringNode;
+begin
+  if Assigned(vtString.FocusedNode) Then
+  begin
+    data:=vtString.GetNodeData(vtString.FocusedNode);
+    if IsValidImageAdr(data.adr) then
+    With FStringInfo do
+    begin
+      if data.is_resource then Caption := 'ResourceString context'
+        else Caption:='String context';
+      memStringInfo.Clear;
+      memStringInfo.Lines.Add(data.item_name);
+      ShowModal;
+    end;
+  end;
+end;
+
+procedure TFMain.vtStringFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
+var
+  adr:Integer;
+  Data:PNameNode;
+begin
+  if Assigned(Node) Then
+  begin
+    Data:=vtName.GetNodeData(Node);
+    if Assigned(Data) then ShowStringXrefs(Data.adr, -1);
+  end;
+end;
+
+procedure TFMain.vtStringFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+var
+  Data:PStringNode;
+begin
+  Data:=Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+procedure TFMain.vtStringGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+var
+  Data:PStringNode;
+begin
+  CellText:='';
+  Data:=Sender.GetNodeData(Node);
+  if Assigned(Data)  then
+  Case Column Of
+    0: CellText:=IntToHex(Data.adr,8); // Address
+    1: CellText:=Data.item_type;
+    2: CellText:=Data.item_name;
+  end;
+end;
+
+procedure TFMain.vtStringPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
+var
+  Data:PStringNode;
+begin
+  Data:=Sender.GetNodeData(Node);
+  if (Column<>0) and Assigned(Data) and Not (vsSelected in Node.States) Then
+  Begin
+    if Data.is_resource then TargetCanvas.Font.Color:=TColor($BBBBBB); //LightGray
+  end;
+end;
+
 procedure TFMain.vtUnitClick(Sender: TObject);
 begin
-  UnitsSearchFrom := Integer(vtUnit.FocusedNode);
+  UnitsSearchFrom := vtUnit.FocusedNode;
   WhereSearch := SEARCH_UNITS;
 end;
 
@@ -19444,12 +19533,13 @@ end;
 
 procedure TFMain.vtUnitKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-  if (Key = VK_RETURN) and Assigned(vtUnit.OnDblClick) then vtUnit.OnDblClick(Sender);
+  with TVirtualStringTree(Sender) do
+    if (Key = VK_RETURN) and Assigned(OnDblClick) then OnDblClick(Sender);
 end;
 
 procedure TFMain.vtUnitMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 begin
-  if vtUnit.CanFocus then ActiveControl := vtUnit;
+  if TWinControl(Sender).CanFocus then ActiveControl := TWinControl(Sender);
 end;
 
 procedure TFMain.vtUnitPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);

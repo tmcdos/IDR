@@ -254,13 +254,13 @@ end;
 Function InfoProcInfo.AddArg(_Tag:BYTE; Ofs, _Size:Integer; _Name, _TypeDef:AnsiString):PArgInfo;
 var
   F,L,M:Integer;
-  
+
   procedure NewRes;
   begin
     New(Result);
     with Result^ do
     begin
-      in_Reg:=False;
+      in_Reg:= Ofs In [0..3];
       Tag := _Tag;
       Ndx := Ofs;
       Size := _Size;
@@ -610,7 +610,6 @@ Procedure InfoRec.AddXref (_Type_:Char; _Adr:Integer; Ofs:Integer);
 var
   recX:PXRefRec;
   F,L,M:Integer;
-  s:AnsiString;
 
   Procedure NewRec;
   begin
@@ -1227,6 +1226,8 @@ Begin
   if Assigned(procInfo.args) then argsNum := procInfo.args.Count
     else argsNum := 0;
   num:=argsNum;
+  firstArg:=0;
+  callKind:=0;
   if num<>0 then
   Begin
     if (procInfo.flags and PF_ALLMETHODS)<>0 then
@@ -1267,8 +1268,8 @@ Begin
   if _abstract then Result:=Result + ' abstract;'
   else
   case callKind of
-    1: Result:=Result +' cdecl;';
-    2: Result:=Result +' pascal;';
+    1: Result:=Result + ' cdecl;';
+    2: Result:=Result + ' pascal;';
     3: Result:=Result + ' stdcall;';
     4: Result:=Result + ' safecall;';
   End;

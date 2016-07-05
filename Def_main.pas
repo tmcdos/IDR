@@ -206,6 +206,19 @@ Type
   end;
   PUnitNode = ^vtUnitNode;
 
+  vtNameNode = record
+    adr:Integer;
+    item_name,item_type:AnsiString;
+  End;
+  PNameNode = ^vtNameNode;
+
+  vtStringNode = record
+    adr:Integer;
+    item_name,item_type:AnsiString;
+    is_resource:Boolean;
+  End;
+  PStringNode = ^vtStringNode;
+
 Const
   USER_KNOWLEDGEBASE    = $80000000;
   SOURCE_LIBRARY        = $40000000;

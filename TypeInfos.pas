@@ -1,4 +1,4 @@
-unit TypeInfo;
+unit TypeInfos;
 
 interface
 
