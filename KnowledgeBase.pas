@@ -2,7 +2,7 @@ Unit KnowledgeBase;
 
 Interface
 
-Uses Windows,Classes,Types,Def_know;
+Uses Windows,Classes,Types,Def_know,Def_main;
 
 Type
   MKnowledgeBase = class
@@ -24,7 +24,7 @@ Type
     function GetModuleID(ModuleName:PAnsiChar): WORD;
     Function GetModuleName(ModuleID:WORD):AnsiString;
     procedure GetModuleIdsByProcName(AProcName:PAnsiChar);
-    function GetItemSection(ModuleIDs:TWordDynArray; ItemName:PAnsiChar): Integer;
+    function GetItemSection(ModuleIDs:TWordDynArray; ItemName:PAnsiChar): TKBset;
     function GetConstIdx(ModuleIDs:TWordDynArray; ConstName:PAnsiChar): Integer;
     function GetConstIdxs(ConstName:PAnsiChar; Var ConstIdx:Integer): Integer;
     function GetTypeIdxByModuleIds(ModuleIDs:TWordDynArray; TypeName:PAnsiChar): Integer;
@@ -39,13 +39,13 @@ Type
     function GetProcIdx(ModuleIDs:TWordDynArray; ProcName,code:PAnsiChar): Integer; overload;
     function GetProcIdxs(ModuleID:Word;FirstProcIdx, LastProcIdx:PInteger): Boolean; overload;
     Function GetProcIdxs(ModuleID:Word; var FirstProcIdx, LastProcIdx, DumpSize:Integer):Boolean; Overload;
-    function GetConstInfo(AConstIdx:Integer; AFlags:Integer; var cInfo:MConstInfo): Boolean;
-    function GetProcInfo(ProcName:PAnsiChar; AFlags:Integer; out pInfo:MProcInfo; Var procIdx:Integer): Boolean; overload;
-    function GetProcInfo(AProcIdx:Integer; AFlags:Integer; out pInfo:MProcInfo): Boolean; overload;
-    function GetTypeInfo(ATypeIdx:Integer; AFlags:Integer; out tInfo:MTypeInfo): Boolean; overload;
-    function GetVarInfo(AVarIdx:Integer; AFlags:Integer; Out vInfo:MVarInfo): Boolean;
-    function GetResStrInfo(AResStrIdx:Integer; AFlags:Integer; out rsInfo:MResStrInfo): Boolean;
-    function ScanCode(code:PAnsiChar;CodeFlags:PIntegerArray; CodeSz:Integer; pInfo:PMProcInfo): Integer;
+    function GetConstInfo(AConstIdx:Integer; AFlags:TInfoFlagSet; var cInfo:MConstInfo): Boolean;
+    function GetProcInfo(ProcName:PAnsiChar; AFlags:TInfoFlagSet; out pInfo:MProcInfo; Var procIdx:Integer): Boolean; overload;
+    function GetProcInfo(AProcIdx:Integer; AFlags:TInfoFlagSet; out pInfo:MProcInfo): Boolean; overload;
+    function GetTypeInfo(ATypeIdx:Integer; AFlags:TInfoFlagSet; out tInfo:MTypeInfo): Boolean; overload;
+    function GetVarInfo(AVarIdx:Integer; AFlags:TInfoFlagSet; Out vInfo:MVarInfo): Boolean;
+    function GetResStrInfo(AResStrIdx:Integer; AFlags:TInfoFlagSet; out rsInfo:MResStrInfo): Boolean;
+    function ScanCode(code:PAnsiChar;CodeFlags:PFlagArr; CodeSz:Integer; pInfo:PMProcInfo): Integer;
     function GetModuleUses(ModuleID:Word): TWordDynArray;
     function GetProcUses(ProcName:PAnsiChar; _Uses:TWordDynArray): Integer;
     function GetTypeUses(TypeName:PAnsiChar): TWordDynArray;
@@ -92,7 +92,7 @@ Type
 
 Implementation
 
-Uses SysUtils,Heuristic,Misc,Def_main;
+Uses SysUtils,Heuristic,Misc;
 
 Destructor MKnowledgeBase.Destroy;
 Begin
@@ -436,15 +436,15 @@ Begin
 end;
 
 //Return sections containing given ItemName
-Function MKnowledgeBase.GetItemSection (ModuleIDs:TWordDynArray; ItemName:PAnsiChar):Integer;
+Function MKnowledgeBase.GetItemSection (ModuleIDs:TWordDynArray; ItemName:PAnsiChar):TKBset;
 Begin
-  Result := KB_NO_SECTION;
+  Result := [];
   if not Inited Or (ItemName=Nil)or(ItemName^=#0) then Exit;
-  if GetIdx(ConstCount,ConstOffsets,ModuleIDs,ItemName,False)<>-1 then Result:=Result or KB_CONST_SECTION;
-  if GetIdx(TypeCount,TypeOffsets,ModuleIDs,ItemName,True)<>-1 then Result:=Result or KB_TYPE_SECTION;
-  If GetIdx(VarCount,VarOffsets,ModuleIDs,ItemName,False)<>-1 then Result:=Result or KB_VAR_SECTION;
-  if GetIdx(ResStrCount,ResStrOffsets,ModuleIDs,ItemName,False)<>-1 then Result:=Result or KB_RESSTR_SECTION;
-  if GetIdx(ProcCount,ProcOffsets,ModuleIDs,ItemName,False)<>-1 Then Result:=Result or KB_PROC_SECTION;
+  if GetIdx(ConstCount,ConstOffsets,ModuleIDs,ItemName,False)<>-1 then Include(Result, KB_CONST_SECTION);
+  if GetIdx(TypeCount,TypeOffsets,ModuleIDs,ItemName,True)<>-1 then Include(Result, KB_TYPE_SECTION);
+  If GetIdx(VarCount,VarOffsets,ModuleIDs,ItemName,False)<>-1 then Include(Result, KB_VAR_SECTION);
+  if GetIdx(ResStrCount,ResStrOffsets,ModuleIDs,ItemName,False)<>-1 then Include(Result, KB_RESSTR_SECTION);
+  if GetIdx(ProcCount,ProcOffsets,ModuleIDs,ItemName,False)<>-1 Then Include(Result, KB_PROC_SECTION);
 end;
 
 //Return constant index by name in given ModuleID
@@ -623,7 +623,7 @@ Begin
       RN:=BoundR(M,ProcCount,ProcOffsets,ProcName,Nil,false);
       for N := LN + 1 to RN-1 do
       begin
-        GetProcInfo(ProcOffsets[N].NamId, INFO_DUMP, aInfo);
+        GetProcInfo(ProcOffsets[N].NamId, [INFO_DUMP], aInfo);
         ModID := aInfo.ModuleID;
         if MatchCode(code, @aInfo) And (ModuleID = ModID) Then
         Begin
@@ -666,7 +666,7 @@ Begin
       RN:=BoundR(M,ProcCount,ProcOffsets,ProcName,Nil,false);
       for N := LN + 1 to RN-1 do
       begin
-        GetProcInfo(ProcOffsets[N].NamId, INFO_DUMP, aInfo);
+        GetProcInfo(ProcOffsets[N].NamId, [INFO_DUMP], aInfo);
         ModID := aInfo.ModuleID;
         if Assigned(code) then
         begin
@@ -828,7 +828,7 @@ Begin
 end;
 
 //ConstIdx was given by const name
-Function MKnowledgeBase.GetConstInfo (AConstIdx:Integer; AFlags:Integer; var cInfo:MConstInfo):Boolean;
+Function MKnowledgeBase.GetConstInfo (AConstIdx:Integer; AFlags:TInfoFlagSet; var cInfo:MConstInfo):Boolean;
 var
   //DumpTotal:Integer;
   p:PAnsiChar;
@@ -860,12 +860,12 @@ Begin
   cInfo.FixupNum := PInteger(p)^;
   Inc(p, 4);
   cInfo.Dump := Nil;
-  if (AFlags and INFO_DUMP)<>0 then
+  if INFO_DUMP in AFlags then
     if cInfo.DumpSz<>0 then cInfo.Dump := p;
   Result:=True;
 end;
 
-Function MKnowledgeBase.GetProcInfo (ProcName:PAnsiChar; AFlags:Integer; out pInfo:MProcInfo; Var procIdx:Integer):Boolean;
+Function MKnowledgeBase.GetProcInfo (ProcName:PAnsiChar; AFlags:TInfoFlagSet; out pInfo:MProcInfo; Var procIdx:Integer):Boolean;
 var
   ID,L,R,M,LN,RN,res:Integer;
   DumpTotal,ArgsTotal:Integer;
@@ -920,7 +920,7 @@ Begin
         pInfo.FixupNum := PInteger(p)^;
         Inc(p, 4);
         pInfo.Dump := Nil;
-        if (AFlags and INFO_DUMP)<>0 then
+        if INFO_DUMP in AFlags then
           if pInfo.DumpSz<>0 then pInfo.Dump := p;
         p := p1 + DumpTotal;
         ArgsTotal := PInteger(p)^;
@@ -929,7 +929,7 @@ Begin
         pInfo.ArgsNum := PWord(p)^;
         Inc(p, 2);
         pInfo.Args := Nil;
-        if (AFlags and INFO_ARGS)<>0 then
+        if INFO_ARGS in AFlags then
           if pInfo.ArgsNum<>0 then pInfo.Args := p;
         p := p1 + ArgsTotal;
         (*
@@ -997,7 +997,7 @@ Begin
   End;
 end;
 
-Function MKnowledgeBase.GetProcInfo(AProcIdx:Integer; AFlags:Integer; out pInfo:MProcInfo):Boolean;
+Function MKnowledgeBase.GetProcInfo(AProcIdx:Integer; AFlags:TInfoFlagSet; out pInfo:MProcInfo):Boolean;
 Var
   p,p1:PAnsiChar;
   DumpTotal,ArgsTotal:Integer;
@@ -1035,7 +1035,7 @@ Begin
   pInfo.FixupNum := PInteger(p)^;
   Inc(p, 4);
   pInfo.Dump := Nil;
-  if (AFlags and INFO_DUMP)<>0 then
+  if INFO_DUMP in AFlags then
     if pInfo.DumpSz<>0 then pInfo.Dump := p;
   p := p1 + DumpTotal;
 
@@ -1045,7 +1045,7 @@ Begin
   pInfo.ArgsNum := PWord(p)^;
   Inc(p, 2);
   pInfo.Args := Nil;
-  if (AFlags and INFO_ARGS)<>0 then
+  if INFO_ARGS in AFlags then
     if pInfo.ArgsNum<>0 then pInfo.Args := p;
   p := p1 + ArgsTotal;
   (*
@@ -1060,7 +1060,7 @@ Begin
   Result:=true;
 end;
 
-Function MKnowledgeBase.GetTypeInfo(ATypeIdx:Integer; AFlags:Integer; out tInfo:MTypeInfo):Boolean;
+Function MKnowledgeBase.GetTypeInfo(ATypeIdx:Integer; AFlags:TInfoFlagSet; out tInfo:MTypeInfo):Boolean;
 Var
   p,p1:PAnsiChar;
   DumpTotal,FieldsTotal,PropsTotal,MethodsTotal:Integer;
@@ -1094,7 +1094,7 @@ Begin
   tInfo.FixupNum := PInteger(p)^;
   Inc(p, 4);
   tInfo.Dump := Nil;
-  if (AFlags and INFO_DUMP)<>0 then
+  if INFO_DUMP in AFlags then
     if tInfo.DumpSz<>0 then tInfo.Dump := p;
   p := p1 + DumpTotal;
 
@@ -1104,7 +1104,7 @@ Begin
   tInfo.FieldsNum := PWord(p)^;
   Inc(p, 2);
   tInfo.Fields := Nil;
-  if (AFlags and INFO_FIELDS)<>0 then
+  if INFO_FIELDS in AFlags then
     if tInfo.FieldsNum<>0 then tInfo.Fields := p;
   p := p1 + FieldsTotal;
 
@@ -1114,7 +1114,7 @@ Begin
   tInfo.PropsNum := PWord(p)^;
   Inc(p, 2);
   tInfo.Props := Nil;
-  if (AFlags and INFO_PROPS)<>0 then
+  if INFO_PROPS in AFlags then
     if tInfo.PropsNum<>0 then tInfo.Props := p;
   p := p1 + PropsTotal;
 
@@ -1123,12 +1123,12 @@ Begin
   tInfo.MethodsNum := PWord(p)^;
   Inc(p, 2);
   tInfo.Methods := Nil;
-  if (AFlags and INFO_METHODS)<>0 then
+  if INFO_METHODS in AFlags then
     if tInfo.MethodsNum<>0 then tInfo.Methods := p;
   Result:=True;
 end;
 
-Function MKnowledgeBase.GetVarInfo (AVarIdx:Integer; AFlags:Integer; Out vInfo:MVarInfo):Boolean;
+Function MKnowledgeBase.GetVarInfo (AVarIdx:Integer; AFlags:TInfoFlagSet; Out vInfo:MVarInfo):Boolean;
 var
   p:PAnsiChar;
   len:Word;
@@ -1148,7 +1148,7 @@ Begin
   Inc(p, 2);
   vInfo.TypeDef := String(p);
   Inc(p, Len + 1);
-  if (AFlags and INFO_ABSNAME)<>0 then
+  if INFO_ABSNAME in AFlags then
   begin
     //Len := PWord(p)^;
     Inc(p, 2);
@@ -1157,7 +1157,7 @@ Begin
   Result:=True;
 end;
 
-Function MKnowledgeBase.GetResStrInfo (AResStrIdx:Integer; AFlags:Integer; out rsInfo:MResStrInfo):Boolean;
+Function MKnowledgeBase.GetResStrInfo (AResStrIdx:Integer; AFlags:TInfoFlagSet; out rsInfo:MResStrInfo):Boolean;
 var
   p:PAnsiChar;
   len:Word;
@@ -1175,7 +1175,7 @@ Begin
   Inc(p, 2);
   rsInfo.TypeDef := String(p);
   Inc(p, Len + 1);
-  if (AFlags and INFO_DUMP)<>0 then
+  if INFO_DUMP in AFlags then
   begin
     //Len := PWord(p)^;
     //Inc(p, 2);
@@ -1184,7 +1184,7 @@ Begin
   REsult:=true;
 end;
 
-Function MKnowledgeBase.ScanCode (code:PAnsiChar;CodeFlags:PIntegerArray; CodeSz:Integer; pInfo:PMProcInfo):Integer;
+Function MKnowledgeBase.ScanCode (code:PAnsiChar;CodeFlags:PFlagArr; CodeSz:Integer; pInfo:PMProcInfo):Integer;
 var
   DumpSz:Integer;
   Dump,Reloc:PAnsiChar;
@@ -1202,12 +1202,12 @@ Begin
   for n := 0 to DumpSz-1 do
     if Reloc[n] <> #255 then break;
   for i := n to CodeSz - DumpSz + n-1 do
-    if (code[i] = Dump[n]) and ((CodeFlags[i] and cfCode) = 0) and ((CodeFlags[i] and cfData) = 0) then
+    if (code[i] = Dump[n]) and ([cfCode,cfData] * CodeFlags[i] = []) then
     begin
       found := true;
       for k := n to DumpSz-1 do
       begin
-        if ((CodeFlags[i - n + k] and cfCode) <> 0) or ((CodeFlags[i - n + k] and cfData) <> 0) then
+        if CodeFlags[i - n + k] * [cfCode,cfData] <> [] then
         begin
           found := false;
           break;
@@ -1223,7 +1223,7 @@ Begin
         //If "tail" matched (from position i - n), check "head"
         found := true;
         for k := 0 to n-1 do
-          if ((CodeFlags[i - n + k] and cfCode) <> 0) or ((CodeFlags[i - n + k] and cfData) <> 0) then
+          if CodeFlags[i - n + k] * [cfCode,cfData] <> [] then
           begin
             found := false;
             break;
@@ -1472,7 +1472,7 @@ Function MKnowledgeBase.GetProcPrototype (ProcIdx:Integer):AnsiString;
 Var
   pInfo:MProcInfo;
 Begin
-  if Inited and GetProcInfo(ProcIdx, INFO_ARGS, pInfo) then Result:=GetProcPrototype(@pInfo)
+  if Inited and GetProcInfo(ProcIdx, [INFO_ARGS], pInfo) then Result:=GetProcPrototype(@pInfo)
     else Result:='';
 end;
 
@@ -1544,7 +1544,7 @@ end;
 
 Function MKnowledgeBase.GetKBProcInfo (typeName:PAnsiChar; out procInfo:MProcInfo; Var procIdx:Integer):Boolean;
 Begin
-  Result := GetProcInfo(typeName, INFO_DUMP or INFO_ARGS, procInfo, procIdx);
+  Result := GetProcInfo(typeName, [INFO_DUMP, INFO_ARGS], procInfo, procIdx);
 end;
 
 Function MKnowledgeBase.GetKBTypeInfo (typeName:PAnsiChar; out typeInfo:MTypeInfo):Boolean;
@@ -1559,7 +1559,7 @@ Begin
   if idx <> -1 then
   begin
     idx := TypeOffsets[idx].NamId;
-    if GetTypeInfo(idx, INFO_FIELDS or INFO_PROPS or INFO_METHODS {or INFO_DUMP}, typeInfo) then
+    if GetTypeInfo(idx, [INFO_FIELDS, INFO_PROPS, INFO_METHODS {, INFO_DUMP}], typeInfo) then
       Result:=True;
   End;
 end;
@@ -1580,7 +1580,7 @@ Begin
   if idx <> -1 then
   begin
     idx := TypeOffsets[idx].NamId;
-    if GetTypeInfo(idx, INFO_PROPS, tInfo) then
+    if GetTypeInfo(idx, [INFO_PROPS], tInfo) then
     begin
       p := tInfo.Props;
       for n := 0 To tInfo.PropsNum-1 do

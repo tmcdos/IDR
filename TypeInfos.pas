@@ -488,7 +488,7 @@ Begin
             _pos := Adr2pos(propType);
             propType := PInteger(Code + _pos)^;
             Inc(_pos,4);
-            if IsFlagSet(cfImport, Adr2pos(propType)) then
+            if IsFlagSet([cfImport], Adr2pos(propType)) then
             begin
               recN := GetInfoRec(propType);
               typname := recN.Name;

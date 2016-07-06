@@ -80,7 +80,6 @@ Type
     miIdp6: TMenuItem;
     miIdp7: TMenuItem;
     miIdp8: TMenuItem;
-    lbUnitItems: TListBox;
     miEditFunctionC: TMenuItem;
     miMapGenerator: TMenuItem;
     miAutodetectVersion: TMenuItem;
@@ -180,6 +179,7 @@ Type
     vtRTTI: TVirtualStringTree;
     vtName: TVirtualStringTree;
     vtString: TVirtualStringTree;
+    vtProc: TVirtualStringTree;
     procedure miExitClick(Sender : TObject);
     procedure miAutodetectVersionClick(Sender : TObject);
     procedure FormCreate(Sender : TObject);
@@ -188,7 +188,6 @@ Type
     procedure miOpenProjectClick(Sender : TObject);
     procedure lbCodeDblClick(Sender : TObject);
     procedure bEPClick(Sender : TObject);
-    procedure lbUnitItemsDblClick(Sender : TObject);
     procedure miGoToClick(Sender : TObject);
     procedure miExploreAdrClick(Sender : TObject);
     procedure miNameClick(Sender : TObject);
@@ -211,16 +210,13 @@ Type
     procedure FindText(str:AnsiString);
     procedure miSearchItemClick(Sender : TObject);
     procedure ShowCXrefsClick(Sender : TObject);
-    procedure lbUnitItemsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
     procedure lbFormsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbCodeMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure tvClassesFullMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
-    procedure lbUnitItemsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure lbXrefsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure rgViewerModeClick(Sender : TObject);
     procedure tvClassesShortMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
     procedure miClassTreeBuilderClick(Sender : TObject);
-    procedure lbUnitItemsClick(Sender : TObject);
     procedure tvClassesShortClick(Sender : TObject);
     procedure tvClassesFullClick(Sender : TObject);
     procedure miExe1Click(Sender : TObject);
@@ -259,7 +255,6 @@ Type
     procedure lbXrefsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure lbFormsKeyDown(Sender : TObject; Var Key:Word; Shift:TShiftState);
     procedure tvClassesShortKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
-    procedure lbUnitItemsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
     procedure miListerClick(Sender : TObject);
     procedure bCodeNextClick(Sender : TObject);
     procedure miEditFunctionIClick(Sender : TObject);
@@ -320,11 +315,17 @@ Type
     procedure miDelphiXE4Click(Sender : TObject);
     Procedure miProcessDumperClick(Sender:TObject);
     procedure miDelphiXE2Click(Sender: TObject);
+    procedure vtProcClick(Sender: TObject);
     procedure vtNameClick(Sender: TObject);
     procedure vtNameCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
     procedure vtNameFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
     procedure vtNameFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure vtNameGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+    procedure vtProcCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+    procedure vtProcDblClick(Sender: TObject);
+    procedure vtProcFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure vtProcGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+    procedure vtProcPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
     procedure vtRTTIClick(Sender: TObject);
     procedure vtRTTICompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
     procedure vtRTTIDblClick(Sender: TObject);
@@ -407,7 +408,7 @@ Type
     WrkDir:AnsiString;
     SourceFile:AnsiString;
     SysProcsNum:Integer;    //Number of elements in SysProcs array
-    WhereSearch:Integer;
+    WhereSearch:TSearchPlace;
     //UNITS
     UnitsSearchFrom:PVirtualNode;
     UnitsSearchList:TStringList;
@@ -417,7 +418,7 @@ Type
     RTTIsSearchList:TStringList;
     RTTIsSearchText:AnsiString;
     //UNITITEMS
-    UnitItemsSearchFrom:Integer;
+    UnitItemsSearchFrom:PVirtualNode;
     UnitItemsSearchList:TStringList;
     UnitItemsSearchText:AnsiString;
     //FORMS
@@ -453,7 +454,7 @@ Type
     Function GetImportRec(adr:Integer):PImportNameRec;
     procedure StrapProc(_pos, ProcIdx:Integer; ProcInfo:PMProcInfo; useFixups:Boolean; procSize:Integer);
     Procedure ShowUnits(showUnk:Boolean);
-    Procedure ShowUnitItems(recU:PUnitRec; topIdx, itemIdx:Integer);
+    procedure ShowUnitItems(recU:PUnitRec; topIdx, itemIdx:Integer);
     Procedure ShowRTTIs;
     Procedure FillVmtList;
     Procedure ShowClassViewer(VmtAdr:Integer);
@@ -511,7 +512,7 @@ Type
     Procedure EditFunction(Adr:Integer);
     Function MakeComment(code:PPICODE):AnsiString;
     Procedure InitAliases(find:Boolean);
-    Procedure CopyAddress(line:AnsiString; ofs, bytes:Integer);
+    procedure CopyAddress(adr:Integer);
     Procedure GoToXRef(Sender:TObject);
     //Procedure ChangeDelphiHighlightTheme(Sender:TObject);
 
@@ -561,7 +562,7 @@ Var
   BSSInfos:TStringList;  //Data from BSS
   SegmentList:TList;   //Information about Image Segments
   TotalSize:Integer;      //Size of sections CODE + DATA
-  FlagList:PIntegerArray;     //flags for used data
+  FlagList:PFlagArr;     //flags for used data
   OwnTypeList:TList;
   SelectedAsmItem:AnsiString;    //Selected item in Asm Listing
   CrtSection:TCriticalSection;
@@ -803,14 +804,14 @@ Begin
   FormsSearchFrom := -1;
   FormsSearchText := '';
 
-  UnitItemsSearchFrom := -1;
+  UnitItemsSearchFrom := Nil;
   UnitItemsSearchText := '';
 
   TreeSearchFrom := Nil;
   BranchSearchFrom := Nil;
   VMTsSearchText := '';
 
-  StringsSearchFrom := 0;
+  StringsSearchFrom := Nil;
   StringsSearchText := '';
 
   NamesSearchFrom := Nil;
@@ -885,8 +886,7 @@ Begin
   lbSXrefs.Visible := true;
 
   //Init Unit Items
-  lbUnitItems.Clear;
-  lbUnitItems.ScrollWidth := 0;
+  vtProc.Clear;
   miEditFunctionI.Enabled := false;
   miFuzzyScanKB.Enabled := false;
   miSearchItem.Enabled := false;
@@ -946,9 +946,10 @@ Begin
       begin
         recN := InfoRec.Create(_pos, ikRefine);
         recN.Name:=recE.name;
-        recN.procInfo.flags := 3; // stdcall
+        recN.procInfo.call_kind := 3; // stdcall
+        recN.procInfo.flags:=[];
         InfoList[_pos] := recN; // probably needless, since InfoRec.Create already did it
-        SetFlag(cfProcStart or cfExport, _pos);
+        SetFlag([cfProcStart, cfExport], _pos);
       end;
     End;
   end;
@@ -1010,9 +1011,9 @@ Begin
               break;
             End;
           end;
-          SetFlag(cfImport, i);
+          SetFlag([cfImport], i);
         End;
-        SetFlags(cfCode, i, 6);
+        SetFlags([cfCode], i, 6);
       End;
     End;
   End;
@@ -1046,7 +1047,7 @@ Begin
     End;
   if not match then Exit;
 
-  SetFlags(cfData , _pos - 4, ConstInfo.DumpSz + 4);
+  SetFlags([cfData], _pos - 4, ConstInfo.DumpSz + 4);
 
   //VMTOffset := VmtSelfPtr + 4;
   //'Strap' fixups
@@ -1079,7 +1080,7 @@ Begin
         Begin
           Idx := KBase.ProcOffsets[Idx].NamId;
           if not KBase.IsUsedProc(Idx) then
-            if KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo) then
+            if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) then
               StrapProc(Adr2Pos(Adr), Idx, @pInfo, true, pInfo.DumpSz);
         End;
       End;
@@ -1135,7 +1136,7 @@ Begin
         Begin
           Idx := KBase.ProcOffsets[Idx].NamId;
           if not KBase.IsUsedProc(Idx) then
-            if (KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo)) then
+            if (KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo)) then
               StrapProc(Adr2Pos(Adr), Idx, @pInfo, true, pInfo.DumpSz);
         End
         //Code not matched, but prototype may be used
@@ -1153,7 +1154,7 @@ Begin
               if Idx <> -1 then
               Begin
                 Idx := KBase.ProcOffsets[Idx].NamId;
-                if KBase.GetProcInfo(Idx, INFO_ARGS, pInfo) then
+                if KBase.GetProcInfo(Idx, [INFO_ARGS], pInfo) then
                 Begin
                   case pInfo.MethodKind of
                     'C': recN.kind := ikConstructor;
@@ -1168,7 +1169,7 @@ Begin
                   if Assigned(pInfo.Args) then
                   Begin
                   	callKind := pInfo.CallKind;
-                    recN.procInfo.flags := recN.procInfo.flags or callKind;
+                    recN.procInfo.call_kind := callKind;
                     pp := pInfo.Args;
                     ss := 8;
                     for k := 0 to pInfo.ArgsNum-1 do
@@ -1179,7 +1180,7 @@ Begin
                   End;
                   //Set kbIdx for fast search
                   recN.kbIdx := Idx;
-                  recN.procInfo.flags := recN.procInfo.flags or PF_KBPROTO;
+                  Include(recN.procInfo.flags, PF_KBPROTO);
                 End;
               End;
               Inc(m);
@@ -1193,7 +1194,7 @@ Begin
     else if IsValidCodeAdr(Adr) and not Assigned(InfoList[Adr2Pos(Adr)]) then
     Begin
       //Название типа?
-      if not IsFlagSet(cfRTTI, Adr2Pos(Adr)) then
+      if not IsFlagSet([cfRTTI], Adr2Pos(Adr)) then
       Begin
         //Процедура?
         Idx := KBase.GetProcIdx(use, fixup.Name, Code + Adr2Pos(Adr));
@@ -1201,7 +1202,7 @@ Begin
         Begin
           Idx := KBase.ProcOffsets[Idx].NamId;
           if not KBase.IsUsedProc(Idx) then
-            if (KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo)) then
+            if (KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo)) then
               StrapProc(Adr2Pos(Adr), Idx, @pInfo, true, pInfo.DumpSz);
         End
         //Code not matched, but prototype may be used
@@ -1219,7 +1220,7 @@ Begin
               if Idx <> -1 then
               Begin
                 Idx := KBase.ProcOffsets[Idx].NamId;
-                if KBase.GetProcInfo(Idx, INFO_ARGS, pInfo) then
+                if KBase.GetProcInfo(Idx, [INFO_ARGS], pInfo) then
                 Begin
                   case pInfo.MethodKind of
                     'C': recN.kind := ikConstructor;
@@ -1234,8 +1235,8 @@ Begin
                   if Assigned(pInfo.Args) then
                   Begin
                   	callKind := pInfo.CallKind;
-                    recN.procInfo.flags := recN.procInfo.flags or callKind;
-                    pp := pInfo.Args; 
+                    recN.procInfo.call_kind := callKind;
+                    pp := pInfo.Args;
                     ss := 8;
                     for k := 0 to pInfo.ArgsNum-1 do
                     Begin
@@ -1245,7 +1246,7 @@ Begin
                   End;
                   //Set kbIdx for fast search
                   recN.kbIdx := Idx;
-                  recN.procInfo.flags := recN.procInfo.flags or PF_KBPROTO;
+                  Include(recN.procInfo.flags, PF_KBPROTO);
                 End;
               End;
               Inc(m);
@@ -1321,7 +1322,7 @@ Begin
         if Assigned(recN) and recN.HasName then
         Begin
           //If not import call just compare names
-          if (ap >= 0) and not IsFlagSet(cfImport, ap) then
+          if (ap >= 0) and not IsFlagSet([cfImport], ap) then
           Begin
             if not recN.SameName(fName) then Exit;
           End
@@ -1345,7 +1346,7 @@ Begin
         if Assigned(recN) and recN.HasName then
         Begin
           //If not import call just compare names
-          if (ap >= 0) and not IsFlagSet(cfImport, ap) then
+          if (ap >= 0) and not IsFlagSet([cfImport], ap) then
           Begin
             if not recN.SameName(fName) then Exit;
           End
@@ -1382,7 +1383,8 @@ end;
 Procedure TFMain.StrapProc (_pos, ProcIdx:Integer; ProcInfo:PMProcInfo; useFixups:Boolean; procSize:Integer);
 var
   ndx,locflags,k,procStart,procEnd,aa,ss,instrlen:Integer;
-  ps,n,idx,size,Adr, Adr1, Ofs, Val,Sections,bytes:Integer;
+  ps,n,idx,size,Adr, Adr1, Ofs, Val,bytes:Integer;
+  Sections:TKBset;
   use:TWordDynArray;
   fName,moduleName,cname:AnsiString;
   fixup:FixupInfo;
@@ -1422,12 +1424,12 @@ Begin
     End;
   End;
   if ProcInfo.DumpType = 'D' then
-  	SetFlags(cfData, _pos, procSize)
+  	SetFlags([cfData], _pos, procSize)
   else
   Begin
-    SetFlags(cfCode, _pos, procSize);
+    SetFlags([cfCode], _pos, procSize);
     //Mark proc begin
-    SetFlag(cfProcStart, _pos);
+    SetFlag([cfProcStart], _pos);
     //SetFlag(cfProcEnd, _pos + procSize - 1);
 
     recN := GetInfoRec(Pos2Adr(_pos));
@@ -1450,7 +1452,7 @@ Begin
     if not recN.MakeArgsManually then
     Begin
       callKind := ProcInfo.CallKind;
-      recN.procInfo.flags := recN.procInfo.flags or callKind;
+      recN.procInfo.call_kind := callKind;
       aa := 0;
       ss := 8;
       p := ProcInfo.Args;
@@ -1513,7 +1515,7 @@ Begin
         End;
       End;
     End;
-    recN.procInfo.flags := recN.procInfo.flags or PF_KBPROTO;
+    Include(recN.procInfo.flags, PF_KBPROTO);
   End;
   //Fix used procedure
   KBase.SetUsedProc(ProcIdx);
@@ -1566,7 +1568,7 @@ Begin
         Begin
           Adr := Integer(CodeBase) + _pos + fixup.Ofs + Val + 4;
           if (Adr >= ProcStart) and (Adr < ProcEnd) then
-            SetFlag(cfLoc or cfEmbedded, Adr2Pos(Adr));
+            SetFlag([cfLoc, cfEmbedded], Adr2Pos(Adr));
         End;
         continue;
       End;
@@ -1605,7 +1607,7 @@ Begin
             if Idx <> -1 then
             Begin
               Idx := KBase.VarOffsets[Idx].NamId;
-              if KBase.GetVarInfo(Idx, 0, vInfo) then
+              if KBase.GetVarInfo(Idx, [], vInfo) then
               Begin
                 if vInfo._Type = Ord('T') then recN.kind := ikThreadVar;
                 recN.kbIdx := Idx;
@@ -1632,120 +1634,118 @@ Begin
         recN := GetInfoRec(Adr);
         if not Assigned(recN) then
         Begin
-          case Sections of
-            KB_CONST_SECTION:
-              begin
-                Idx := KBase.GetConstIdx(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.ConstOffsets[Idx].NamId;
-                  //Если имя начинается на _DV_, значит это VMT
-                  if AnsiStrLComp(fixup.Name, '_DV_', 4)=0 then
-                  Begin
-                    if KBase.GetConstInfo(Idx, INFO_DUMP, cInfo) then
-                      StrapVMT(Adr2Pos(Adr) + 4, Idx, @cInfo);
-                  End;
-                end;
+          if KB_CONST_SECTION in Sections then
+          begin
+            Idx := KBase.GetConstIdx(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.ConstOffsets[Idx].NamId;
+              //Если имя начинается на _DV_, значит это VMT
+              if AnsiStrLComp(fixup.Name, '_DV_', 4)=0 then
+              Begin
+                if KBase.GetConstInfo(Idx, [INFO_DUMP], cInfo) then
+                  StrapVMT(Adr2Pos(Adr) + 4, Idx, @cInfo);
               End;
-            KB_TYPE_SECTION:
-              begin
-                Idx := KBase.GetTypeIdxByModuleIds(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.TypeOffsets[Idx].NamId;
-                  if KBase.GetTypeInfo(Idx, 0, tInfo) then
-                  Begin
-                    recN := InfoRec.Create(Adr2Pos(Adr), ikData);
-                    recN.kbIdx := Idx;
-                    recN.Name:=tInfo.TypeName;
-                  End;
-                end;
+            end;
+          End
+          else if KB_TYPE_SECTION in Sections then
+          begin
+            Idx := KBase.GetTypeIdxByModuleIds(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.TypeOffsets[Idx].NamId;
+              if KBase.GetTypeInfo(Idx, [], tInfo) then
+              Begin
+                recN := InfoRec.Create(Adr2Pos(Adr), ikData);
+                recN.kbIdx := Idx;
+                recN.Name:=tInfo.TypeName;
               End;
-            KB_VAR_SECTION:
-              begin
-                Idx := KBase.GetVarIdx(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.VarOffsets[Idx].NamId;
-                  if KBase.GetVarInfo(Idx, 0, vInfo) then
-                  Begin
-                    recN := InfoRec.Create(Adr2Pos(Adr), ikData);
-                    recN.kbIdx := Idx;
-                    recN.Name:=vInfo.VarName;
-                    recN._type := TrimTypeName(vInfo.TypeDef);
-                  End;
-                end;
+            end;
+          End
+          else if KB_VAR_SECTION in Sections then
+          begin
+            Idx := KBase.GetVarIdx(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.VarOffsets[Idx].NamId;
+              if KBase.GetVarInfo(Idx, [], vInfo) then
+              Begin
+                recN := InfoRec.Create(Adr2Pos(Adr), ikData);
+                recN.kbIdx := Idx;
+                recN.Name:=vInfo.VarName;
+                recN._type := TrimTypeName(vInfo.TypeDef);
               End;
-            KB_RESSTR_SECTION:
-              begin
-                Idx := KBase.GetResStrIdx(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.ResStrOffsets[Idx].NamId;
-                  if KBase.GetResStrInfo(Idx, 0, rsInfo) then
-                  Begin
-                    recN := InfoRec.Create(Adr2Pos(Adr), ikData);
-                    recN.kbIdx := Idx;
-                    recN.Name:=rsInfo.ResStrName;
-                    recN._type := rsInfo.TypeDef;
-                  End;
-                end;
+            end;
+          End
+          else if KB_RESSTR_SECTION in Sections then
+          begin
+            Idx := KBase.GetResStrIdx(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.ResStrOffsets[Idx].NamId;
+              if KBase.GetResStrInfo(Idx, [], rsInfo) then
+              Begin
+                recN := InfoRec.Create(Adr2Pos(Adr), ikData);
+                recN.kbIdx := Idx;
+                recN.Name:=rsInfo.ResStrName;
+                recN._type := rsInfo.TypeDef;
               End;
-            KB_PROC_SECTION:
-              begin
-                Idx := KBase.GetProcIdx(use, fixup.Name, Code + Adr2Pos(Adr));
-                if Idx <> -1 then
+            end;
+          End
+          else if KB_PROC_SECTION in Sections then
+          begin
+            Idx := KBase.GetProcIdx(use, fixup.Name, Code + Adr2Pos(Adr));
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.ProcOffsets[Idx].NamId;
+              if not KBase.IsUsedProc(Idx) then
+                if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) then
+                  StrapProc(Adr2Pos(Adr), Idx, @pInfo, true, pInfo.DumpSz);
+            end
+            else
+            Begin
+              Idx := KBase.GetProcIdx(use, fixup.Name, Nil);
+              if Idx <> -1 then
+              Begin
+                Idx := KBase.ProcOffsets[Idx].NamId;
+                if not KBase.IsUsedProc(Idx) then
                 Begin
-                  Idx := KBase.ProcOffsets[Idx].NamId;
-                  if not KBase.IsUsedProc(Idx) then
-                    if KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo) then
-                      StrapProc(Adr2Pos(Adr), Idx, @pInfo, true, pInfo.DumpSz);
-                end
-                else
-                Begin
-                  Idx := KBase.GetProcIdx(use, fixup.Name, Nil);
-                  if Idx <> -1 then
+                  if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) then
                   Begin
-                    Idx := KBase.ProcOffsets[Idx].NamId;
-                    if not KBase.IsUsedProc(Idx) then
+                    if not SameText(fName, '@Halt') then
+                      StrapProc(Adr2Pos(Adr), Idx, @pInfo, false, EstimateProcSize(Adr))
+                    else
                     Begin
-                      if KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo) then
+                      bytes := EstimateProcSize(Adr);
+                      while bytes > 0 do
                       Begin
-                        if not SameText(fName, '@Halt') then
-                          StrapProc(Adr2Pos(Adr), Idx, @pInfo, false, EstimateProcSize(Adr))
-                        else
+                        instrlen := frmDisasm.Disassemble(Code + Adr2Pos(Adr), Adr, @disInfo, Nil);
+                        if disInfo.Branch and not disInfo.Conditional then
                         Begin
-                          bytes := EstimateProcSize(Adr);
-                          while bytes > 0 do
+                          Adr := disInfo.Immediate;
+                          Idx := KBase.GetProcIdx(use, '@Halt0', Nil);
+                          if Idx <> -1 then
                           Begin
-                            instrlen := frmDisasm.Disassemble(Code + Adr2Pos(Adr), Adr, @disInfo, Nil);
-                            if disInfo.Branch and not disInfo.Conditional then
-                            Begin
-                              Adr := disInfo.Immediate;
-                              Idx := KBase.GetProcIdx(use, '@Halt0', Nil);
-                              if Idx <> -1 then
-                              Begin
-                                Idx := KBase.ProcOffsets[Idx].NamId;
-                                if not KBase.IsUsedProc(Idx) then
-                                  if KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo) then
-                                    StrapProc(Adr2Pos(Adr), Idx, @pInfo, false, EstimateProcSize(Adr));
-                              End;
-                              break;
-                            End;
-                            Dec(bytes, instrlen);
+                            Idx := KBase.ProcOffsets[Idx].NamId;
+                            if not KBase.IsUsedProc(Idx) then
+                              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) then
+                                StrapProc(Adr2Pos(Adr), Idx, @pInfo, false, EstimateProcSize(Adr));
                           End;
+                          break;
                         End;
+                        Dec(bytes, instrlen);
                       End;
                     End;
                   End;
                 End;
               End;
+            End;
           End;
-          continue;
         End;
-      End;
+        continue;
+      End
       //Адрес в секции DATA
-      if IsValidImageAdr(Adr) then
+      Else if IsValidImageAdr(Adr) then
       Begin
         ps := Adr2Pos(Adr);
         if ps >= 0 then
@@ -1753,143 +1753,139 @@ Begin
           recN := GetInfoRec(Adr);
           if not Assigned(recN) then
           Begin
-            case Sections of
-              KB_CONST_SECTION:
-                begin
-                  Idx := KBase.GetConstIdx(use, fixup.Name);
-                  if Idx <> -1 then
+            if KB_CONST_SECTION in Sections then
+            begin
+              Idx := KBase.GetConstIdx(use, fixup.Name);
+              if Idx <> -1 then
+              Begin
+                Idx := KBase.ConstOffsets[Idx].NamId;
+                if KBase.GetConstInfo(Idx, [INFO_DUMP], cInfo) then
+                Begin
+                  cname := '';
+                  if Pos('_DV_',cInfo.ConstName) = 1 then
                   Begin
-                    Idx := KBase.ConstOffsets[Idx].NamId;
-                    if KBase.GetConstInfo(Idx, INFO_DUMP, cInfo) then
+                    c := cInfo.ConstName[5];
+                    if c > '9' then
                     Begin
-                      cname := '';
-                      if Pos('_DV_',cInfo.ConstName) = 1 then
-                      Begin
-                        c := cInfo.ConstName[5];
-                        if c > '9' then
-                        Begin
-                          if cInfo.ConstName[Len] = '_' then
-                            cname := Copy(cInfo.ConstName,5, Len - 5)
-                          else
-                            cname := Copy(cInfo.ConstName,5, Len - 4);
-                        End;
-                      End
-                      else cname := cInfo.ConstName;
-                      recN := InfoRec.Create(ps, ikData);
-                      recN.kbIdx := Idx;
-                      recN.Name:=cname;
-                      recN._type := cInfo.TypeDef;
+                      if cInfo.ConstName[Len] = '_' then
+                        cname := Copy(cInfo.ConstName,5, Len - 5)
+                      else
+                        cname := Copy(cInfo.ConstName,5, Len - 4);
                     End;
-                  End;
-                end;
-              KB_TYPE_SECTION:
-                begin
-                  Idx := KBase.GetTypeIdxByModuleIds(use, fixup.Name);
-                  if Idx <> -1 then
-                  Begin
-                    Idx := KBase.TypeOffsets[Idx].NamId;
-                    if KBase.GetTypeInfo(Idx, 0, tInfo) then
-                    Begin
-                      recN := InfoRec.Create(ps, ikData);
-                      recN.kbIdx := Idx;
-                      recN.Name:=tInfo.TypeName;
-                    End;
-                  End;
-                end;
-              KB_VAR_SECTION:
-                begin
-                  Idx := KBase.GetVarIdx(use, fixup.Name);
-                  if Idx <> -1 then
-                  Begin
-                    Idx := KBase.VarOffsets[Idx].NamId;
-                    if KBase.GetVarInfo(Idx, 0, vInfo) then
-                    Begin
-                      recN := InfoRec.Create(ps, ikData);
-                      recN.kbIdx := Idx;
-                      recN.Name:=vInfo.VarName;
-                      recN._type := TrimTypeName(vInfo.TypeDef);
-                    End;
-                  End;
-                end;
-              KB_RESSTR_SECTION:
-                begin
-                  Idx := KBase.GetResStrIdx(use, fixup.Name);
-                  if Idx <> -1 then
-                  Begin
-                    Idx := KBase.ResStrOffsets[Idx].NamId;
-                    if KBase.GetResStrInfo(Idx, 0, rsInfo) then
-                    Begin
-                      recN := InfoRec.Create(ps, ikData);
-                      recN.kbIdx := Idx;
-                      recN.Name:=rsInfo.ResStrName;
-                      recN._type := rsInfo.TypeDef;
-                    End;
-                  End;
-                end;
-            End;
+                  End
+                  else cname := cInfo.ConstName;
+                  recN := InfoRec.Create(ps, ikData);
+                  recN.kbIdx := Idx;
+                  recN.Name:=cname;
+                  recN._type := cInfo.TypeDef;
+                End;
+              End;
+            end
+            else if KB_TYPE_SECTION In Sections then
+            begin
+              Idx := KBase.GetTypeIdxByModuleIds(use, fixup.Name);
+              if Idx <> -1 then
+              Begin
+                Idx := KBase.TypeOffsets[Idx].NamId;
+                if KBase.GetTypeInfo(Idx, [], tInfo) then
+                Begin
+                  recN := InfoRec.Create(ps, ikData);
+                  recN.kbIdx := Idx;
+                  recN.Name:=tInfo.TypeName;
+                End;
+              End;
+            end
+            else if KB_VAR_SECTION in Sections then
+            begin
+              Idx := KBase.GetVarIdx(use, fixup.Name);
+              if Idx <> -1 then
+              Begin
+                Idx := KBase.VarOffsets[Idx].NamId;
+                if KBase.GetVarInfo(Idx, [], vInfo) then
+                Begin
+                  recN := InfoRec.Create(ps, ikData);
+                  recN.kbIdx := Idx;
+                  recN.Name:=vInfo.VarName;
+                  recN._type := TrimTypeName(vInfo.TypeDef);
+                End;
+              End;
+            end
+            else if KB_RESSTR_SECTION in Sections then
+            begin
+              Idx := KBase.GetResStrIdx(use, fixup.Name);
+              if Idx <> -1 then
+              Begin
+                Idx := KBase.ResStrOffsets[Idx].NamId;
+                if KBase.GetResStrInfo(Idx, [], rsInfo) then
+                Begin
+                  recN := InfoRec.Create(ps, ikData);
+                  recN.kbIdx := Idx;
+                  recN.Name:=rsInfo.ResStrName;
+                  recN._type := rsInfo.TypeDef;
+                End;
+              End;
+            end;
           End;
         End
         else
         Begin
-          case Sections of
-            KB_CONST_SECTION:
-              begin
-                Idx := KBase.GetConstIdx(use, fixup.Name);
-                if Idx <> -1 then
+          if KB_CONST_SECTION in Sections then
+          begin
+            Idx := KBase.GetConstIdx(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.ConstOffsets[Idx].NamId;
+              if KBase.GetConstInfo(Idx, [INFO_DUMP], cInfo) then
+              Begin
+                cname := '';
+                if Pos('_DV_',cInfo.ConstName) = 1 then
                 Begin
-                  Idx := KBase.ConstOffsets[Idx].NamId;
-                  if KBase.GetConstInfo(Idx, INFO_DUMP, cInfo) then
+                  c := cInfo.ConstName[5];
+                  if c > '9' then
                   Begin
-                    cname := '';
-                    if Pos('_DV_',cInfo.ConstName) = 1 then
-                    Begin
-                      c := cInfo.ConstName[5];
-                      if c > '9' then
-                      Begin
-                        if cInfo.ConstName[Len] = '_' then
-                          cname := Copy(cInfo.ConstName,5, Len - 5)
-                        else
-                          cname := Copy(cInfo.ConstName,5, Len - 4);
-                      End;
-                    End
-                    else cname := cInfo.ConstName;
-                    AddToBSSInfos(Adr, cname, cInfo.TypeDef);
+                    if cInfo.ConstName[Len] = '_' then
+                      cname := Copy(cInfo.ConstName,5, Len - 5)
+                    else
+                      cname := Copy(cInfo.ConstName,5, Len - 4);
                   End;
-                End;
-              end;
-            KB_TYPE_SECTION:
+                End
+                else cname := cInfo.ConstName;
+                AddToBSSInfos(Adr, cname, cInfo.TypeDef);
+              End;
+            End;
+          end
+          else if KB_TYPE_SECTION in Sections then
+          begin
+            Idx := KBase.GetTypeIdxByModuleIds(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.TypeOffsets[Idx].NamId;
+              if KBase.GetTypeInfo(Idx, [], tInfo) then
               begin
-                Idx := KBase.GetTypeIdxByModuleIds(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.TypeOffsets[Idx].NamId;
-                  if KBase.GetTypeInfo(Idx, 0, tInfo) then
-                  begin
-                    AddToBSSInfos(Adr, tInfo.TypeName, '');
-                  end;
-                End;
+                AddToBSSInfos(Adr, tInfo.TypeName, '');
               end;
-            KB_VAR_SECTION:
-              begin
-                Idx := KBase.GetVarIdx(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.VarOffsets[Idx].NamId;
-                  if KBase.GetVarInfo(Idx, 0, vInfo) then
-                    AddToBSSInfos(Adr, vInfo.VarName, TrimTypeName(vInfo.TypeDef));
-                End;
-              end;
-            KB_RESSTR_SECTION:
-              begin
-                Idx := KBase.GetResStrIdx(use, fixup.Name);
-                if Idx <> -1 then
-                Begin
-                  Idx := KBase.ResStrOffsets[Idx].NamId;
-                  if KBase.GetResStrInfo(Idx, 0, rsInfo) then
-                    AddToBSSInfos(Adr, rsInfo.ResStrName, rsInfo.TypeDef);
-                End;
-              end;
-          End;
+            End;
+          end
+          else if KB_VAR_SECTION in Sections then
+          begin
+            Idx := KBase.GetVarIdx(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.VarOffsets[Idx].NamId;
+              if KBase.GetVarInfo(Idx, [], vInfo) then
+                AddToBSSInfos(Adr, vInfo.VarName, TrimTypeName(vInfo.TypeDef));
+            End;
+          end
+          else if KB_RESSTR_SECTION in Sections then
+          begin
+            Idx := KBase.GetResStrIdx(use, fixup.Name);
+            if Idx <> -1 then
+            Begin
+              Idx := KBase.ResStrOffsets[Idx].NamId;
+              if KBase.GetResStrInfo(Idx, [], rsInfo) then
+                AddToBSSInfos(Adr, rsInfo.ResStrName, rsInfo.TypeDef);
+            End;
+          end;
         End;
       End;
     End;
@@ -1924,7 +1920,7 @@ Begin
           idx := SysKB.GetProcIdx(moduleID, 'StringCopy');
           if idx <> -1 then
           Begin
-            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
             _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
             if _pos <> -1 then
             Begin
@@ -1952,7 +1948,7 @@ Begin
           idx := SysKB.GetProcIdx(moduleID, '@FinalizeResStrings');
           if idx <> -1 then
           Begin
-            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
             _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
             if _pos <> -1 then
             Begin
@@ -1980,7 +1976,7 @@ Begin
           idx := SysKB.GetProcIdx(moduleID, '@InitializeControlWord');
           if idx <> -1 then
           Begin
-            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
             _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
             if _pos <> -1 then
             Begin
@@ -2008,7 +2004,7 @@ Begin
           idx := SysKB.GetProcIdx(moduleID, 'ErrorAt');
           if idx <> -1 then
           Begin
-            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
             _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
             if _pos <> -1 then
             Begin
@@ -2134,7 +2130,7 @@ Begin
           idx := SysKB.GetProcIdx(moduleID, 'System');
           if idx <> -1 then
           Begin
-            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+            SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
             _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
             if _pos <> -1 then
             Begin
@@ -2143,7 +2139,7 @@ Begin
                 idx := SysKB.GetProcIdx(moduleID, '@HandleAnyException');
                 if idx <> -1 then
                 Begin
-                  SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+                  SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
                   _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
                   if _pos <> -1 then
                   Begin
@@ -2158,7 +2154,7 @@ Begin
                 idx := SysKB.GetProcIdx(moduleID, 'GetObjectClass');
                 if idx <> -1 then
                 Begin
-                  SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+                  SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
                   _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
                   if _pos <> -1 then
                   Begin
@@ -2174,7 +2170,7 @@ Begin
                 idx := SysKB.GetProcIdx(moduleID, '@Halt0');
                 if idx <> -1 then
                 Begin
-                  SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, INFO_DUMP, pInfo);
+                  SysKB.GetProcInfo(SysKB.ProcOffsets[idx].NamId, [INFO_DUMP], pInfo);
                   _pos := SysKB.ScanCode(Code, FlagList, CodeSize, @pInfo);
                   if _pos <> -1 then
                   Begin
@@ -2458,7 +2454,7 @@ Begin
       Idx := KBase.ProcOffsets[Idx].NamId;
       if not KBase.IsUsedProc(Idx) then
       Begin
-        KBase.GetProcInfo(Idx, INFO_DUMP, pInfo);
+        KBase.GetProcInfo(Idx, [INFO_DUMP], pInfo);
         if SysProcs[n].impAdr<>0 then
           StrapProc(Adr2Pos(SysProcs[n].impAdr), Idx, @pInfo, false, 6)
         else
@@ -2484,7 +2480,7 @@ Begin
       Idx := KBase.ProcOffsets[Idx].NamId;
       if not KBase.IsUsedProc(Idx) then
       Begin
-        KBase.GetProcInfo(Idx, INFO_DUMP, pInfo);
+        KBase.GetProcInfo(Idx, [INFO_DUMP], pInfo);
         if SysInitProcs[n].impAdr<>0 then
           StrapProc(Adr2Pos(SysInitProcs[n].impAdr), Idx, @pInfo, false, 6);
         _pos := KBase.ScanCode(Code, FlagList, CodeSize, @pInfo);
@@ -2719,10 +2715,10 @@ Begin
   while true do
   begin
     if curAdr >= toAdr then break;
-    if IsFlagSet(cfInstruction, curPos) then break;
+    if IsFlagSet([cfInstruction], curPos) then break;
     instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @DisInfo, Nil);
     if instrLen=0 then break;
-    SetFlag(cfInstruction, curPos);
+    SetFlag([cfInstruction], curPos);
   end;
   Result:=curAdr;
 end;
@@ -2743,11 +2739,11 @@ Begin
   lastAdr:=0;
   lastMovAdr:=0;
   outRows := MAX_DISASSEMBLE;
-  if IsFlagSet(cfImport, fromPos) then outRows := 1;
+  if IsFlagSet([cfImport], fromPos) then outRows := 1;
   for row := 0 to outRows-1 do
   Begin
     //Exception table
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -2768,9 +2764,9 @@ Begin
       continue;
     End;
     //Code
-    SetFlags(cfCode, curPos, instrLen);
+    SetFlags([cfCode], curPos, instrLen);
     //Instruction begin
-    SetFlag(cfInstruction, curPos);
+    SetFlag([cfInstruction], curPos);
     op := frmDisasm.GetOp(DisInfo.Mnem);
     if curAdr >= lastAdr then lastAdr := 0;
     if op = OP_JMP then
@@ -2843,12 +2839,12 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, _Pos) then break;
+        if IsFlagSet([cfLoc], _Pos) then break;
         Adr1 := PInteger(Code + _Pos)^;
         //Validate Adr1
         if not IsValidImageAdr(Adr1) or (Adr1 < fromAdr) then break;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         Inc(_Pos, 4); 
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -2916,7 +2912,7 @@ Begin
                   Inc(_Pos, instrLen1); 
                   Inc(Adr, instrLen1);
                   //Set cfETable to output data correctly
-                  SetFlag(cfETable, _Pos);
+                  SetFlag([cfETable], _Pos);
                   //dd num
                   num := PInteger(Code + _Pos)^; 
                   Inc(_Pos, 4);
@@ -2944,7 +2940,7 @@ Begin
       Adr := DisInfo.Immediate;
       if IsValidImageAdr(Adr) then
       Begin
-        SetFlag(cfLoc, Adr2Pos(Adr));
+        SetFlag([cfLoc], Adr2Pos(Adr));
         if (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
       End;
       Inc(curPos, instrLen); 
@@ -2956,7 +2952,7 @@ Begin
       Adr := DisInfo.Immediate;
       if IsValidImageAdr(Adr) then
       Begin
-        SetFlag(cfLoc, Adr2Pos(Adr));
+        SetFlag([cfLoc], Adr2Pos(Adr));
         recN := GetInfoRec(Adr);
         if not Assigned(recN) and (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
       End;
@@ -2972,7 +2968,7 @@ Begin
       Begin
         if _Pos >= 0 then
         Begin
-          SetFlag(cfLoc, _Pos);
+          SetFlag([cfLoc], _Pos);
           recN := GetInfoRec(Adr);
           if Assigned(recN) and recN.SameName('@Halt0') then
             if (fromAdr = EP) and (lastAdr=0) then break;
@@ -3067,7 +3063,7 @@ Begin
     end;
 
     _pos := Adr2Pos(iniAdres);
-    SetFlag(cfProcStart, _pos);
+    SetFlag([cfProcStart], _pos);
     recN := GetInfoRec(iniAdres);
     if not Assigned(recN) then recN := InfoRec.Create(_pos, ikProc);
     recN.procInfo.procSize := iniProcSize;
@@ -3418,10 +3414,10 @@ Begin
   if DelphiVersion >= 2010 then
   Begin
     Dec(initTable, 24);
-    SetFlags(cfData, Adr2Pos(initTable), 8*numUnits + 24);
+    SetFlags([cfData], Adr2Pos(initTable), 8*numUnits + 24);
     typesNum := PInteger(Image + Adr2Pos(initTable + 8))^;
     typesTable := PInteger(Image + Adr2Pos(initTable + 12))^;
-    SetFlags(cfData, Adr2Pos(typesTable), 4*typesNum);
+    SetFlags([cfData], Adr2Pos(typesTable), 4*typesNum);
     numUnit2 := PInteger(Image + Adr2Pos(initTable + 16))^;
     unitsTable := PInteger(Image + Adr2Pos(initTable + 20))^;
     _pos := Adr2Pos(unitsTable);
@@ -3431,12 +3427,12 @@ Begin
       len := Byte(Image[_pos]);
       Inc(_pos, len + 1);
     End;
-    SetFlags(cfData, Adr2Pos(unitsTable), _pos - spos);
+    SetFlags([cfData], Adr2Pos(unitsTable), _pos - spos);
   End
   else
   Begin
     Dec(initTable, 8);
-    SetFlags(cfData, Adr2Pos(initTable), 8*numUnits + 8);
+    SetFlags([cfData], Adr2Pos(initTable), 8*numUnits + 8);
   End;
   no:=1;
   for i := 0 to numUnits-1 do 
@@ -3523,7 +3519,7 @@ Begin
       _pos := Adr2Pos(ini_Adr);
       //Check trivial initialization
     	if iniProcSize > 8 then recU.trivialIni := false;
-      SetFlag(cfProcStart, _pos);
+      SetFlag([cfProcStart], _pos);
       //SetFlag(cfProcEnd, pos + iniProcSize - 1);
       recN := GetInfoRec(ini_Adr);
       if not Assigned(recN) then recN := InfoRec.Create(_pos, ikProc);
@@ -3534,13 +3530,13 @@ Begin
       _pos := Adr2Pos(fin_Adr);
       //Check trivial finalization
     	if finProcSize > 46 then recU.trivialFin := false;
-      SetFlag(cfProcStart, _pos);
+      SetFlag([cfProcStart], _pos);
       //SetFlag(cfProcEnd, _pos + finProcSize - 1);
       recN := GetInfoRec(fin_Adr);
       if not Assigned(recN) then recN := InfoRec.Create(_pos, ikProc);
       recN.procInfo.procSize := finProcSize;
       //import?
-      if IsFlagSet(cfImport, _pos) then
+      if IsFlagSet([cfImport], _pos) then
       Begin
         b := Pos('@',recN.Name);
         if b<>0 then
@@ -3616,7 +3612,7 @@ Begin
             if IsValidImageAdr(adr) then
             Begin
               _pos := Adr2Pos(adr);
-              SetFlag(cfProcStart, _pos);
+              SetFlag([cfProcStart], _pos);
               recN := GetInfoRec(adr);
               if not Assigned(recN) then recN := InfoRec.Create(_pos, ikProc);
               recN.Name:='WinMain';
@@ -3625,9 +3621,9 @@ Begin
             Inc(n, 4);
           End;
           iniNum := (iniTableEnd - iniTable) div 6;
-          SetFlags(cfData, Adr2Pos(iniTable), iniTableEnd - iniTable);
+          SetFlags([cfData], Adr2Pos(iniTable), iniTableEnd - iniTable);
           finNum := (finTableEnd - finTable) div 6;
-          SetFlags(cfData, Adr2Pos(finTable), finTableEnd - finTable);
+          SetFlags([cfData], Adr2Pos(finTable), finTableEnd - finTable);
 
           list := TStringList.Create;
           try
@@ -3726,7 +3722,7 @@ Begin
 
   //recN := GetInfoRec(fromAdr);
   outRows := MAX_DISASSEMBLE;
-  if IsFlagSet(cfImport, fromPos) then outRows := 1;
+  if IsFlagSet([cfImport], fromPos) then outRows := 1;
   lastPopReg := -1;
   firstPushReg := -1;
   lastPopPos := -1;
@@ -3742,7 +3738,7 @@ Begin
       Result:= -1;
       Exit;
     end;
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -3844,7 +3840,7 @@ Begin
     End;
     //Если в позиции встретился уже определенный ранее код, выходим
     for k := 0 to instrLen-1 do
-      if IsFlagSet(cfProcStart, curPos + k) or IsFlagSet(cfCode, curPos + k) then
+      if IsFlagSet([cfProcStart,cfCode], curPos + k) then
       begin
         Result:= -1;
         Exit;
@@ -3886,12 +3882,12 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, _Pos) then break;
+        if IsFlagSet([cfLoc], _Pos) then break;
         Adr1 := PInteger(Code + _Pos)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         Inc(_Pos,4); 
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -3960,7 +3956,7 @@ Begin
                 Inc(_Pos, instrLen1); 
                 Inc(Adr, instrLen1);
                 //Флажок cfETable, чтобы правильно вывести данные
-                SetFlag(cfETable, _Pos);
+                SetFlag([cfETable], _Pos);
                 //dd num
                 num := PInteger(Code + _Pos)^; 
                 Inc(_Pos, 4);
@@ -4177,7 +4173,7 @@ Begin
       v:=0;
       while true do
       Begin
-        if IsFlagSet(cfVTable, vpos) then Inc(cnt);
+        if IsFlagSet([cfVTable], vpos) then Inc(cnt);
         if cnt = 2 then break;
         iAdr := PInteger(Code + vpos)^; 
         adres := iAdr;
@@ -4375,7 +4371,7 @@ Begin
     if not Assigned(recN1) then recN1 := InfoRec.Create(Adr2Pos(address), ikRefine);
     if not recN1.HasName then recN1.Name:=procname;
     //Method
-    if (flags and 1) <> 0 then recN1.procInfo.flags := recN1.procInfo.flags or PF_METHOD;
+    if (flags and 1) <> 0 then Include(recN1.procInfo.flags, PF_METHOD);
     //params
     ppos := Adr2Pos(params);
     typeCode := Byte(Code[ppos]);
@@ -4528,7 +4524,7 @@ Begin
     Inc(_pos, len);
     pos2 := Adr2Pos(typesTab) + 2 + 4 * idx;
     classAdr := PInteger(Code + pos2)^;
-    if IsFlagSet(cfImport, Adr2Pos(classAdr)) then
+    if IsFlagSet([cfImport], Adr2Pos(classAdr)) then
     Begin
       recN1 := GetInfoRec(classAdr);
       recN.vmtInfo.AddField(0, 0, FIELD_PUBLISHED, fieldOfs, -1, _name, recN1.Name);
@@ -4921,7 +4917,7 @@ Begin
             recN1.kind := recN2.kind;
             if not Assigned(recN1.procInfo.args) and Assigned(recN2.procInfo.args) then
             Begin
-            	recN1.procInfo.flags := recN1.procInfo.flags or (recN2.procInfo.flags and 7);
+            	recN1.procInfo.call_kind := recN2.procInfo.call_kind;
               //Get Arguments
               for n := 0 to recN2.procInfo.args.Count-1 do
               Begin
@@ -5122,7 +5118,7 @@ begin
   vtRTTI.Canvas.Font.Assign(vtRTTI.Font);
   lbForms.Canvas.Font.Assign(lbForms.Font);
   lbCode.Canvas.Font.Assign(lbCode.Font);
-  lbUnitItems.Canvas.Font.Assign(lbUnitItems.Font);
+  vtProc.Canvas.Font.Assign(vtProc.Font);
 
   lbCXrefs.Canvas.Font.Assign(lbCXrefs.Font);
   lbCXrefs.Width := lbCXrefs.Canvas.TextWidth('T')*14;
@@ -5140,6 +5136,7 @@ begin
   vtRTTI.NodeDataSize:=SizeOf(TypeRec);
   vtName.NodeDataSize:=SizeOf(vtNameNode);
   vtString.NodeDataSize:=SizeOf(vtStringNode);
+  vtProc.NodeDataSize:=SizeOf(vtProcNode);
   {
   //----Highlighting------
 	if InitHighlight then
@@ -5377,7 +5374,7 @@ Begin
 
   recN := GetInfoRec(fromAdr);
   outRows := MAX_DISASSEMBLE;
-  if IsFlagSet(cfImport, fromPos) then outRows := 2;
+  if IsFlagSet([cfImport], fromPos) then outRows := 2;
   line := ' ';
   if fromAdr = EP then line := line + 'EntryPoint'
   else
@@ -5414,12 +5411,12 @@ Begin
     if (curAdr <> fromAdr) and (procSize<>0) and (curAdr - fromAdr >= procSize) then break;
     //Loc?
     flags := 32; // ' ';
-    if (curAdr <> CurProcAdr) and IsFlagSet(cfLoc, curPos) then flags := flags or 1;
-    if IsFlagSet(cfFrame or cfSkip, curPos) then flags := flags or 2;
-    if IsFlagSet(cfLoop, curPos) then flags := flags or 4;
+    if (curAdr <> CurProcAdr) and IsFlagSet([cfLoc], curPos) then flags := flags or 1;
+    if IsFlagSet([cfFrame, cfSkip], curPos) then flags := flags or 2;
+    if IsFlagSet([cfLoop], curPos) then flags := flags or 4;
 
     //If exception table, output it
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -5506,7 +5503,7 @@ Begin
         Begin
           ap := Adr2Pos(Adr);
           recN := GetInfoRec(Adr);
-          if Assigned(recN) and IsFlagSet(cfProcStart, ap) and recN.HasName then
+          if Assigned(recN) and IsFlagSet([cfProcStart], ap) and recN.HasName then
             line := 'jmp         ' + recN.Name;
         End;
         flags := flags or 8;
@@ -5526,7 +5523,7 @@ Begin
       Begin
         ap := Adr2Pos(Adr);
         recN := GetInfoRec(Adr);
-        if Assigned(recN) and IsFlagSet(cfProcStart, ap) and recN.HasName then
+        if Assigned(recN) and IsFlagSet([cfProcStart], ap) and recN.HasName then
           line := 'jmp         ' + recN.Name;
         flags := flags or 8;
         if not Assigned(recN) and (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
@@ -5607,7 +5604,7 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, Pos2) then break;
+        if IsFlagSet([cfLoc], Pos2) then break;
         Adr1 := PInteger(Code + Pos2)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
@@ -5617,7 +5614,7 @@ Begin
         Inc(row);
         if wid > maxwid then maxwid := wid;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         Inc(Pos2, 4); 
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -5706,7 +5703,7 @@ Begin
                   Inc(Pos2, instrLen1); 
                   Inc(Adr, instrLen1);
                   //Set flag cfETable to correct output data
-                  SetFlag(cfETable, Pos2);
+                  SetFlag([cfETable], Pos2);
                   //dd num
                   num := PInteger(Code + Pos2)^;
                   Inc(Pos2, 4);
@@ -5775,7 +5772,7 @@ Begin
               _name := recN.Name;
               if recN._type <> '' then _type := recN._type;
             End
-            else if IsFlagSet(cfProcStart, _pos) then
+            else if IsFlagSet([cfProcStart], _pos) then
               _name := GetDefaultProcName(targetAdr);
           End;
         End
@@ -5797,7 +5794,7 @@ Begin
               pname := recN.Name;
               ptype := recN._type;
             End
-            else if IsFlagSet(cfProcStart, _pos) then
+            else if IsFlagSet([cfProcStart], _pos) then
               pname := GetDefaultProcName(Adr);
           End;
         End;
@@ -5953,14 +5950,14 @@ Begin
         //ParOff
         Inc(_pos, 2);
         if Pass = 1 then
-          if Assigned(recN) and Assigned(recN.procInfo) and (recN.kind <> ikConstructor) and (recN.kind <> ikDestructor) then //recN.kind !:= ikClassRef)
+          if Assigned(recN) and Assigned(recN.procInfo) and not(recN.kind in [ikConstructor, ikDestructor]) then //recN.kind !:= ikClassRef)
           Begin
             if resultType<>0 then
             Begin
               recN.kind := ikFunc;
               recN._type := GetTypeName(resultType);
             End;
-            if cc <> $FF then recN.procInfo.flags := recN.procInfo.flags OR cc;
+            if cc <> $FF then recN.procInfo.call_kind := cc;
           End;
         paramCnt := Byte(Code[_pos]);
         Inc(_pos);
@@ -6039,7 +6036,7 @@ Begin
       with recN do
       begin
         kind := ikProc;
-        procInfo.flags := procInfo.flags or PF_DYNAMIC;
+        Include(procInfo.flags, PF_DYNAMIC);
         AddXref('D', Adr, 0);
         procInfo.AddArg($21, 0, 4, 'Self', clsName);
       end;
@@ -6074,7 +6071,7 @@ Begin
     begin
       if (Pass = 1) and not skip then
       begin
-        recN.procInfo.flags := recN.procInfo.flags or PF_VIRTUAL;
+        Include(recN.procInfo.flags, PF_VIRTUAL);
         recN.AddXref('D', Adr, 0);
       End;
       pAdr := parentAdr;
@@ -6125,19 +6122,16 @@ Begin
   lastMovAdr:=0;
   Result:=0;
   fromPos := Adr2Pos(fromAdr);
-  if (fromPos < 0)
-    or IsFlagSet(cfPass0, fromPos) 
-    or IsFlagSet(cfEmbedded, fromPos)
-    or IsFlagSet(cfExport, fromPos) then Exit;
+  if (fromPos < 0) or IsFlagSet([cfPass0,cfEmbedded,cfExport], fromPos) then Exit;
 
   b1 := Byte(Code[fromPos]);
   b2 := Byte(Code[fromPos + 1]);
   if (b1=0) and (b2=0) then Exit;
 
-  SetFlag(cfProcStart or cfPass0, fromPos);
+  SetFlag([cfProcStart, cfPass0], fromPos);
 
   //Don't analyze imports
-  if IsFlagSet(cfImport, fromPos) then Exit;
+  if IsFlagSet([cfImport], fromPos) then Exit;
   _procSize := GetProcSize(fromAdr);
   curPos := fromPos; 
   curAdr := fromAdr;
@@ -6147,7 +6141,7 @@ Begin
     //For example, cfProcEnd can be set for interface procs
     if (_procSize<>0) and (curAdr - fromAdr >= _procSize) then break;
     //Skip exception table
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -6169,9 +6163,9 @@ Begin
     End;
     op := frmDisasm.GetOp(DisInfo.Mnem);
     //Code
-    SetFlags(cfCode, curPos, instrLen);
+    SetFlags([cfCode], curPos, instrLen);
     //Instruction begin
-    SetFlag(cfInstruction, curPos);
+    SetFlag([cfInstruction], curPos);
     if curAdr >= lastAdr then lastAdr := 0;
 
     //End of procedure
@@ -6200,12 +6194,12 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, Pos2) then break;
+        if IsFlagSet([cfLoc], Pos2) then break;
         Adr1 := PInteger(Code + Pos2)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         Inc(Pos2, 4); 
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -6269,7 +6263,7 @@ Begin
                   Inc(Pos2, instrLen1); 
                   Inc(Adr, instrLen1);
                   //Set flag cfETable to correctly output data
-                  SetFlag(cfETable, Pos2);
+                  SetFlag([cfETable], Pos2);
                   //dd num
                   num := PInteger(Code + Pos2)^; 
                   Inc(Pos2, 4);
@@ -6410,6 +6404,7 @@ var
   rec:PROCHISTORYREC;
   txt:AnsiString;
   use:TWordDynArray;
+  proc_data:PProcNode;
 begin
   if lbCode.ItemIndex <= 0 then Exit;
 
@@ -6424,19 +6419,19 @@ begin
       ShowMessage('BSS');
       Exit;
     End
-    else if IsFlagSet(cfImport, _pos) then
+    else if IsFlagSet([cfImport], _pos) then
     Begin
       ShowMessage('Import');
       Exit;
     End
     //RTTI
-    else if IsFlagSet(cfRTTI, _pos) then
+    else if IsFlagSet([cfRTTI], _pos) then
     Begin
       FTypeInfo.ShowRTTI(targetAdr);
       Exit;
     End
     //if start of procedure, show it
-    else if IsFlagSet(cfProcStart, _pos) then
+    else if IsFlagSet([cfProcStart], _pos) then
     Begin
       rec.adr := CurProcAdr;
       rec.itemIdx := lbCode.ItemIndex;
@@ -6471,7 +6466,7 @@ begin
         if idx <> -1 then
         Begin
           idx := KBase.TypeOffsets[idx].NamId;
-          if KBase.GetTypeInfo(idx, INFO_FIELDS or INFO_PROPS or INFO_METHODS or INFO_DUMP, tInfo) then
+          if KBase.GetTypeInfo(idx, [INFO_FIELDS, INFO_PROPS, INFO_METHODS, INFO_DUMP], tInfo) then
           Begin
             FTypeInfo.ShowKbInfo(tInfo);
             //as delete tInfo;
@@ -6521,9 +6516,9 @@ begin
     FExplorer.WAlign := -4;
 
     FExplorer.btnDefCode.Enabled := true;
-    if IsFlagSet(cfCode, _pos) then FExplorer.btnDefCode.Enabled := false;
+    if IsFlagSet([cfCode], _pos) then FExplorer.btnDefCode.Enabled := false;
     FExplorer.btnUndefCode.Enabled := false;
-    if IsFlagSet(cfCode or cfData, _pos) then FExplorer.btnUndefCode.Enabled := true;
+    if IsFlagSet([cfCode, cfData], _pos) then FExplorer.btnUndefCode.Enabled := true;
     if FExplorer.ShowModal = mrOk then
     Begin
       if FExplorer.DefineAs = DEFINE_AS_CODE then
@@ -6541,7 +6536,13 @@ begin
         AnalyzeProc2(targetAdr, true, true);
 
         if not ContainsUnexplored(GetUnit(targetAdr)) then ShowUnits(true);
-        ShowUnitItems(GetUnit(targetAdr), lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+        Idx:=0;
+        if Assigned(vtProc.FocusedNode) then
+        Begin
+          proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+          Idx:=proc_data.adres;
+        end;
+        ShowUnitItems(GetUnit(targetAdr), 0{lbUnitItems.TopIndex}, Idx);
         ShowCode(targetAdr, 0, -1, -1);
       End;
     End;
@@ -6554,7 +6555,7 @@ begin
     if Assigned(recN) and Assigned(recN.pcode) and IsValidCodeAdr(recN.pcode.Offset) then
     Begin
       _pos := Adr2Pos(recN.pcode.Offset);
-      if IsFlagSet(cfProcStart, _pos) then
+      if IsFlagSet([cfProcStart], _pos) then
       Begin
         rec.adr := CurProcAdr;
         rec.itemIdx := lbCode.ItemIndex;
@@ -6596,12 +6597,12 @@ begin
     begin
       _pos := Adr2Pos(gotoAdr);
       //Если импорт - ничего не отображаем
-      if IsFlagSet(cfImport, _pos) then Exit;
+      if IsFlagSet([cfImport], _pos) then Exit;
       //Ищем, куда попадает адрес
       while _pos >= 0 do
       begin
         //Нашли начало процедуры
-        if IsFlagSet(cfProcStart, _pos) then
+        if IsFlagSet([cfProcStart], _pos) then
         begin
           rec.adr := CurProcAdr;
           rec.itemIdx := lbCode.ItemIndex;
@@ -6612,7 +6613,7 @@ begin
           break;
         End;
         //Нашли начало типа
-        if IsFlagSet(cfRTTI, _pos) then
+        if IsFlagSet([cfRTTI], _pos) then
         begin
           FTypeInfo.ShowRTTI(Pos2Adr(_pos));
           break;
@@ -6633,6 +6634,7 @@ var
   _pos,size,viewAdr:Integer;
   txt,sAdr:AnsiString;
   recN:InfoRec;
+  proc_data:PProcNode;
 begin
   txt:='';
   if lbCode.ItemIndex <= 0 then Exit;
@@ -6662,9 +6664,9 @@ begin
       FExplorer.WAlign := -4;
 
       FExplorer.btnDefCode.Enabled := true;
-      if IsFlagSet(cfCode, _pos) then FExplorer.btnDefCode.Enabled := false;
+      if IsFlagSet([cfCode], _pos) then FExplorer.btnDefCode.Enabled := false;
       FExplorer.btnUndefCode.Enabled := false;
-      if IsFlagSet(cfCode or cfData, _pos) then FExplorer.btnUndefCode.Enabled := true;
+      if IsFlagSet([cfCode, cfData], _pos) then FExplorer.btnUndefCode.Enabled := true;
       if FExplorer.ShowModal = mrOk then
         if FExplorer.DefineAs = DEFINE_AS_CODE then
         begin
@@ -6681,7 +6683,13 @@ begin
           AnalyzeProc2(viewAdr, true, true);
 
           if not ContainsUnexplored(GetUnit(viewAdr)) then ShowUnits(true);
-          ShowUnitItems(GetUnit(viewAdr), lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+          _pos:=0;
+          if Assigned(vtProc.FocusedNode) Then
+          Begin
+            proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+            _pos:=proc_data.adres;
+          end;
+          ShowUnitItems(GetUnit(viewAdr), 0{lbUnitItems.TopIndex}, _pos);
           ShowCode(viewAdr, 0, -1, -1);
         end;
     End;
@@ -6690,8 +6698,9 @@ end;
 
 procedure TFMain.NamePosition;
 var
-	_pos, _idx, size,	adr, nameAdr:Integer;
+	_pos, idx, size,	adr, nameAdr:Integer;
   recN:InfoRec;
+  proc_data:PProcNode;
   line, txt, sNameType, newName, newType:AnsiString;
 begin
   txt:='';
@@ -6738,7 +6747,7 @@ begin
     if newName = '' then Exit;
 
     //If call
-    if (_pos >= 0) and IsFlagSet(cfProcStart, _pos) then
+    if (_pos >= 0) and IsFlagSet([cfProcStart], _pos) then
     Begin
       if not Assigned(recN) then recN := InfoRec.Create(_pos, ikRefine);
       recN.kind := ikProc;
@@ -6760,10 +6769,10 @@ begin
       End
       else
       Begin
-        _idx := BSSInfos.IndexOf(Val2Str(nameAdr,8));
-        if _idx <> -1 then
+        idx := BSSInfos.IndexOf(Val2Str(nameAdr,8));
+        if idx <> -1 then
         Begin
-          recN := InfoRec(BSSInfos.Objects[_idx]);
+          recN := InfoRec(BSSInfos.Objects[idx]);
           recN.Name:=newName;
           recN._type := newType;
         End
@@ -6771,7 +6780,13 @@ begin
       End;
     End;
     RedrawCode;
-    ShowUnitItems(GetUnit(CurUnitAdr), lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+    idx:=0;
+    if Assigned(vtProc.FocusedNode) Then
+    Begin
+      proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+      idx:=proc_data.adres;
+    end;
+    ShowUnitItems(GetUnit(CurUnitAdr), 0{lbUnitItems.TopIndex}, idx);
     ProjectModified := true;
   End;
 end;
@@ -6895,7 +6910,7 @@ Begin
               v:=0;
               while true do
               Begin
-                if IsFlagSet(cfVTable, ps) then Inc(cnt);
+                if IsFlagSet([cfVTable], ps) then Inc(cnt);
                 if cnt = 2 then break;
                 iAdr := PInteger(Code + ps)^;
                 _adr := iAdr;
@@ -7321,7 +7336,7 @@ begin
     Begin
     	recN := GetInfoRec(Adr);
       if Assigned(recN) and Assigned(recN.pcode) and IsValidCodeAdr(recN.pcode.Offset) then
-        if KBase.GetProcInfo(PAnsiChar(recN.pcode.Name), INFO_ARGS, pInfo, Idx) then
+        if KBase.GetProcInfo(PAnsiChar(recN.pcode.Name), [INFO_ARGS], pInfo, Idx) then
           proto := KBase.GetProcPrototype(@pInfo);
     End;
   End;
@@ -7464,7 +7479,7 @@ begin
         if Idx <> -1 then
         Begin
           Idx := KBase.TypeOffsets[Idx].NamId;
-          if KBase.GetTypeInfo(Idx, INFO_FIELDS or INFO_PROPS or INFO_METHODS, tInfo) then
+          if KBase.GetTypeInfo(Idx, [INFO_FIELDS, INFO_PROPS, INFO_METHODS], tInfo) then
           Begin
             FTypeInfo.ShowKbInfo(tInfo);
             //as delete tInfo;
@@ -7805,7 +7820,7 @@ end;
 
 procedure TFMain.FindText(str:AnsiString);
 var
-  n, ps, idx:Integer;
+  n, idx:Integer;
   line, msg:AnsiString;
   node:TTreeNode;
   uNode:PVirtualNode;
@@ -7850,25 +7865,35 @@ begin
       end;
     SEARCH_UNITITEMS:
       begin
-        for n := UnitItemsSearchFrom to lbUnitItems.Items.Count-1 do
-          if AnsiContainsText(lbUnitItems.Items.Strings[n], str) then
-          Begin
-            idx := n;
-            break;
-          End;
-        if idx = -1 then
-          for n := 0 to UnitItemsSearchFrom-1 do
-            if AnsiContainsText(lbUnitItems.Items.Strings[n], str) then
-            Begin
-              idx := n;
-              break;
-            End;
-        if idx <> -1 then
+        uNode:=UnitItemsSearchFrom;
+        if not Assigned(uNode) then uNode:=vtProc.GetFirst;
+        while Assigned(uNode) do
         Begin
-        	if idx < lbUnitItems.Items.Count then UnitItemsSearchFrom := idx + 1
-        	  else UnitItemsSearchFrom := 0;
-          lbUnitItems.ItemIndex := idx;
-          lbUnitItems.SetFocus;
+          If AnsiContainsText(vtProc.Text[uNode,0], str) Or
+            AnsiContainsText(vtProc.Text[uNode,2], str) then break;
+          uNode:=uNode.NextSibling;
+        end;
+        if Not Assigned(uNode) then
+        begin
+          uNode:=UnitItemsSearchFrom;
+          if Assigned(uNode) then uNode:=uNode.PrevSibling;
+          while Assigned(uNode) do
+          Begin
+            If AnsiContainsText(vtProc.Text[uNode,0], str) Or
+              AnsiContainsText(vtProc.Text[uNode,2], str) then break;
+            uNode:=uNode.PrevSibling;
+          End;
+        end;
+        if Assigned(uNode) then
+        Begin
+        	UnitItemsSearchFrom := uNode;
+          with vtProc do
+          begin
+            FocusedNode:=uNode;
+            Selected[uNode]:=True;
+            ScrollIntoView(uNode,False,False);
+            SetFocus;
+          end;
         End
         else ShowMessage(msg);
       end;
@@ -8172,7 +8197,7 @@ Begin
   pcInfo.Width := iniFile.ReadInteger('MainForm', 'LeftWidth', pcInfo.Constraints.MinWidth);
   pcInfo.ActivePage := tsUnits;
   pcWorkArea.ActivePage:= tsCodeView;
-  lbUnitItems.Height := iniFile.ReadInteger('MainForm', 'BottomHeight', lbUnitItems.Constraints.MinHeight);
+  vtProc.Height := iniFile.ReadInteger('MainForm', 'BottomHeight', vtProc.Constraints.MinHeight);
   //Most Recent Files
   m:=0;
   for n := 0 to 7 do
@@ -8240,7 +8265,7 @@ Begin
   iniFile.WriteInteger('MainForm', 'Width', Width);
   iniFile.WriteInteger('MainForm', 'Height', Height);
   iniFile.WriteInteger('MainForm', 'LeftWidth', pcInfo.Width);
-  iniFile.WriteInteger('MainForm', 'BottomHeight', lbUnitItems.Height);
+  iniFile.WriteInteger('MainForm', 'BottomHeight', vtProc.Height);
 
   //Delete all
   for n := 1 to 8 do
@@ -8856,7 +8881,7 @@ Begin
   //DataBase := ImageBase + DataStart;
 
   GetMem(FlagList,TotalSize*SizeOf(DWORD));
-  FillMemory(FlagList, sizeof(DWORD) * TotalSize,cfUndef);
+  FillMemory(FlagList, sizeof(DWORD) * TotalSize,0);
   SetLength(InfoList, TotalSize);
   FillMemory(@InfoList[0],TotalSize*SizeOf(InfoRec),0);
   BSSInfos := TStringList.Create;
@@ -8987,7 +9012,7 @@ Begin
           recI.address := ImageBase + ThunkRVA;
           ImpFuncList.Add(recI);
 
-          SetFlag(cfImport, Adr2Pos(recI.address));
+          SetFlag([cfImport], Adr2Pos(recI.address));
           recN := InfoRec.Create(Adr2Pos(recI.address), ikData);
           recN.Name:=impFuncName;
 
@@ -9695,6 +9720,7 @@ var
   root:TTreeNode;
   tmp:AnsiString;
   uNode:PUnitNode;
+  proc_data:PProcNode;
   buf:Array[0..4095] of Byte;
 Begin
   if FileExists(FileName) then
@@ -9775,6 +9801,7 @@ Begin
     try
       for n := 0 to TotalSize-1 do
       Begin
+        ps:=n;
         if (n and 4095) = 0 then
         Begin
           pb.StepIt;
@@ -9793,7 +9820,7 @@ Begin
       End;
     Except
       on E:Exception do
-        ShowMessage('Error at ' + Val2Str(Pos2Adr(n),8));
+        ShowMessage('Error at ' + Val2Str(Pos2Adr(ps),8));
     end;
     //Last position := -1 . end of items
     ps := -1;
@@ -9864,9 +9891,14 @@ Begin
       //UnitItems
       if CurUnitAdr<>0 then
       Begin
-      	topIdx := lbUnitItems.TopIndex;
+      	topIdx := 0{lbUnitItems.TopIndex};
       	outStream.Write(topIdx, sizeof(topIdx));
-        itemIdx := lbUnitItems.ItemIndex;
+        itemIdx := 0{lbUnitItems.ItemIndex};
+        if Assigned(vtProc.FocusedNode) Then
+        Begin
+          proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+          itemIdx:=proc_data.adres;
+        end;
         outStream.Write(itemIdx, sizeof(itemIdx));
       End;
     End;
@@ -10148,6 +10180,7 @@ var
   recV:PVmtListRec;
   recM:PMethodRec;
   aInfo:PARGINFO;
+  proc_data:PProcNode;
   p,line, _name, typeDef, clasName, procName:AnsiString;
 Begin
   //if (Adr = EP) return;
@@ -10188,14 +10221,14 @@ Begin
         End;
       End;
 
-      ClearFlag(cfPass2, Adr2Pos(Adr));
+      ClearFlag([cfPass2], Adr2Pos(Adr));
       AnalyzeProc2(Adr, false, false);
       AnalyzeArguments(Adr);
 
       //If virtual then propogate VMT names
       //!!! prototype !!!
       procName := ExtractProcName(recN.Name);
-      if (recN.procInfo.flags and PF_VIRTUAL)<>0 then
+      if PF_VIRTUAL in recN.procInfo.flags then
       Begin
         cnt := recN.xrefs.Count;
         for n := 0 to cnt-1 do
@@ -10240,7 +10273,7 @@ Begin
                       //recN1.name := className + '.' + procName;
                       recN1.kind := recN.kind;
                       recN1._type := recN._type;
-                      recN1.procInfo.flags := recN1.procInfo.flags or PF_VIRTUAL;
+                      Include(recN1.procInfo.flags, PF_VIRTUAL);
                       recN1.procInfo.DeleteArgs;
                       recN1.procInfo.AddArg($21, 0, 4, 'Self', clasName);
                       for a := 1 to recN.procInfo.args.Count-1 do
@@ -10259,15 +10292,21 @@ Begin
 
       //DWORD adr := CurProcAdr;
 
+      m:=0;
+      if Assigned(vtProc.FocusedNode) Then
+      Begin
+        proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+        m:=proc_data.adres;
+      end;
       //Edit current proc
       if Adr = CurProcAdr then
       Begin
         RedrawCode;
         //Current proc from current unit
         if recU.fromAdr = CurUnitAdr then
-          ShowUnitItems(recU, lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+          ShowUnitItems(recU, 0{lbUnitItems.TopIndex}, m);
       End
-      else ShowUnitItems(recU, lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+      else ShowUnitItems(recU, 0{lbUnitItems.TopIndex}, m);
       ProjectModified := true;
     End;
   End;
@@ -10317,7 +10356,7 @@ begin
 
   for n := 0 to CodeSize-1 do
   Begin
-    if IsFlagSet(cfProcStart, n) and not IsFlagSet(cfEmbedded, n) then
+    if IsFlagSet([cfProcStart], n) and not IsFlagSet([cfEmbedded], n) then
     Begin
       adr := Pos2Adr(n);
       recN := GetInfoRec(adr);
@@ -10422,7 +10461,7 @@ begin
           continue;
         End;
 
-        if IsFlagSet(cfProcStart, ps) then
+        if IsFlagSet([cfProcStart], ps) then
         Begin
           if recN.kind = ikConstructor then
             OutputCode(fLst, adr, '', true)
@@ -10483,7 +10522,7 @@ begin
         continue;
       end;
       kind := recN.kind;
-      if IsFlagSet(cfRTTI, ps) then
+      if IsFlagSet([cfRTTI], ps) then
       Begin
         recU := GetUnit(Pos2Adr(ps));
         if not Assigned(recU) then
@@ -10597,8 +10636,8 @@ begin
         Inc(ps);
         continue;
       End;
-      if IsFlagSet(cfProcStart, ps) then
-        Inc(ps, idcGen.OutputProc(ps, recN, IsFlagSet(cfImport, ps)));
+      if IsFlagSet([cfProcStart], ps) then
+        Inc(ps, idcGen.OutputProc(ps, recN, IsFlagSet([cfImport], ps)));
     End;
     fIdc.Write(tmp[1],Length(tmp));
   finally
@@ -10930,10 +10969,10 @@ begin
         imp := false;
         emb := false;
         kind := recN.kind;
-        if IsFlagSet(cfProcStart, ps) then
+        if IsFlagSet([cfProcStart], ps) then
         Begin
-          imp := IsFlagSet(cfImport, ps);
-          emb := (recN.procInfo.flags and PF_EMBED)<>0;
+          imp := IsFlagSet([cfImport], ps);
+          emb := PF_EMBED in recN.procInfo.flags;
         End;
         if kind = ikUnknown then continue;
 
@@ -10992,7 +11031,7 @@ begin
           OutputCode(fLst, adr, line, false);
           continue;
         End;
-        if IsFlagSet(cfProcStart, ps) then
+        if IsFlagSet([cfProcStart], ps) then
         Begin
           if kind = ikDestructor then
             OutputCode(fLst, adr, recN.MakePrototype(adr, true, false, false, true, false), false)
@@ -11063,7 +11102,7 @@ Begin
 
   recN := GetInfoRec(fromAdr);
   outRows := MAX_DISASSEMBLE;
-  if IsFlagSet(cfImport, fromPos) then outRows := 1;
+  if IsFlagSet([cfImport], fromPos) then outRows := 1;
 
   if not onlyComments and (prototype <> '') then
   Begin
@@ -11082,12 +11121,12 @@ Begin
     //Only comments?
     if onlyComments then flags := flags or $10;
     //Loc?
-    if IsFlagSet(cfLoc, curPos) then flags := flags or 1;
+    if IsFlagSet([cfLoc], curPos) then flags := flags or 1;
     //Skip?
-    if IsFlagSet(cfSkip or cfDSkip, curPos) then flags := flags or 2;
+    if IsFlagSet([cfSkip, cfDSkip], curPos) then flags := flags or 2;
 
     //If exception table, output it
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -11167,7 +11206,7 @@ Begin
         Begin
           _ap := Adr2Pos(Adr);
           recN := GetInfoRec(Adr);
-          if Assigned(recN) and IsFlagSet(cfProcStart, _ap) and recN.HasName then
+          if Assigned(recN) and IsFlagSet([cfProcStart], _ap) and recN.HasName then
             line := 'jmp         ' + recN.Name;
         End;
         flags := flags or 8;
@@ -11186,7 +11225,7 @@ Begin
       Begin
         _ap := Adr2Pos(Adr);
         recN := GetInfoRec(Adr);
-        if Assigned(recN) and IsFlagSet(cfProcStart, _ap) and recN.HasName then
+        if Assigned(recN) and IsFlagSet([cfProcStart], _ap) and recN.HasName then
           line := 'jmp         ' + recN.Name;
         flags := flags or 8;
         if not Assigned(recN) and (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
@@ -11260,7 +11299,7 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, Ps) then break;
+        if IsFlagSet([cfLoc], Ps) then break;
         Adr1 := PInteger(Code + Ps)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
@@ -11269,7 +11308,7 @@ Begin
         OutputLine(outF, flags, curAdr, 'dd          ' + Val2Str(Adr1,8)); 
         Inc(row);
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         Inc(Ps, 4); 
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -11358,7 +11397,7 @@ Begin
                   Inc(Ps, instrLen1); 
                   Inc(Adr, instrLen1);
                   //Set flag cfETable to correct output data
-                  SetFlag(cfETable, Ps);
+                  SetFlag([cfETable], Ps);
                   //dd num
                   num := PInteger(Code + Ps)^; 
                   Inc(Ps, 4);
@@ -11426,7 +11465,7 @@ Begin
               _name := recN.Name;
               if recN._type <> '' then _type := recN._type;
             End
-            else if IsFlagSet(cfProcStart, _pos) then
+            else if IsFlagSet([cfProcStart], _pos) then
               _name := GetDefaultProcName(targetAdr);
           End;
         End
@@ -11448,7 +11487,7 @@ Begin
               pname := recN.Name;
               ptype := recN._type;
             End
-            else if IsFlagSet(cfProcStart, _pos) then
+            else if IsFlagSet([cfProcStart], _pos) then
               pname := GetDefaultProcName(Adr);
           End;
         End;
@@ -11547,7 +11586,7 @@ Begin
   while adr< recU.toAdr do
   begin
     n := Adr2Pos(adr);
-    if FlagList[n]=0 then
+    if FlagList[n]=[] then
     begin
       b0 := Byte(Code[n]);
       if not unk then
@@ -11588,13 +11627,13 @@ var
   i,u,selAdr, wid, maxwid:Integer;
   recU:PUnitRec;
   vNode:PVirtualNode;
-  uNode:PUnitNode;
+  dat:PUnitNode;
 Begin
   selAdr:=0;
   if Assigned(vtUnit.FocusedNode) Then
   Begin
-    uNode:=vtUnit.GetNodeData(vtUnit.FocusedNode);
-    selAdr:=PUnitRec(Units[uNode.unit_index]).fromAdr;
+    dat:=vtUnit.GetNodeData(vtUnit.FocusedNode);
+    selAdr:=PUnitRec(Units[dat.unit_index]).fromAdr;
   end;
   maxwid:=50;
   vtUnit.Clear;
@@ -11603,9 +11642,9 @@ Begin
     for i := 0 to UnitsNum-1 do
     Begin
       vNode:=vtUnit.AddChild(Nil);
-      uNode:=vtUnit.GetNodeData(vNode);
+      dat:=vtUnit.GetNodeData(vNode);
       recU := Units[i];
-      uNode.unit_index:=i;
+      dat.unit_index:=i;
       if recU.fromAdr = selAdr then
       Begin
         vtUnit.FocusedNode := vNode;
@@ -11615,26 +11654,26 @@ Begin
       Begin
         //Trivial units
         if recU.trivial then
-          uNode.unit_type:=[ut_Trivial]
+          dat.unit_type:=[ut_Trivial]
         else if not recU.kb then
-          uNode.unit_type:=[ut_User];
+          dat.unit_type:=[ut_User];
       End
       //Last unit is user's
-      else uNode.unit_type:=[ut_User];
+      else dat.unit_type:=[ut_User];
       //Unit has undefined bytes
-      uNode.has_undef:=ContainsUnexplored(recU);
+      dat.has_undef:=ContainsUnexplored(recU);
       if showUnk and ContainsUnexplored(recU) then
-        Include(uNode.unit_type,ut_Unexplore);
+        Include(dat.unit_type,ut_Unexplore);
       // compute Name width
       if recU.names.Count<>0 then
         for u := 0 to recU.names.Count-1 do
         Begin
-          if u<>0 then uNode.names:=unode.names+';';
-          uNode.names:=unode.names + recU.names[u];
+          if u<>0 then dat.names:=dat.names+';';
+          dat.names:=dat.names + recU.names[u];
         End
-      else uNode.names:='_Unit'+IntToStr(recU.iniOrder);
-
-      wid := vtUnit.Canvas.TextWidth('FF '+uNode.names);
+      else dat.names:='_Unit'+IntToStr(recU.iniOrder);
+      vtUnit.ReinitNode(vNode,False);
+      wid := vtUnit.Canvas.TextWidth('FF '+dat.names);
       if wid > maxwid then maxwid := wid;
     End;
     with vtUnit Do
@@ -11696,565 +11735,350 @@ end;
 Procedure TFMain.ShowUnitItems (recU:PUnitRec; topIdx, itemIdx:Integer);
 var
   unk, imp, exp, emb, xref:Boolean;
-  m,unknum, ps,adr,wid, maxwid:Integer;
-  canva:TCanvas;
+  m,unknum, ps,adr,beg_adr:Integer;
   recN:InfoRec;
   recX:PXrefRec;
-  line, prefix:AnsiString;
+  line,line2:AnsiString;
   kind:LKind;
   b0,b1,b2:Byte;
+  node:PVirtualNode;
+  proc_data:PProcNode;
 
-  procedure rec_name;
+  procedure retain_focus(a:Integer);
   Begin
-    if recN.HasName then
+    if a = itemIdx Then
     Begin
-      if recN.NameLength <= MAXLEN then
-        line := line + recN.Name
-      else
-        line := line + Copy(recN.Name,1, MAXLEN) + '...';
-    End;
+      vtProc.FocusedNode:=node;
+      vtProc.Selected[node]:=True;
+    end;
   end;
+
 Begin
   unk:=False;
   unknum:=0;
-  maxwid:=0;
-  canva:=lbUnitItems.Canvas;
+  //maxwid:=0;
   if CurUnitAdr=0 then Exit;
 
   //if (AnalyzeThread) AnalyzeThread.Suspend();
-  lbUnitItems.Clear;
-  lbUnitItems.Items.BeginUpdate;
-
-  adr := recU.fromAdr; 
-  while adr < recU.toAdr do
-  Begin
-    ps := Adr2Pos(adr);
-    if not IsFlagSet(not Cardinal(cfLoc), ps) then
+  vtProc.Clear;
+  vtProc.BeginUpdate;
+  try
+    adr := recU.fromAdr;
+    while adr < recU.toAdr do
     Begin
-      b0 := Byte(Code[ps]);
-    	if not unk then
+      ps := Adr2Pos(adr);
+      if not IsFlagSet([cfCode..cfInstruction] - [cfLoc], ps) then
       Begin
-        unknum := 0;
-        b1 := Byte(Code[ps + 1]); 
-        b2 := Byte(Code[ps + 2]);
-        if ((adr and 3) = 3) and ((b0 = 0) or (b0 = $90)) then
-        begin
-          Inc(adr);
-          continue;
-        end;
-        if ((adr and 3) = 2) and (((b0 = 0) and (b1 = 0)) or ((b0 = $8B) and (b1 = $C0)) or ((b0 = $90) and (b1 = $90))) then
+        b0 := Byte(Code[ps]);
+        if not unk then
         Begin
-          Inc(adr,2);
-          continue;
-        End;
-        if ((adr and 3) = 1) and (((b0 = 0) and (b1 = 0) and (b2 = 0)) or ((b0 = $8D) and (b1 = $40) and (b2 = 0)) or ((b0 = $90) and (b1 = $90) and (b2 = $90))) then
-        Begin
-          Inc(adr, 3);
-          continue;
-        End;
-        line := ' ' + Val2Str(adr,8) + ' ????';
-        Byte(line[1]) := Byte(line[1]) xor 1;
-        line := line + ' ' + Val2Str(b0,2);
-        Inc(unknum);
-        unk := true;
-      End
-      else
-      Begin
-        if unknum <= 16 then
-        Begin
-          if unknum = 16 then
-            line := line + '...'
-          else
-            line := line + ' ' + Val2Str(b0,2);
+          unknum := 0;
+          b1 := Byte(Code[ps + 1]);
+          b2 := Byte(Code[ps + 2]);
+          if ((adr and 3) = 3) and ((b0 = 0) or (b0 = $90)) then
+          begin
+            Inc(adr);
+            continue;
+          end;
+          if ((adr and 3) = 2) and (((b0 = 0) and (b1 = 0)) or ((b0 = $8B) and (b1 = $C0)) or ((b0 = $90) and (b1 = $90))) then
+          Begin
+            Inc(adr,2);
+            continue;
+          End;
+          if ((adr and 3) = 1) and (((b0 = 0) and (b1 = 0) and (b2 = 0)) or ((b0 = $8D) and (b1 = $40) and (b2 = 0)) or ((b0 = $90) and (b1 = $90) and (b2 = $90))) then
+          Begin
+            Inc(adr, 3);
+            continue;
+          End;
+          beg_adr:=adr;
+          line := Val2Str(b0,2);
           Inc(unknum);
-        End;
-      End;
-      Inc(adr);
-      continue;
-    End;
-    if unk then
-    Begin
-      lbUnitItems.Items.Add(line);
-      wid := canva.TextWidth(line);
-      if wid > maxwid then maxwid := wid;
-      unk := false;
-    End;
-    if (adr = recU.iniadr) or (adr = recU.finadr) then
-    begin
-      Inc(adr);
-      continue;
-    end;
-    //EP
-    if adr = EP then
-    Begin
-      line := ' ' + Val2Str(adr,8) + ' <Proc> EntryPoint';
-      lbUnitItems.Items.Add(line);
-      wid := canva.TextWidth(line);
-      if wid > maxwid then maxwid := wid;
-      Inc(adr);
-      continue;
-    End;
-
-    recN := GetInfoRec(adr);
-    if not Assigned(recN) then
-    begin
-      Inc(adr);
-      continue;
-    end;
-    kind := recN.kind;
-    //Skip calls, that are in the body of some asm-procs (for example, FloatToText from SysUtils)
-    if (kind in [ikRefine..ikFunc]) and Assigned(recN.procInfo)
-      and ((recN.procInfo.flags and cfEmbedded)<>0) then
-    begin
-      Inc(adr);
-      continue;
-    end;
-    imp := IsFlagSet(cfImport, ps);
-    exp := IsFlagSet(cfExport, ps);
-    emb := false;
-    if IsFlagSet(cfProcStart, ps) then
-    Begin
-      if Assigned(recN.procInfo) then
-        emb := (recN.procInfo.flags and PF_EMBED)<>0;
-    End;
-    xref := false;
-    line := '';
-
-    case kind of
-	    ikInteger,
-	    ikChar,
-	    ikEnumeration,
-	    ikFloat,
-      ikSet,
-      ikClass,
-      ikMethod,
-      ikWChar,
-      ikLString,
-      ikVariant,
-      ikArray,
-      ikRecord,
-      ikInterface,
-      ikInt64,
-      ikDynArray,
-      ikUString,
-      ikClassRef,
-      ikPointer,
-      ikProcedure:
-        begin
-        	line := '<' + TypeKind2Name(kind) + '> ';
-        	rec_name;
-        end;
-      ikString:
-        begin
-        	if not IsFlagSet(cfRTTI, ps) then
-            line := '<ShortString> '
-          else
-            line := '<' + TypeKind2Name(kind) + '> ';
-          rec_name;
-        end;
-      ikWString:
-        begin
-        	line := '<WideString> ';
-        	rec_name;
-        end;
-      ikCString:
-        begin
-        	line := '<PAnsiChar> ';
-        	rec_name;
-        end;
-      ikWCString:
-        begin
-        	line := '<PWideChar> ';
-        	rec_name;
-      	end;
-      ikResString:
-      	if recN.HasName then line := line + '<ResString> ' + recN.Name + ' = ' + recN.rsInfo;
-      ikVMT:
-        if recN.HasName then line := '<VMT> ' + recN.Name else line := '<VMT> ';
-      ikConstructor:
-        begin
-          xref := true;
-          line := '<Constructor> ' + recN.MakePrototype(adr, false, true, false, true, false);
-        end;
-      ikDestructor:
-        begin
-          xref := true;
-          line := '<Destructor> ' + recN.MakePrototype(adr, false, true, false, true, false);
-        end;
-      ikProc:
-        begin
-          xref := true;
-          line := '<';
-          if imp then
-            line := line + 'Imp'
-          else if exp then
-            line := line + 'Exp'
-          else if emb then
-            line := line + 'Emb';
-          line := line + 'Proc> ' + recN.MakePrototype(adr, false, true, false, true, false);
-        end;
-      ikFunc:
-        begin
-          xref := true;
-          line := '<';
-          if imp then
-            line := line + 'Imp'
-          else if exp then
-            line := line + 'Exp'
-          else if emb then
-            line := line + 'Emb';
-          line := line + 'Func> ' + recN.MakePrototype(adr, false, true, false, true, false);
-        end;
-      ikGUID:
-        if recN.HasName then line := '<TGUID> ' + recN.Name else line := '<TGUID> ';
-      ikRefine:
-        begin
-          xref := true;
-          line := '<';
-          if imp then
-            line := line + 'Imp'
-          else if exp then
-            line := line + 'Exp'
-          else if emb then
-            line := line + 'Emb';
-          line := line + '?> ' + recN.MakePrototype(adr, false, true, false, true, false);
-        end;
-      else
-      begin
-        if IsFlagSet(cfProcStart, ps) then
+          unk := true;
+        End
+        else
         Begin
-          xref := true;
-          if recN.kind = ikConstructor then
-            line := '<Constructor> ' + recN.MakePrototype(adr, false, true, false, true, false)
-          else if recN.kind = ikDestructor then
-            line := '<Destructor> ' + recN.MakePrototype(adr, false, true, false, true, false)
-          else
+          if unknum <= 16 then
           Begin
-            line := '<';
-            if emb then line := line + 'Emb';
-            line := line + 'Proc> ' + recN.MakePrototype(adr, false, true, false, true, false);
+            if unknum = 16 then
+              line := line + ' ...'
+            else
+              line := line + ' ' + Val2Str(b0,2);
+            Inc(unknum);
           End;
         End;
+        Inc(adr);
+        continue;
+      End;
+      if unk then
+      Begin
+        node:=vtProc.AddChild(Nil);
+        proc_data:=vtProc.GetNodeData(node);
+        with proc_data^ do
+        begin
+          adres:=beg_adr;
+          refs:=-1;
+          type_name:='????';
+          prototype:=line;
+          pkind:=ikUnknown;
+        end;
+        unk := false;
+        retain_focus(beg_adr);
+      End;
+      if (adr = recU.iniadr) or (adr = recU.finadr) then
+      begin
+        Inc(adr);
+        continue;
       end;
-    End;
-
-    if kind in [ikRefine..ikFunc] then
-    Begin
-      if (recN.procInfo.flags and PF_VIRTUAL)<>0 then line := line + ' virtual';
-      if (recN.procInfo.flags and PF_DYNAMIC)<>0 then line := line + ' dynamic';
-      if (recN.procInfo.flags and PF_EVENT)<>0 then   line := line + ' event';
-    End;
-    if line <> '' then
-    Begin
-      prefix := ' ' + Val2Str(adr,8);
-      if xref and Assigned(recN.xrefs) and (recN.xrefs.Count<>0) then
+      //EP
+      if adr = EP then
       Begin
-        Byte(prefix[1]) := Byte(prefix[1]) xor 2;
-        for m := 0 to recN.xrefs.Count-1 do
+        node:=vtProc.AddChild(Nil);
+        proc_data:=vtProc.GetNodeData(node);
+        with proc_data^ do
         Begin
-          recX := recN.xrefs[m];
-          recU := GetUnit(recX.adr);
-          if Assigned(recU) and not recU.kb then
-          Begin
-            Byte(prefix[1]) := Byte(prefix[1]) xor 4;
-            break;
-          End;
-        End;
-        prefix := prefix + ' ' + IntToStr(recN.xrefs.Count);
-        if recN.xrefs.Count <= 9 then
-          prefix := prefix + '  '
-        else if recN.xrefs.Count <= 99 then
-          prefix := prefix + ' ';
-      End;
-      line := prefix + ' ' + line;
-      lbUnitItems.Items.Add(line);
-      wid := canva.TextWidth(line);
-      if wid > maxwid then maxwid := wid;
-    End;
-    Inc(adr);
-  End;
-
-  //Add initialization procedure
-  if recU.iniadr<>0 then
-  Begin
-    line := ' ' + Val2Str(recU.iniadr,8) + ' <Proc> Initialization;';
-    lbUnitItems.Items.Add(line);
-    wid := canva.TextWidth(line);
-    if wid > maxwid then maxwid := wid;
-  End;
-  //Add finalization procedure
-  if recU.finadr<>0 then
-  Begin
-    line := ' ' + Val2Str(recU.finadr,8) + ' <Proc> Finalization;';
-    lbUnitItems.Items.Add(line);
-    wid := canva.TextWidth(line);
-    if wid > maxwid then maxwid := wid;
-  End;
-  with lbUnitItems do
-  begin
-    TopIndex := topIdx;
-    ItemIndex := itemIdx;
-    ScrollWidth := maxwid + 2;
-    ItemHeight := Canvas.TextHeight('T');
-    Items.EndUpdate;
-  end;
-
-  //if (AnalyzeThread) AnalyzeThread.Resume();
-end;
-
-procedure TFMain.lbUnitItemsDblClick(Sender : TObject);
-var
-  db:Byte;
-  bytes,ps,adr,idx, len, size, refCnt:Integer;
-  use:TWordDynArray;
-  tmpBuf:PAnsiChar;
-  recN:InfoRec;
-  tInfo:MTypeInfo;
-  item,_name,typeName:AnsiString;
-  rec:PROCHISTORYREC;
-begin
-  idx:=-1;
-  if lbUnitItems.ItemIndex = -1 then Exit;
-
-  item := lbUnitItems.Items[lbUnitItems.ItemIndex];
-  //Xrefs?
-  if (item[11] = '<') or (item[11] = '?') then
-    sscanf(PAnsiChar(item)+1,'%lX%ls%ls',[@adr,@_name,@typeName])
-  else
-    sscanf(PAnsiChar(item)+1,'%lX%d%ls%ls',[@adr,@refCnt,@_name,@typeName]);
-  if SameText(_name, '????') then
-  Begin
-    //Find end of unexplored Data
-    bytes := 1024;
-    ps := Adr2Pos(adr);
-    //Get first byte (use later for filtering code?data)
-    db := Byte(Code[ps]);
-
-    with FExplorer do
-    begin
-      tsCode.TabVisible := true;
-      ShowCode(adr, bytes);
-      tsData.TabVisible := true;
-      ShowData(adr, bytes);
-      tsString.TabVisible := true;
-      ShowString(adr, 1024);
-      tsText.TabVisible := false;
-      WAlign := 0;
-      btnDefCode.Enabled := true;
-      btnUndefCode.Enabled := false;
-    end;
-    if IsFlagSet(cfCode, ps) then FExplorer.btnDefCode.Enabled := false;
-    if IsFlagSet(cfCode or cfData, ps) then FExplorer.btnUndefCode.Enabled := true;
-    if (IsValidCode(adr) <> -1) and (db >= 15) then
-    	FExplorer.pc1.ActivePage := FExplorer.tsCode
-    else
-    	FExplorer.pc1.ActivePage := FExplorer.tsData;
-    if FExplorer.ShowModal = mrOk then
-    case FExplorer.DefineAs of
-      DEFINE_AS_CODE:
-        begin
-          recN := GetInfoRec(adr);
-          if not Assigned(recN) then
-            recN := InfoRec.Create(ps, ikRefine)
-          else if not (recN.kind in [ikRefine..ikFunc]) then
-          Begin
-            recN.Free;
-            recN := InfoRec.Create(ps, ikRefine);
-          End;
-
-          //AnalyzeProcInitial(adr);
-          AnalyzeProc1(adr, #0, 0, 0, false);
-          AnalyzeProc2(adr, true, true);
-          AnalyzeArguments(adr);
-          AnalyzeProc2(adr, true, true);
-
-          if not ContainsUnexplored(GetUnit(adr)) then ShowUnits(true);
-          ShowUnitItems(GetUnit(adr), lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
-          ShowCode(adr, 0, -1, -1);
+          adres:=adr;
+          refs:=0;
+          type_name:='Proc';
+          prototype:='EntryPoint';
+          pkind:=ikProc;
         end;
-      DEFINE_AS_STRING: ;
-    End;
-    Exit;
-  End
-  else if SameText(_name, '<VMT>') and tsClassView.TabVisible then
-  Begin
-    ShowClassViewer(adr);
-    Exit;
-  End
-  else if SameText(_name, '<ResString>') then
-  Begin
-    FStringInfo.memStringInfo.Clear;
-    FStringInfo.Caption := 'ResString';
-    recN := GetInfoRec(adr);
-    FStringInfo.memStringInfo.Lines.Add(recN.rsInfo);
-    FStringInfo.ShowModal;
-    Exit;
-  End
-  else if SameText(_name, '<ShortString>') or
-    SameText(_name, '<AnsiString>')  or
-    SameText(_name, '<WideString>')  or
-    SameText(_name, '<PAnsiChar>')   or
-    SameText(_name, '<PWideChar>') then
-  Begin
-    FStringInfo.memStringInfo.Clear;
-    FStringInfo.Caption := 'String';
-    recN := GetInfoRec(adr);
-    FStringInfo.memStringInfo.Lines.Add(recN.Name);
-    FStringInfo.ShowModal;
-    Exit;
-  End
-  else if SameText(_name, '<UString>') then
-  Begin
-    FStringInfo.memStringInfo.Clear;
-    FStringInfo.Caption := 'String';
-    recN := GetInfoRec(adr);
-    len := lstrlenw(PWideChar(Code) + Adr2Pos(adr));
-    size := WideCharToMultiByte(CP_ACP, 0, PWideChar(Code) + Adr2Pos(adr), len, Nil, 0, Nil, Nil);
-    if size<>0 then
-    Begin
-      GetMem(tmpBuf,size + 1);
-      WideCharToMultiByte(CP_ACP, 0, PWideChar(Code) + Adr2Pos(adr), len, tmpBuf, len, Nil, Nil);
-      FStringInfo.memStringInfo.Lines.Add(MakeString(tmpBuf, len));
-      FreeMem(tmpBuf);
-      FStringInfo.ShowModal;
-    End;
-    Exit;
-  End
-  else if SameText(_name, '<Integer>') or
-    SameText(_name, '<Char>')        or
-    SameText(_name, '<Enumeration>') or
-    SameText(_name, '<Float>')       or
-    SameText(_name, '<Set>')         or
-    SameText(_name, '<Class>')       or
-    SameText(_name, '<Method>')      or
-    SameText(_name, '<WChar>')       or
-    SameText(_name, '<Array>')       or
-    SameText(_name, '<Record>')      or
-    SameText(_name, '<Interface>')   or
-    SameText(_name, '<Int64>')       or
-    SameText(_name, '<DynArray>')    or
-    SameText(_name, '<ClassRef>')    or
-    SameText(_name, '<Pointer>')     or
-    SameText(_name, '<Procedure>') then
-  Begin
-    use := KBase.GetTypeUses(PAnsiChar(typeName));
-    idx := KBase.GetTypeIdxByModuleIds(use, PAnsiChar(typeName));
-    use:=Nil;
-    if idx <> -1 then
-    Begin
-      idx := KBase.TypeOffsets[idx].NamId;
-      if KBase.GetTypeInfo(idx, INFO_FIELDS or INFO_PROPS or INFO_METHODS, tInfo) then
+        retain_focus(adr);
+        Inc(adr);
+        continue;
+      End;
+
+      recN := GetInfoRec(adr);
+      if not Assigned(recN) then
+      begin
+        Inc(adr);
+        continue;
+      end;
+      kind := recN.kind;
+      //Skip calls, that are in the body of some asm-procs (for example, FloatToText from SysUtils)
+      if (kind in [ikRefine..ikFunc]) and Assigned(recN.procInfo)
+        and (PF_EMBED in recN.procInfo.flags) then
+      begin
+        Inc(adr);
+        continue;
+      end;
+      imp := IsFlagSet([cfImport], ps);
+      exp := IsFlagSet([cfExport], ps);
+      emb := false;
+      if IsFlagSet([cfProcStart], ps) then
+        if Assigned(recN.procInfo) then emb := PF_EMBED in recN.procInfo.flags;
+      xref := false;
+      line:='';
+      line2:='';
+
+      case kind of
+        ikInteger,
+        ikChar,
+        ikEnumeration,
+        ikFloat,
+        ikSet,
+        ikClass,
+        ikMethod,
+        ikWChar,
+        ikLString,
+        ikVariant,
+        ikArray,
+        ikRecord,
+        ikInterface,
+        ikInt64,
+        ikDynArray,
+        ikUString,
+        ikClassRef,
+        ikPointer,
+        ikProcedure:
+          begin
+            line := Copy(TypeKind2Name(kind),3,100);
+            line2:=recN.Name;
+          end;
+        ikString:
+          begin
+            if not IsFlagSet([cfRTTI], ps) then
+              line := 'ShortString'
+            else
+              line := Copy(TypeKind2Name(kind),3,100);
+            line2:=recN.Name;
+          end;
+        ikWString:
+          begin
+            line := 'WideString';
+            line2:=recN.Name;
+          end;
+        ikCString:
+          begin
+            line := 'PAnsiChar';
+            line2:=recN.Name;
+          end;
+        ikWCString:
+          begin
+            line := 'PWideChar';
+            line2:=recN.Name;
+          end;
+        ikResString:
+          if recN.HasName then
+          Begin
+            line := 'ResString';
+            line2:= recN.Name + ' = ' + recN.rsInfo;
+          end;
+        ikVMT:
+          begin
+            line:='VMT';
+            line2:=recN.Name;
+          end;
+        ikConstructor:
+          begin
+            xref := true;
+            line := 'Constructor';
+            line2:= recN.MakePrototype(adr, false, true, false, true, false);
+          end;
+        ikDestructor:
+          begin
+            xref := true;
+            line := 'Destructor';
+            line2:= recN.MakePrototype(adr, false, true, false, true, false);
+          end;
+        ikProc:
+          begin
+            xref := true;
+            line:='';
+            if imp then
+              line := 'Imp'
+            else if exp then
+              line := 'Exp'
+            else if emb then
+              line := 'Emb';
+            line := line + 'Proc';
+            line2:= recN.MakePrototype(adr, false, true, false, true, false);
+          end;
+        ikFunc:
+          begin
+            xref := true;
+            line:='';
+            if imp then
+              line := 'Imp'
+            else if exp then
+              line := 'Exp'
+            else if emb then
+              line := 'Emb';
+            line := line + 'Func';
+            line2:= recN.MakePrototype(adr, false, true, false, true, false);
+          end;
+        ikGUID:
+          if recN.HasName then line := '<TGUID> ' + recN.Name else line := '<TGUID> ';
+        ikRefine:
+          begin
+            xref := true;
+            line := '';
+            if imp then
+              line := 'Imp'
+            else if exp then
+              line := 'Exp'
+            else if emb then
+              line := 'Emb';
+            line := line + '??';
+            line2:= recN.MakePrototype(adr, false, true, false, true, false);
+          end;
+        else
+        begin
+          if IsFlagSet([cfProcStart], ps) then
+          Begin
+            xref := true;
+            if recN.kind = ikConstructor then
+              line := 'Constructor'
+            else if recN.kind = ikDestructor then
+              line := 'Destructor'
+            else
+            Begin
+              if emb then line := 'EmbProc'
+                else line:= 'Proc';
+            End;
+            line2:=recN.MakePrototype(adr, false, true, false, true, false);
+          End;
+        end;
+      End;
+
+      if line <> '' then
       Begin
-        FTypeInfo.ShowKbInfo(tInfo);
-        //as delete tInfo;
+        node:=vtProc.AddChild(Nil);
+        proc_data:=vtProc.GetNodeData(node);
+        with proc_data^ do
+        Begin
+          adres:=adr;
+          type_name:=line;
+          prototype:=line2;
+          pkind:=kind;
+          not_KB:=False;
+          if kind in [ikRefine..ikFunc] then
+          Begin
+            is_virtual:= PF_VIRTUAL in recN.procInfo.flags;
+            is_dynamic:= PF_DYNAMIC in recN.procInfo.flags;
+            is_event:= PF_EVENT in recN.procInfo.flags;
+          End;
+          if xref and Assigned(recN.xrefs) then
+          Begin
+            refs:=recN.xrefs.Count;
+            for m := 0 to recN.xrefs.Count-1 do
+            Begin
+              recX := recN.xrefs[m];
+              recU := GetUnit(recX.adr);
+              if Assigned(recU) and not recU.kb then
+              Begin
+                not_KB:=True; // this is user-defined unit, not present in KnowledgeBase
+                break;
+              End;
+            End;
+          end
+          Else refs:=0;
+        end;
+        vtProc.ReinitNode(node,False);
+        retain_focus(adr);
       End;
-    End
-    else FTypeInfo.ShowRTTI(adr);
-    Exit;
-  End
-  else if SameText(_name, '<Proc>') or
-    SameText(_name, '<Func>')     	or
-    SameText(_name, '<Constructor>') or
-    SameText(_name, '<Destructor>')  or
-    SameText(_name, '<EmbProc>') 	or
-    SameText(_name, '<EmbFunc>')  	or
-    SameText(_name, '<Emb?>')      or
-    SameText(_name, '<ImpProc>')  	or
-    SameText(_name, '<ExpProc>')  	or
-    SameText(_name, '<ImpFunc>')  	or
-    SameText(_name, '<ExpFunc>')   or
-    SameText(_name, '<Imp?>')      or
-    SameText(_name, '<Exp?>')      or
-    SameText(_name, '<?>') then
-  Begin
-    rec.adr := CurProcAdr;
-    rec.itemIdx := lbCode.ItemIndex;
-    rec.xrefIdx := lbCXrefs.ItemIndex;
-    rec.topIdx := lbCode.TopIndex;
-    ShowCode(adr, 0, -1, -1);
-    CodeHistoryPush(@rec);
-    pcWorkArea.ActivePage := tsCodeView;
-  End;
-end;
+      Inc(adr);
+    End;
 
-procedure TFMain.lbUnitItemsKeyDown(Sender : TObject; var Key:Word; Shift:TShiftState);
-begin
-  if Key = VK_RETURN then lbUnitItemsDblClick(Sender);
-end;
-
-procedure TFMain.lbUnitItemsClick(Sender : TObject);
-begin
-  UnitItemsSearchFrom := lbUnitItems.ItemIndex;
-  WhereSearch := SEARCH_UNITITEMS;
-end;
-
-procedure TFMain.lbUnitItemsDrawItem(Control: TWinControl; Index:Integer; Rect:TRect; State:TOwnerDrawState);
-var
-  flags:Integer;
-  col:TColor;
-  lb:TListBox;
-  canva:TCanvas;
-  text, str:AnsiString;
-begin
-  lb := TListBox(Control);
-  canva := lb.Canvas;
-  SaveCanvas(canva);
-  if Index < lb.Count then
-  begin
-    flags := Control.DrawTextBiDiModeFlags(DT_SINGLELINE or DT_VCENTER or DT_NOPREFIX);
-    if not Control.UseRightToLeftAlignment then
-      Inc(Rect.Left, 2)
-    else
-      Dec(Rect.Right, 2);
-    canva.FillRect(Rect);
-    text := lb.Items[Index];
-    //lb.ItemHeight := canva.TextHeight(text);
-    str := Copy(text,2, Length(text) - 1);
-    //Procs with Xrefs
-    if (Byte(text[1]) and 6)<>0 then
-    begin
-      //Xrefs from user units
-      if (Byte(text[1]) and 4)<>0 then
-      begin
-        if not (odSelected in State) then
-          col := TColor($00B000) //Green
-        else
-          col := TColor($BBBBBB); //LightGray
-      end
-      //No Xrefs from user units, only from KB units
-      else
-      begin
-        if not (odSelected in State) then
-          col := TColor($C08000) //Blue
-        else
-          col := TColor($BBBBBB); //LightGray
-      End;
-    End
-    //Unresolved items
-    else if (Byte(text[1]) and 1)<>0 then
-    begin
-      if not(odSelected in State) then
-        col := TColor($8080FF) //Red
-      else
-        col := TColor($BBBBBB); //LightGray
-    end
-    //Other
-    else
-    begin
-      if not (odSelected in State) then
-        col := TColor(0)        //Black
-      else
-        col := TColor($BBBBBB); //LightGray
-    end;
-    Rect.Right := Rect.Left;
-    DrawOneItem(str, canva, Rect, col, flags);
+    //Add initialization procedure
+    if recU.iniadr<>0 then
+    Begin
+      node:=vtProc.AddChild(Nil);
+      proc_data:=vtProc.GetNodeData(node);
+      with proc_data^ do
+      Begin
+        adres:=recU.iniadr;
+        type_name:='Proc';
+        prototype:='Initialization';
+        refs:=0;
+        pkind:=ikProc;
+      end;
+      retain_focus(recU.iniadr);
+    End;
+    //Add finalization procedure
+    if recU.finadr<>0 then
+    Begin
+      node:=vtProc.AddChild(Nil);
+      proc_data:=vtProc.GetNodeData(node);
+      with proc_data^ do
+      Begin
+        adres:=recU.finadr;
+        type_name:='Proc';
+        prototype:='Finalization';
+        refs:=0;
+        pkind:=ikProc;
+      end;
+      retain_focus(recU.finadr);
+    End;
+    with vtProc Do
+    Begin
+      //Header.Columns[2].Width:=maxwid + (Margin + TextMargin)*2;
+      SortTree(Header.SortColumn,Header.SortDirection,False);
+      ScrollIntoView(FocusedNode,False,False);
+    End;
+  Finally
+    //if (AnalyzeThread) AnalyzeThread.Resume();
+    vtProc.EndUpdate;
   end;
-  RestoreCanvas(canva);
-end;
-
-procedure TFMain.lbUnitItemsMouseMove(Sender : TObject; Shift:TShiftState; X,Y:Integer);
-begin
-  if lbUnitItems.CanFocus then ActiveControl := lbUnitItems;
 end;
 
 procedure TFMain.miSearchItemClick(Sender : TObject);
@@ -12267,10 +12091,7 @@ begin
     FFindDlg.cbText.AddItem(UnitItemsSearchList[n], Nil);
   if (FFindDlg.ShowModal = mrOk) and (FFindDlg.cbText.Text <> '') then
   begin
-    if lbUnitItems.ItemIndex < 0 then
-      UnitItemsSearchFrom := 0
-    else
-      UnitItemsSearchFrom := lbUnitItems.ItemIndex;
+    UnitItemsSearchFrom := vtProc.FocusedNode;
     UnitItemsSearchText := FFindDlg.cbText.Text;
     if UnitItemsSearchList.IndexOf(UnitItemsSearchText) = -1 then UnitItemsSearchList.Add(UnitItemsSearchText);
     FindText(UnitItemsSearchText);
@@ -12279,34 +12100,23 @@ end;
 
 procedure TFMain.miEditFunctionIClick(Sender : TObject);
 var
-  refCnt, adr:Integer;
-  item,_name:AnsiString;
+  proc_data:PProcNode;
+  prefix:AnsiString;
 begin
-  if lbUnitItems.ItemIndex < 0 then Exit;
-
-  item := lbUnitItems.Items[lbUnitItems.ItemIndex];
-  //Xrefs?
-  if (item[11] = '<') or (item[11] = '?') Then
-    sscanf(PAnsiChar(item)+1,'%lX%ls',[@adr,@_name])
-  else
-    sscanf(PAnsiChar(item)+1,'%lX%d%ls',[@adr,@refCnt,@_name]);
-  if SameText(_name, '<?>') or
-    //SameText(_name, '<Imp?>') or
-    //SameText(_name, '<Emb?>') or
-    SameText(_name, '<Constructor>') or
-    SameText(_name, '<Destructor>') or
-    SameText(_name, '<Func>') or
-    //SameText(_name, '<EmbFunc>') or
-    SameText(_name, '<Proc>') //or
-    //SameText(name, '<EmbProc>') or
-    //SameText(name, '<ImpFunc>') or
-    //SameText(name, '<ImpProc>')
-  then EditFunction(adr);
+  if Not Assigned(vtProc.FocusedNode) then Exit;
+  proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+  prefix:=Copy(proc_data.type_name,1,3);
+  if (proc_data.pkind in [ikRefine,ikConstructor,ikDestructor,ikFunc,ikProc])
+    And (prefix<>'Imp') and (prefix<>'Emb') // TMCDOS - why this exclusion ????
+  then EditFunction(proc_data.adres);
 end;
 
 procedure TFMain.miCopyAddressIClick(Sender : TObject);
+var
+  proc_data:PProcNode;
 begin
-  CopyAddress(lbUnitItems.Items[lbUnitItems.ItemIndex], 1, 8);
+  proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+  CopyAddress(proc_data.adres);
 end;
 
 Function SortRTTIsByAdr(item1, item2:Pointer):Integer;
@@ -12360,7 +12170,6 @@ Begin
       ndata:=vtRTTI.GetNodeData(node);
       ndata.kind:=recT.kind;
       ndata.adr:=recT.adr;
-      //Pointer(ndata.name):=Nil; // to prevent exceptions
       ndata.name:=recT.name;
       wid := vtRTTI.Canvas.TextWidth(ndata.name);
       if wid > maxwid then maxwid := wid;
@@ -12402,18 +12211,19 @@ Procedure TFMain.ShowStrings;
 var
   n, wid, wid2, maxwid, maxwid2:Integer;
   recN:InfoRec;
-  line, line1, str:AnsiString;
+  str:AnsiString;
   node:PVirtualNode;
   data:PStringNode;
 Begin
   maxwid:=0;
+  maxwid2:=200;
   vtString.Clear;
   vtString.BeginUpdate;
   try
     for n := 0 to CodeSize-1 do
     begin
       recN := GetInfoRec(Pos2Adr(n));
-      if Assigned(recN) and Not IsFlagSet(cfRTTI, n) then
+      if Assigned(recN) and Not IsFlagSet([cfRTTI], n) then
       begin
         if (recN.kind = ikResString) and (recN.rsInfo <> '') then
         begin
@@ -12474,8 +12284,7 @@ end;
 
 procedure TFMain.miSearchStringClick(Sender : TObject);
 var
-  n,adr:Integer;
-  line:AnsiString;
+  n:Integer;
   data:PStringNode;
 begin
   WhereSearch := SEARCH_STRINGS;
@@ -12555,7 +12364,6 @@ Procedure TFMain.ShowNames;
 var
   n, wid, wid2, maxwid,maxwid2:Integer;
   recN:InfoRec;
-  line:AnsiString;
   node:PVirtualNode;
   data:PNameNode;
 Begin
@@ -12566,7 +12374,7 @@ Begin
   try
     for n := CodeSize to TotalSize-1 do
     begin
-      if IsFlagSet(cfImport, n) then continue;
+      if IsFlagSet([cfImport], n) then continue;
       recN := GetInfoRec(Pos2Adr(n));
       if Assigned(recN) and recN.HasName then
       begin
@@ -12746,7 +12554,7 @@ begin
     End;
   end;
   for m := Adr2Pos(adr) Downto 0 do
-    if IsFlagSet(cfProcStart, m) then
+    if IsFlagSet([cfProcStart], m) then
     begin
       with rec do
       begin
@@ -12842,7 +12650,7 @@ Begin
   lastCmpPos := 0;
   lastAdr := 0;
   fromPos := Adr2Pos(fromAdr);
-  if (fromPos < 0) or IsFlagSet(cfEmbedded, fromPos) then Exit;
+  if (fromPos < 0) or IsFlagSet([cfEmbedded], fromPos) then Exit;
 
   b1 := Byte(Code[fromPos]);
   b2 := Byte(Code[fromPos + 1]);
@@ -12865,21 +12673,21 @@ Begin
   if xrefAdr<>0 then
   Begin
     recN.AddXref(xrefType, xrefAdr, xrefOfs);
-    SetFlag(cfProcStart, Adr2Pos(xrefAdr));
+    SetFlag([cfProcStart], Adr2Pos(xrefAdr));
   End;
 
   //Don't analyze imports
-  if IsFlagSet(cfImport, fromPos) then Exit;
+  if IsFlagSet([cfImport], fromPos) then Exit;
   //if (IsFlagSet(cfExport, fromPos)) return;
 
   //If Pass1 was set skip analyze
-  if IsFlagSet(cfPass1, fromPos) then Exit;
+  if IsFlagSet([cfPass1], fromPos) then Exit;
 
-  if not IsFlagSet(cfPass0, fromPos) then AnalyzeProcInitial(fromAdr);
-  SetFlag(cfProcStart or cfPass1, fromPos);
+  if not IsFlagSet([cfPass0], fromPos) then AnalyzeProcInitial(fromAdr);
+  SetFlag([cfProcStart, cfPass1], fromPos);
 
-  if maybeEmb and ((recN.procInfo.flags and PF_EMBED)=0) then
-    Cardinal(recN.procInfo.flags) := Cardinal(recN.procInfo.flags) or PF_MAYBEEMBED;
+  if maybeEmb and not (PF_EMBED in recN.procInfo.flags) then
+    Include(recN.procInfo.flags, PF_MAYBEEMBED);
   procSize := GetProcSize(fromAdr);
   curPos := fromPos; 
   curAdr := fromAdr;
@@ -12950,8 +12758,8 @@ Begin
       if Adr > lastAdr then lastAdr := Adr;
       Pos0 := Adr2Pos(Adr); 
       assert(Pos0 >= 0);
-      SetFlag(cfTry, curPos);
-      SetFlags(cfSkip, curPos, skipNum);
+      SetFlag([cfTry], curPos);
+      SetFlags([cfSkip], curPos, skipNum);
 
       //Disassemble jmp
       instrLen1 := frmDisasm.Disassemble(Code + Pos0, Adr, @DisInfo, Nil);
@@ -12961,14 +12769,14 @@ Begin
         //jmp @HandleFinally
         if recN1.SameName('@HandleFinally') then
         Begin
-          SetFlag(cfFinally, Pos0);//@1
-          SetFlags(cfSkip, Pos0 - 1, instrLen1 + 1);   //ret + jmp HandleFinally
+          SetFlag([cfFinally], Pos0);//@1
+          SetFlags([cfSkip], Pos0 - 1, instrLen1 + 1);   //ret + jmp HandleFinally
           Inc(Pos0, instrLen1); 
           Inc(Adr, instrLen1);
           //jmp @2
           instrLen2 := frmDisasm.Disassemble(Pos2Adr(Pos0), @DisInfo, Nil);
-          SetFlag(cfFinally, Pos0);//jmp @2
-          SetFlags(cfSkip, Pos0, instrLen2);//jmp @2
+          SetFlag([cfFinally], Pos0);//jmp @2
+          SetFlags([cfSkip], Pos0, instrLen2);//jmp @2
           Inc(Adr, instrLen2);
           if Adr > lastAdr then lastAdr := Adr;
           Pos0 := Adr2Pos(DisInfo.Immediate);//@2
@@ -12978,7 +12786,7 @@ Begin
           //If push XXXXXXXX . set new lastAdr
           if frmDisasm.GetOp(DisInfo.Mnem) = OP_PUSH then
           Begin
-            SetFlags(cfSkip, Pos1, instrLen2);
+            SetFlags([cfSkip], Pos1, instrLen2);
             if (DisInfo.OpType[0] = otIMM) and (DisInfo.Immediate > lastAdr) then lastAdr := DisInfo.Immediate;
           End;
 
@@ -12987,44 +12795,44 @@ Begin
           instrLen2 := frmDisasm.Disassemble(Pos2Adr(Pos1), @DisInfo, Nil);
           //pop fs:[0]
           if frmDisasm.GetOp(DisInfo.Mnem) = OP_POP then
-            SetFlags(cfSkip, Pos1, Pos0 - Pos1)
+            SetFlags([cfSkip], Pos1, Pos0 - Pos1)
           //mov fs:[0],reg
           else if (DisInfo.OpType[0] = otMEM) and (DisInfo.BaseReg = -1) and (DisInfo.Offset = 0) then
           Begin
             Pos2 := GetNthUpInstruction(Pos1, 3);
-            SetFlag(cfFinally, Pos2);
-            SetFlags(cfSkip, Pos2, Pos1 - Pos2 + instrLen2);
+            SetFlag([cfFinally], Pos2);
+            SetFlags([cfSkip], Pos2, Pos1 - Pos2 + instrLen2);
           End
           //mov fs:[reg1], reg2
           else
           Begin
             Pos2 := GetNthUpInstruction(Pos1, 4);
-            SetFlag(cfFinally, Pos2);
-            SetFlags(cfSkip, Pos2, Pos1 - Pos2 + instrLen2);
+            SetFlag([cfFinally], Pos2);
+            SetFlags([cfSkip], Pos2, Pos1 - Pos2 + instrLen2);
           End;
         End
         else if recN1.SameName('@HandleAnyException') or recN1.SameName('@HandleAutoException') then
         Begin
-          SetFlag(cfExcept, Pos0);//@1
+          SetFlag([cfExcept], Pos0);//@1
           //Find nearest up instruction with segment prefix fs:
           Pos1 := GetNearestUpPrefixFs(Pos0);
           instrLen2 := frmDisasm.Disassemble(Pos2Adr(Pos1), @DisInfo, Nil);
           //pop fs:[0]
           if frmDisasm.GetOp(DisInfo.Mnem) = OP_POP then
-            SetFlags(cfSkip, Pos1, Pos0 - Pos1)
+            SetFlags([cfSkip], Pos1, Pos0 - Pos1)
           //mov fs:[0],reg
           else if (DisInfo.OpType[0] = otMEM) and (DisInfo.BaseReg = -1) and (DisInfo.Offset = 0) then
           Begin
             Pos2 := GetNthUpInstruction(Pos1, 3);
-            SetFlag(cfExcept, Pos2);
-            SetFlags(cfSkip, Pos2, Pos1 - Pos2 + instrLen2);
+            SetFlag([cfExcept], Pos2);
+            SetFlags([cfSkip], Pos2, Pos1 - Pos2 + instrLen2);
           End
           //mov fs:[reg1], reg2
           else
           Begin
             Pos2 := GetNthUpInstruction(Pos1, 4);
-            SetFlag(cfExcept, Pos2);
-            SetFlags(cfSkip, Pos2, Pos1 - Pos2 + instrLen2);
+            SetFlag([cfExcept], Pos2);
+            SetFlags([cfSkip], Pos2, Pos1 - Pos2 + instrLen2);
           End;
 
           //Get prev (before Pos) instruction
@@ -13035,26 +12843,26 @@ Begin
         End
         else if recN1.SameName('@HandleOnException') then
         Begin
-          SetFlag(cfExcept, Pos0);//@1
+          SetFlag([cfExcept], Pos0);//@1
           //Find nearest up instruction with segment prefix fs:
           Pos1 := GetNearestUpPrefixFs(Pos0);
           instrLen2 := frmDisasm.Disassemble(Pos2Adr(Pos1), @DisInfo, Nil);
           //pop fs:[0]
           if frmDisasm.GetOp(DisInfo.Mnem) = OP_POP then
-            SetFlags(cfSkip, Pos1, Pos0 - Pos1)
+            SetFlags([cfSkip], Pos1, Pos0 - Pos1)
           //mov fs:[0],reg
           else if (DisInfo.OpType[0] = otMEM) and (DisInfo.BaseReg = -1) and (DisInfo.Offset = 0) then
           Begin
             Pos2 := GetNthUpInstruction(Pos1, 3);
-            SetFlag(cfExcept, Pos2);
-            SetFlags(cfSkip, Pos2, Pos1 - Pos2 + instrLen2);
+            SetFlag([cfExcept], Pos2);
+            SetFlags([cfSkip], Pos2, Pos1 - Pos2 + instrLen2);
           End
           //mov fs:[reg1], reg2
           else
           Begin
             Pos2 := GetNthUpInstruction(Pos1, 4);
-            SetFlag(cfExcept, Pos2);
-            SetFlags(cfSkip, Pos2, Pos1 - Pos2 + instrLen2);
+            SetFlag([cfExcept], Pos2);
+            SetFlags([cfSkip], Pos2, Pos1 - Pos2 + instrLen2);
           End;
 
           //Get prev (before Pos) instruction
@@ -13067,21 +12875,21 @@ Begin
           Inc(Pos0, instrLen1); 
           Inc(Adr, instrLen1);
           //Set flag cfETable
-          SetFlag(cfETable, Pos0);
+          SetFlag([cfETable], Pos0);
           //dd num
           num := PInteger(Code + Pos0)^;
-          SetFlags(cfSkip, Pos0, 4); 
+          SetFlags([cfSkip], Pos0, 4);
           Inc(Pos0, 4);
           if Adr + 4 + 8 * num > lastAdr then lastAdr := Adr + 4 + 8 * num;
           for k := 0 to num-1 do
           Begin
             //dd offset ExceptionInfo
-            SetFlags(cfSkip, Pos0, 4); 
+            SetFlags([cfSkip], Pos0, 4);
             Inc(Pos0, 4);
             //dd offset ExceptionProc
             procAdr := PInteger(Code + Pos0)^;
-            if IsValidCodeAdr(procAdr) then SetFlag(cfLoc, Adr2Pos(procAdr));
-            SetFlags(cfSkip, Pos0, 4);
+            if IsValidCodeAdr(procAdr) then SetFlag([cfLoc], Adr2Pos(procAdr));
+            SetFlags([cfSkip], Pos0, 4);
             Inc(Pos0, 4);
           End;
         End;
@@ -13094,8 +12902,8 @@ Begin
     skipNum := IsTryEndPush(curAdr, endAdr);
     if skipNum > 0 then
     Begin
-      SetFlag(cfFinally, curPos);
-      SetFlags(cfSkip, curPos, skipNum);
+      SetFlag([cfFinally], curPos);
+      SetFlags([cfSkip], curPos, skipNum);
       if endAdr > lastAdr then lastAdr := endAdr;
       Inc(curPos, skipNum); 
       Inc(curAdr, skipNum);
@@ -13105,8 +12913,8 @@ Begin
     skipNum := IsTryEndJump(curAdr, endAdr);
     if skipNum > 0 then
     Begin
-      SetFlag(cfFinally or cfExcept, curPos);
-      SetFlags(cfSkip, curPos, skipNum);
+      SetFlag([cfFinally, cfExcept], curPos);
+      SetFlags([cfSkip], curPos, skipNum);
       if endAdr > lastAdr then lastAdr := endAdr;
       Inc(curPos, skipNum); 
       Inc(curAdr, skipNum);
@@ -13160,7 +12968,7 @@ Begin
       continue;
     End;
     //Skip exception table
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -13182,27 +12990,27 @@ Begin
     End;
     op := frmDisasm.GetOp(DisInfo.Mnem);
     //Code
-    SetFlags(cfCode, curPos, instrLen);
+    SetFlags([cfCode], curPos, instrLen);
     //Instruction begin
-    SetFlag(cfInstruction, curPos);
+    SetFlag([cfInstruction], curPos);
     if curAdr >= lastAdr then lastAdr := 0;
 
     //Frame instructions
     if (curAdr = fromAdr) and (b1 = $55) then   //push ebp
-      SetFlag(cfFrame, curPos);
+      SetFlag([cfFrame], curPos);
     if (b1 = $8B) and (b2 = $EC) then          //mov ebp, esp
     Begin
     	bpBased := true;
-      recN.procInfo.flags := recN.procInfo.flags or PF_BPBASED;
+      Include(recN.procInfo.flags,PF_BPBASED);
       recN.procInfo.bpBase := bpBase;
-      SetFlags(cfFrame, curPos, instrLen);
+      SetFlags([cfFrame], curPos, instrLen);
       Inc(curPos, instrLen); 
       Inc(curAdr, instrLen);
       continue;
     End;
     if (b1 = $8B) and (b2 = $E5) then          //mov esp, ebp
     Begin
-      SetFlags(cfFrame, curPos, instrLen);
+      SetFlags([cfFrame], curPos, instrLen);
       Inc(curPos, instrLen); 
       Inc(curAdr, instrLen);
       continue;
@@ -13221,7 +13029,7 @@ Begin
         if (Pos0 < 0) and ((lastAdr=0) or (curAdr = lastAdr)) then break;
         if (GetSegmentNo(Adr) <> 0) and (GetSegmentNo(fromAdr) <> GetSegmentNo(Adr))
           and ((lastAdr=0) or (curAdr = lastAdr)) then break;
-        SetFlag(cfLoc, Pos0);
+        SetFlag([cfLoc], Pos0);
         recN1 := GetInfoRec(Adr);
         if not Assigned(recN1) then recN1 := InfoRec.Create(Pos0, ikUnknown);
         recN1.AddXref('J', fromAdr, curAdr - fromAdr);
@@ -13245,18 +13053,18 @@ Begin
     //push
     if op = OP_PUSH then
     Begin
-      SetFlag(cfPush, curPos);
+      SetFlag([cfPush], curPos);
       Inc(bpBase, 4);
     End
     //pop
-    else if op = OP_POP then SetFlag(cfPop, curPos);
+    else if op = OP_POP then SetFlag([cfPop], curPos);
     //add (sub) esp,...
     if (DisInfo.OpRegIdx[0] = 20) and (DisInfo.OpType[1] = otIMM) then
     Begin
       if op = OP_ADD then Dec(bpBase, DisInfo.Immediate)
       else if op = OP_SUB then Inc(bpBase, DisInfo.Immediate);
       //skip
-      SetFlags(cfSkip, curPos, instrLen);
+      SetFlags([cfSkip], curPos, instrLen);
       Inc(curPos, instrLen); 
       Inc(curAdr, instrLen);
       continue;
@@ -13267,7 +13075,7 @@ Begin
     //skip
     if (DisInfo.Mnem = 'sahf') or (DisInfo.Mnem = 'wait') then
     Begin
-      SetFlags(cfSkip, curPos, instrLen);
+      SetFlags([cfSkip], curPos, instrLen);
       Inc(curPos, instrLen); 
       Inc(curAdr, instrLen);
       continue;
@@ -13281,7 +13089,7 @@ Begin
     Begin
     	//May be add condition that all Xrefs must points to one subroutine!!!!!!!!!!!!!
     	if (bpBased and (DisInfo.BaseReg <> 21)) or (not bpBased and (DisInfo.BaseReg <> 20)) then
-        recN.procInfo.flags := recN.procInfo.flags or PF_EMBED;
+        Include(recN.procInfo.flags, PF_EMBED);
     End;
     if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM) and IsValidImageAdr(DisInfo.Offset) then //near absolute indirect jmp (Case)
     Begin
@@ -13293,8 +13101,8 @@ Begin
       End;
       cTblAdr := 0;
       jTblAdr := 0;
-      SetFlag(cfSwitch, lastCmpPos);
-      SetFlag(cfSwitch, curPos);
+      SetFlag([cfSwitch], lastCmpPos);
+      SetFlag([cfSwitch], curPos);
       
       Pos0 := curPos + instrLen;
       Adr := curAdr + instrLen;
@@ -13306,20 +13114,20 @@ Begin
       if cTblAdr<>0 then
       Begin
         CNum := jTblAdr - cTblAdr;
-        SetFlags(cfSkip, Pos0, CNum);
+        SetFlags([cfSkip], Pos0, CNum);
         Inc(Pos0, CNum);
         Inc(Adr, CNum);
       End;
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, Pos0) then break;
+        if IsFlagSet([cfLoc], Pos0) then break;
         Adr1 := PInteger(Code + Pos0)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
-        SetFlags(cfSkip, Pos0, 4);
+        SetFlag([cfLoc], Adr2Pos(Adr1));
+        SetFlags([cfSkip], Pos0, 4);
         Inc(Pos0, 4); 
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -13347,13 +13155,13 @@ Begin
           Begin
             if Code[NPos + 2] = #$35 then
             Begin
-              SetFlag(cfTry, NPos - 6);
-              SetFlags(cfSkip, NPos - 6, 20);
+              SetFlag([cfTry], NPos - 6);
+              SetFlags([cfSkip], NPos - 6, 20);
             End
             else
             Begin
-              SetFlag(cfTry, NPos - 8);
-              SetFlags(cfSkip, NPos - 8, 14);
+              SetFlag([cfTry], NPos - 8);
+              SetFlags([cfSkip], NPos - 8, 14);
             End;
             //Disassemble jmp
             instrLen1 := frmDisasm.Disassemble(Code + Pos0, Adr, @DisInfo, Nil);
@@ -13363,14 +13171,14 @@ Begin
               //jmp @HandleFinally
               if recN1.SameName('@HandleFinally') then
               Begin
-                SetFlag(cfFinally, Pos0);
-                SetFlags(cfSkip, Pos0 - 1, instrLen1 + 1);   //ret + jmp HandleFinally
+                SetFlag([cfFinally], Pos0);
+                SetFlags([cfSkip], Pos0 - 1, instrLen1 + 1);   //ret + jmp HandleFinally
                 Inc(Pos0, instrLen1); 
                 Inc(Adr, instrLen1);
                 //jmp @2
                 instrLen2 := frmDisasm.Disassemble(Code + Pos0, Adr, @DisInfo, Nil);
-                SetFlag(cfFinally, Pos0);
-                SetFlags(cfSkip, Pos0, instrLen2);
+                SetFlag([cfFinally], Pos0);
+                SetFlags([cfSkip], Pos0, instrLen2);
                 Inc(Adr, instrLen2);
                 if Adr > lastAdr then lastAdr := Adr;
                 //int hfEndPos := Adr2Pos(Adr);
@@ -13381,20 +13189,20 @@ Begin
                 if Code[Pos0] = #$68 then  //push offset @3       //Flags[Pos] & cfInstruction must be <> 0
                 Begin
                   hfStartPos := Pos0 - 8;
-                  SetFlags(cfSkip, hfStartPos, 13);
+                  SetFlags([cfSkip], hfStartPos, 13);
                 End;
-                SetFlag(cfFinally, hfStartPos);
+                SetFlag([cfFinally], hfStartPos);
               End
               else if recN1.SameName('@HandleAnyException') or recN1.SameName('@HandleAutoException') then
               Begin
-                SetFlag(cfExcept, Pos0);
+                SetFlag([cfExcept], Pos0);
                 hoStartPos := Pos0 - 10;
-                SetFlags(cfSkip, hoStartPos, instrLen1 + 10);
+                SetFlags([cfSkip], hoStartPos, instrLen1 + 10);
                 frmDisasm.Disassemble(Code + Pos0 - 10, Adr - 10, @DisInfo, Nil);
                 if (frmDisasm.GetOp(DisInfo.Mnem) <> OP_XOR) or (DisInfo.OpRegIdx[0] <> DisInfo.OpRegIdx[1]) then
                 Begin
                   hoStartPos := Pos0 - 13;
-                  SetFlags(cfSkip, hoStartPos, instrLen1 + 13);
+                  SetFlags([cfSkip], hoStartPos, instrLen1 + 13);
                 End;
                 //Find prev jmp
                 Pos1 := hoStartPos;
@@ -13407,18 +13215,18 @@ Begin
                 End;
                 if DisInfo.Immediate > lastAdr then lastAdr := DisInfo.Immediate;
                 //int hoEndPos := Adr2Pos(DisInfo.Immediate);
-                SetFlag(cfExcept, hoStartPos);
+                SetFlag([cfExcept], hoStartPos);
               End
               else if recN1.SameName('@HandleOnException') then
               Begin
-                SetFlag(cfExcept, Pos0);
+                SetFlag([cfExcept], Pos0);
                 hoStartPos := Pos0 - 10;
-                SetFlags(cfSkip, hoStartPos, instrLen1 + 10);
+                SetFlags([cfSkip], hoStartPos, instrLen1 + 10);
                 frmDisasm.Disassemble(Code + Pos0 - 10, Adr - 10, @DisInfo, Nil);
                 if (frmDisasm.GetOp(DisInfo.Mnem) <> OP_XOR) or (DisInfo.OpRegIdx[0] <> DisInfo.OpRegIdx[1]) then
                 Begin
                   hoStartPos := Pos0 - 13;
-                  SetFlags(cfSkip, hoStartPos, instrLen1 + 13);
+                  SetFlags([cfSkip], hoStartPos, instrLen1 + 13);
                 End;
                 //Find prev jmp
                 Pos1 := hoStartPos; 
@@ -13431,27 +13239,27 @@ Begin
                 End;
                 if DisInfo.Immediate > lastAdr then lastAdr := DisInfo.Immediate;
                 //int hoEndPos := Adr2Pos(DisInfo.Immediate);
-                SetFlag(cfExcept, hoStartPos);
+                SetFlag([cfExcept], hoStartPos);
 
                 //Next instruction
                 Inc(Pos0, instrLen1); 
                 Inc(Adr , instrLen1);
                 //Set flag cfETable
-                SetFlag(cfETable, Pos0);
+                SetFlag([cfETable], Pos0);
                 //dd num
                 num := PInteger(Code + Pos0)^;
-                SetFlags(cfSkip, Pos0, 4); 
+                SetFlags([cfSkip], Pos0, 4);
                 Inc(Pos0, 4);
                 if Adr + 4 + 8 * num > lastAdr then lastAdr := Adr + 4 + 8 * num;
                 for k := 0 to num-1 do
                 Begin
                   //dd offset ExceptionInfo
-                  SetFlags(cfSkip, Pos0, 4); 
+                  SetFlags([cfSkip], Pos0, 4);
                   Inc(Pos0, 4);
                   //dd offset ExceptionProc
                   procAdr := PInteger(Code + Pos0)^;
-                  if IsValidCodeAdr(procAdr) then SetFlag(cfLoc, Adr2Pos(procAdr));
-                  SetFlags(cfSkip, Pos0, 4); 
+                  if IsValidCodeAdr(procAdr) then SetFlag([cfLoc], Adr2Pos(procAdr));
+                  SetFlags([cfSkip], Pos0, 4);
                   Inc(Pos0, 4);
                 End;
               End;
@@ -13465,11 +13273,11 @@ Begin
     End;
     if DisInfo.Call then
     Begin
-      SetFlag(cfCall, curPos);
+      SetFlag([cfCall], curPos);
       Adr := DisInfo.Immediate;
       if IsValidCodeAdr(Adr) and (Adr2Pos(Adr) >= 0) then
       Begin
-        SetFlag(cfLoc, Adr2Pos(Adr));
+        SetFlag([cfLoc], Adr2Pos(Adr));
         //If after call exists instruction pop ecx, it may be embedded procedure
         mbemb := Code[curPos + instrLen] = #$59;
         AnalyzeProc1(Adr, 'C', fromAdr, curAdr - fromAdr, mbemb);
@@ -13477,13 +13285,13 @@ Begin
         if Assigned(recN1) and Assigned(recN1.procInfo) then
         Begin
           //After embedded proc instruction pop ecx must be skipped
-          if mbemb and ((recN1.procInfo.flags and PF_EMBED)<>0) then
-            SetFlag(cfSkip, curPos + instrLen);
+          if mbemb and (PF_EMBED in recN1.procInfo.flags) then
+            SetFlag([cfSkip], curPos + instrLen);
           if recN1.HasName then
           Begin
             if recN1.SameName('@Halt0') then
             Begin
-              SetFlags(cfSkip, curPos, instrLen);
+              SetFlags([cfSkip], curPos, instrLen);
               if (fromAdr = EP) and (lastAdr=0) then
               Begin
                 //SetFlag(cfProcEnd, curPos + instrLen - 1);
@@ -13499,22 +13307,22 @@ Begin
               recN.kind := ikConstructor;
               //Code from instruction test... until this call is not sufficient (mark skipped)
               begPos := GetNearestUpInstruction1(curPos, fromPos, 'test');
-              if begPos <> -1 then SetFlags(cfSkip, begPos, curPos + instrLen - begPos);
+              if begPos <> -1 then SetFlags([cfSkip], begPos, curPos + instrLen - begPos);
             End
             else if recN1.SameName('@AfterConstruction') then
             Begin
               begPos := GetNearestUpInstruction2(curPos, fromPos, 'test', 'cmp');
               endPos := GetNearestDownInstruction(curPos, 'add');
-              if (begPos <> -1) and (endPos <> -1) then SetFlags(cfSkip, begPos, endPos - begPos);
+              if (begPos <> -1) and (endPos <> -1) then SetFlags([cfSkip], begPos, endPos - begPos);
             End
             else if recN1.SameName('@BeforeDestruction') then
-              SetFlag(cfSkip, curPos)
+              SetFlag([cfSkip], curPos)
             //If called procedure is @ClassDestroy, then current procedure is destructor
             else if recN1.SameName('@ClassDestroy') then
             Begin
               recN.kind := ikDestructor;
               begPos := GetNearestUpInstruction2(curPos, fromPos, 'test', 'cmp');
-              if begPos <> -1 then SetFlags(cfSkip, begPos, curPos + instrLen - begPos);
+              if begPos <> -1 then SetFlags([cfSkip], begPos, curPos + instrLen - begPos);
             End;
           End;
         End;
@@ -13530,12 +13338,12 @@ Begin
       if IsValidCodeAdr(Adr) then
       Begin
         Pos0 := Adr2Pos(Adr);
-        if not IsFlagSet(cfEmbedded, Pos0) then //Possible branch to start of Embedded proc (for ex. in proc TextToFloat))
+        if not IsFlagSet([cfEmbedded], Pos0) then //Possible branch to start of Embedded proc (for ex. in proc TextToFloat))
         Begin
-          SetFlag(cfLoc, Pos0);
+          SetFlag([cfLoc], Pos0);
           //Mark possible start of Loop
-          if (Adr < curAdr) and not IsFlagSet(cfExcept or cfFinally, Adr2Pos(curAdr)) {and not IsFlagSet(cfExcept, Adr2Pos(curAdr))} then
-            SetFlag(cfLoop, Pos0);
+          if (Adr < curAdr) and not IsFlagSet([cfExcept, cfFinally], Adr2Pos(curAdr)) {and not IsFlagSet(cfExcept, Adr2Pos(curAdr))} then
+            SetFlag([cfLoop], Pos0);
           recN1 := GetInfoRec(Adr);
           if not Assigned(recN1) then recN1 := InfoRec.Create(Pos0, ikUnknown);
           recN1.AddXref('C', fromAdr, curAdr - fromAdr);
@@ -13552,10 +13360,10 @@ Begin
       if IsValidCodeAdr(Adr) then
       Begin
         Pos0 := Adr2Pos(Adr);
-        SetFlag(cfLoc, Pos0);
+        SetFlag([cfLoc], Pos0);
         //Mark possible start of Loop
-        if (Adr < curAdr) and not IsFlagSet(cfExcept or cfFinally, Adr2Pos(curAdr)) {and not IsFlagSet(cfExcept, Adr2Pos(curAdr))} then
-          SetFlag(cfLoop, Pos0);
+        if (Adr < curAdr) and not IsFlagSet([cfExcept, cfFinally], Adr2Pos(curAdr)) {and not IsFlagSet(cfExcept, Adr2Pos(curAdr))} then
+          SetFlag([cfLoop], Pos0);
         recN1 := GetInfoRec(Adr);
         if Assigned(recN1) and recN1.HasName then
           if recN1.SameName('@HandleFinally')     or
@@ -13579,7 +13387,7 @@ Begin
       if (Pos0 >= 0) and IsValidCodeAdr(DisInfo.Immediate) and ((DisInfo.Immediate < fromAdr) or (DisInfo.Immediate >= fromAdr + procSize)) then
       Begin
         //Position must be free
-        if FlagList[Pos0]=0 then
+        if FlagList[Pos0]=[] then
         Begin
           //No Name
           if InfoList[Pos0]=Nil then
@@ -13597,7 +13405,7 @@ Begin
           End;
         End
         //If slot is not free (procedure is already loaded)
-        else if IsFlagSet(cfProcStart, Pos0) then
+        else if IsFlagSet([cfProcStart], Pos0) then
           AnalyzeProc1(DisInfo.Immediate, 'D', fromAdr, curAdr - fromAdr, false);
       End;
       Inc(curPos, instrLen);
@@ -13633,10 +13441,11 @@ var
   source:Char;
 	addXref,NameInside,reset, bpBased, vmt, fContinue:Boolean;
   bpBase:Word;
+  b:TCflagSet;
   n, num, instrLen, instrLen1, instrLen2, _ap, _procSize,aofs:Integer;
   CNum,NPos,delta,dd,retBytes,dynAdr,cnt,arrAdr,reg1Idx, reg2Idx:Integer;
   sp, fromIdx:Integer; //fromIdx - индекс регистра в инструкции mov eax,reg (для обработки вызова @IsClass)
-  b,fromPos, curPos, Ps, curAdr, lastMovAdr, procAdr, Val, Adr, Adr1,callOfs:Integer;
+  fromPos, curPos, Ps, curAdr, lastMovAdr, procAdr, Val, Adr, Adr1,callOfs:Integer;
   cTblAdr,jTblAdr,k,reg, varAdr, classAdr, vmtAdr, lastAdr,aa,mm:Integer;
   recN, recN1:InfoRec;
   recM:PMethodRec;
@@ -13665,16 +13474,14 @@ Begin
   fromPos := Adr2Pos(fromAdr);
   Result:=False;
   if (fromPos < 0) or
-    IsFlagSet(cfPass2, fromPos) or
-    IsFlagSet(cfEmbedded, fromPos) or
-    IsFlagSet(cfExport, fromPos) then Exit;
+    IsFlagSet([cfPass2,cfEmbedded, cfExport], fromPos) then Exit;
 
   b1 := Byte(Code[fromPos]);
   b2 := Byte(Code[fromPos + 1]);
   if (b1=0) and (b2=0) then Exit;
 
   //Import - return ret type of function
-  if IsFlagSet(cfImport, fromPos) then Exit;
+  if IsFlagSet([cfImport], fromPos) then Exit;
   recN := GetInfoRec(fromAdr);
 
   //if recN := 0 (Interface Methods!!!) then return
@@ -13684,11 +13491,11 @@ Begin
   if Assigned(recN) and (recN.kbIdx <> -1) then Exit;
 
   //if (!IsFlagSet(cfPass1, fromPos))
-  SetFlag(cfProcStart or cfPass2, fromPos);
+  SetFlag([cfProcStart, cfPass2], fromPos);
 
   //If function name contains class name get it
   clsName := ExtractClassName(recN.Name);
-  bpBased := (recN.procInfo.flags and PF_BPBASED)<>0;
+  bpBased := PF_BPBASED in recN.procInfo.flags;
   bpBase := recN.procInfo.bpBase;
   rtmp.result := 0;
   rtmp.source := #0;
@@ -13700,7 +13507,7 @@ Begin
   _eax_Type := '';
   _edx_Type := '';
   _ecx_Type := '';
-  callKind := recN.procInfo.flags and 7;
+  callKind := recN.procInfo.call_kind;
   if Assigned(recN.procInfo.args) and (callKind=0) then
   	for n := 0 to recN.procInfo.args.Count-1 do
     Begin
@@ -13745,7 +13552,7 @@ Begin
     if curAdr >= Integer(CodeBase) + TotalSize then break;
     
     //Skip exception table
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -13765,9 +13572,9 @@ Begin
     End;
     op := frmDisasm.GetOp(DisInfo.Mnem);
     //Code
-    SetFlags(cfCode, curPos, instrLen);
+    SetFlags([cfCode], curPos, instrLen);
     //Instruction begin
-    SetFlag(cfInstruction, curPos);
+    SetFlag([cfInstruction], curPos);
     if curAdr >= lastAdr then lastAdr := 0;
 
     if op = OP_JMP then
@@ -13801,8 +13608,8 @@ Begin
             for Ps := curPos - 1 downto fromPos do
             Begin
               b := FlagList[Ps];
-              if ((b and cfInstruction)<>0) and ((b and cfSkip)=0) then
-              // then // BROKEN BUG
+              // original C++ here is ignoring cfSkip - TMCDOS
+              if (cfInstruction in b) and not (cfSkip in b) then
               Begin
                 frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps),@DisInfo, Nil);
                 //If branch - break
@@ -13819,8 +13626,8 @@ Begin
                     Begin
                       typeName := recN1._type;
                       recN1 := GetInfoRec(fromAdr);
-                      if ((recN1.procInfo.flags and (PF_EVENT or PF_DYNAMIC))=0) and
-                        (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+                      if (recN1.procInfo.flags * [PF_EVENT, PF_DYNAMIC] = []) and
+                        not(recN1.kind in [ikConstructor, ikDestructor]) then
                       Begin
                         recN1.kind := ikFunc;
                         recN1._type := typeName;
@@ -13828,11 +13635,11 @@ Begin
                     End;
                   End;
                 End
-                else if (b and cfSetA)<>0 then
+                else if cfSetA in b then
                 Begin
                   recN1 := GetInfoRec(fromAdr);
-                  if ((recN1.procInfo.flags and (PF_EVENT or PF_DYNAMIC))=0) and
-                    (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+                  if (recN1.procInfo.flags * [PF_EVENT, PF_DYNAMIC] = []) and
+                    not (recN1.kind in [ikConstructor, ikDestructor]) then
                   Begin
                     recN1.kind := ikFunc;
                     recN1._type := registers[16]._type;
@@ -13844,11 +13651,11 @@ Begin
         End;
         break;
       End;
-      if not IsFlagSet(cfSkip, curPos) then sp := -1;
+      if not IsFlagSet([cfSkip], curPos) then sp := -1;
     End;
 
     //cfBracket
-    if IsFlagSet(cfBracket, curPos) then
+    if IsFlagSet([cfBracket], curPos) then
     Begin
     	if (op = OP_PUSH) and (sp < 255) then
       Begin
@@ -13878,7 +13685,7 @@ Begin
     if op = OP_MOV then lastMovAdr := DisInfo.Offset;
 
     //If loc then try get context
-    if (curAdr <> fromAdr) and IsFlagSet(cfLoc, curPos) then
+    if (curAdr <> fromAdr) and IsFlagSet([cfLoc], curPos) then
     Begin
       rcinfo := GetCtx(sctx, curAdr);
       if Assigned(rcinfo) then
@@ -13910,12 +13717,12 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, Ps) then break;
+        if IsFlagSet([cfLoc], Ps) then break;
         Adr1 := PInteger(Code + Ps)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         //Save context
         if GetCtx(sctx, Adr1)=Nil then
         Begin
@@ -14107,7 +13914,7 @@ Begin
                 AnalyzeTypes(fromAdr, curPos, Adr, registers);
               End;
             End;
-            SetFlag(cfSetA, curPos);
+            SetFlag([cfSetA], curPos);
           End
           else
           Begin
@@ -14116,7 +13923,7 @@ Begin
             if recN.SameName('@ClassCreate') then
             Begin
                SetRegisterType(registers, 16, clsName);
-               SetFlag(cfSetA, curPos);
+               SetFlag([cfSetA], curPos);
             End
             else if recN.SameName('@CallDynaInst') or recN.SameName('@CallDynaClass') then
             Begin
@@ -14168,16 +13975,16 @@ Begin
               for Ps := curPos - 1 downto fromPos do
               Begin
                 b := FlagList[Ps];
-                if (b and cfInstruction)<>0 then
+                if cfInstruction in b then
                 Begin
                   instrLen1 := frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps), @DisInfo, Nil);
                   if DisInfo.Conditional then break;
-                  SetFlags(cfSkip or cfFinallyExit, Ps, instrLen1);
+                  SetFlags([cfSkip, cfFinallyExit], Ps, instrLen1);
                 End;
               End;
               //@TryFinallyExit + jmp XXXXXXXX
               Inc(instrLen, frmDisasm.Disassemble(Code + curPos + instrLen, Pos2Adr(curPos) + instrLen, @DisInfo, Nil));
-              SetFlags(cfSkip or cfFinallyExit, curPos, instrLen);
+              SetFlags([cfSkip, cfFinallyExit], curPos, instrLen);
             End
             else
             Begin
@@ -14318,7 +14125,7 @@ Begin
                     fVal := 'Impossible!';
                 end;
             End;
-            SetFlags(cfData, _ap, DisInfo.MemSize);
+            SetFlags([cfData], _ap, DisInfo.MemSize);
 
             recN := GetInfoRec(Adr);
             if not Assigned(recN) then recN := InfoRec.Create(_ap, ikData);
@@ -14690,12 +14497,12 @@ Begin
                         Begin
                           if reg1Idx >= 16 then
                           Begin
-                            if IsFlagSet(cfImport, _ap) then
+                            if IsFlagSet([cfImport], _ap) then
                             Begin
                               recN1 := GetInfoRec(Adr);
                               AddPicode(curPos, OP_COMMENT, recN1.Name, 0);
                             End
-                            else if not IsFlagSet(cfRTTI, _ap) then
+                            else if not IsFlagSet([cfRTTI], _ap) then
                             Begin
                               Val := PInteger(Code + _ap)^;
                               if reset then SetRegisterValue(registers, reg1Idx, Val);
@@ -14740,7 +14547,7 @@ Begin
                               else
                               Begin
                                 AddPicode(curPos, OP_COMMENT, HEX_COMENT + Val2Str(Val), 0);
-                                SetFlags(cfData, _ap, 4);
+                                SetFlags([cfData], _ap, 4);
                               End;
                             End;
                           End
@@ -14751,7 +14558,7 @@ Begin
                             else if reg1Idx <= 15 then
                               Val := PWord(Code + _ap)^;
                             AddPicode(curPos, OP_COMMENT, HEX_COMENT + Val2Str(Val), 0);
-                            SetFlags(cfData, _ap, 4);
+                            SetFlags([cfData], _ap, 4);
                           End;
                         End;
                       End;
@@ -14813,7 +14620,7 @@ Begin
                           else
                           Begin
                             AddPicode(curPos, OP_COMMENT, HEX_COMENT + Val2Str(Val), 0);
-                            SetFlags(cfData, _ap, 4);
+                            SetFlags([cfData], _ap, 4);
                           End;
                         End
                         else
@@ -14823,7 +14630,7 @@ Begin
                           else if reg1Idx <= 15 then
                             Val := PWord(Code + _ap)^;
                           AddPicode(curPos, OP_COMMENT, HEX_COMENT + Val2Str(Val), 0);
-                          SetFlags(cfData, _ap, 4);
+                          SetFlags([cfData], _ap, 4);
                         End;
                       End;
                     End;
@@ -15512,7 +15319,7 @@ Begin
   retName := '';
   recN := GetInfoRec(callAdr);
   //If procedure is skipped return
-  if IsFlagSet(cfSkip, callPos) then
+  if IsFlagSet([cfSkip], callPos) then
   Begin
     //@BeforeDestruction
     if recN.SameName('@BeforeDestruction') then Result:= registers[16]._type
@@ -15521,7 +15328,7 @@ Begin
   End;
 
   //cdecl, stdcall
-  if (recN.procInfo.flags and 1)<>0 then
+  if (recN.procInfo.call_kind and 1)<>0 then
   Begin
   	if not Assigned(recN.procInfo.args) or (recN.procInfo.args.Count=0) then
     Begin
@@ -15531,11 +15338,11 @@ Begin
     pushn := -1;
     for ps := callPos downto 0 do
     Begin
-      if not IsFlagSet(cfInstruction, ps) then continue;
-      if IsFlagSet(cfProcStart, ps) then break;
+      if not IsFlagSet([cfInstruction], ps) then continue;
+      if IsFlagSet([cfProcStart], ps) then break;
       //I cannot yet handle this situation
-      if IsFlagSet(cfCall, ps) and (ps <> callPos) then break;
-      if IsFlagSet(cfPush, ps) then
+      if IsFlagSet([cfCall], ps) and (ps <> callPos) then break;
+      if IsFlagSet([cfPush], ps) then
       Begin
         Inc(pushn);
         if pushn < recN.procInfo.args.Count then
@@ -15560,7 +15367,7 @@ Begin
                   strAdr := PInteger(Code + itemPos)^;
                   if strAdr=0 then
                   Begin
-                    SetFlags(cfData, itemPos, 4);
+                    SetFlags([cfData], itemPos, 4);
                     MakeGvar(recN1, itemAdr, Pos2Adr(ps));
                     if typeDef <> '' then recN1._type := typeDef;
                   End
@@ -15570,7 +15377,7 @@ Begin
                     if ap >= 0 then
                     Begin
                       len := StrLen(Code + ap);
-                      SetFlags(cfData, ap, len + 1);
+                      SetFlags([cfData], ap, len + 1);
                     End
                     else if ap = -1 then
                     Begin
@@ -15594,7 +15401,7 @@ Begin
                       if typeDef <> '' then recN1._type := typeDef;
                     End;
                   End;
-                  SetFlags(cfData, itemPos, len + 1);
+                  SetFlags([cfData], itemPos, len + 1);
                 End;
                 if Assigned(recN1) then recN1.ScanUpItemAndAddRef(callPos, itemAdr, 'C', parentAdr);
               End
@@ -15616,7 +15423,7 @@ Begin
                   strAdr := PInteger(Code + itemPos)^;
                   if strAdr=0 then
                   Begin
-                    SetFlags(cfData, itemPos, 4);
+                    SetFlags([cfData], itemPos, 4);
                     MakeGvar(recN1, itemAdr, Pos2Adr(ps));
                     if typeDef <> '' then recN1._type := typeDef;
                   End
@@ -15626,7 +15433,7 @@ Begin
                     if ap >= 0 then
                     Begin
                       len := lstrlenw(PWideChar(Code) + Adr2Pos(strAdr));
-                      SetFlags(cfData, Adr2Pos(strAdr), 2*len + 1);
+                      SetFlags([cfData], Adr2Pos(strAdr), 2*len + 1);
                     End
                     else if ap = -1 then
                     Begin
@@ -15660,7 +15467,7 @@ Begin
                       if typeDef <> '' then recN1._type := typeDef;
                     End;
                   End;
-                  SetFlags(cfData, itemPos, 2*len + 1);
+                  SetFlags([cfData], itemPos, 2*len + 1);
                 End;
                 recN1.AddXref('C', callAdr, callPos);
               End
@@ -15677,7 +15484,7 @@ Begin
                 recN1 := GetInfoRec(itemAdr);
                 if not Assigned(recN1) then recN1 := InfoRec.Create(itemPos, ikGUID);
                 recN1.kind := ikGUID;
-                SetFlags(cfData, itemPos, 16);
+                SetFlags([cfData], itemPos, 16);
                 if not recN1.HasName then
                 Begin
                   if IsValidCodeAdr(itemAdr) then
@@ -15985,7 +15792,7 @@ Begin
     else if recN.SameName('@AfterConstruction') then Exit;
   End;
   //try prototype
-  callKind := recN.procInfo.flags and 7;
+  callKind := recN.procInfo.call_kind;
   if Assigned(recN.procInfo.args) and (callKind=0) then
   Begin
     registers[16].result := 0;
@@ -16060,11 +15867,11 @@ Begin
                 Begin
                   ap := Adr2Pos(strAdr);
                   len := Byte(Code[ap]);
-                  SetFlags(cfData, ap, len + 1);
+                  SetFlags([cfData], ap, len + 1);
                 End
                 else
                 Begin
-                  SetFlags(cfData, itemPos, 4);
+                  SetFlags([cfData], itemPos, 4);
                   MakeGvar(recN1, itemAdr, 0);
                   if typeDef <> '' then recN1._type := typeDef;
                 End;
@@ -16084,7 +15891,7 @@ Begin
                     if typeDef <> '' then recN1._type := typeDef;
                   End;
                 End;
-                SetFlags(cfData, itemPos, len + 1);
+                SetFlags([cfData], itemPos, len + 1);
               End;
             End
             else if SameText(typeDef, 'PAnsiChar') or SameText(typeDef, 'PChar') then
@@ -16099,11 +15906,11 @@ Begin
                 Begin
                   ap := Adr2Pos(strAdr);
                   len := strlen(Code + ap);
-                  SetFlags(cfData, ap, len + 1);
+                  SetFlags([cfData], ap, len + 1);
                 End
                 else
                 Begin
-                  SetFlags(cfData, itemPos, 4);
+                  SetFlags([cfData], itemPos, 4);
                   MakeGvar(recN1, itemAdr, 0);
                   if typeDef <> '' then recN1._type := typeDef;
                 End;
@@ -16123,7 +15930,7 @@ Begin
                     if typeDef <> '' then recN1._type := typeDef;
                   End;
                 End;
-                SetFlags(cfData, itemPos, len + 1);
+                SetFlags([cfData], itemPos, len + 1);
               End;
             End
             else if SameText(typeDef, 'AnsiString') or
@@ -16145,21 +15952,21 @@ Begin
                   if (refcnt = -1) and (len >= 0) and (len < 25000) then
                   Begin
                     if DelphiVersion < 2009 then
-                      SetFlags(cfData, ap - 8, (8 + len + 1 + 3) and (-4))
+                      SetFlags([cfData], ap - 8, (8 + len + 1 + 3) and (-4))
                     else
                     Begin
                       codePage := PWord(Code + ap - 12)^;
                       elemSize := PWord(Code + ap - 10)^;
-                      SetFlags(cfData, ap - 12, (12 + (len + 1)*elemSize + 3) and (-4));
+                      SetFlags([cfData], ap - 12, (12 + (len + 1)*elemSize + 3) and (-4));
                     End;
                   End
-                  else SetFlags(cfData, ap, 4);
+                  else SetFlags([cfData], ap, 4);
                 End
                 else
                 Begin
                   if ap >= 0 then
                   Begin
-                    SetFlags(cfData, itemPos, 4);
+                    SetFlags([cfData], itemPos, 4);
                     MakeGvar(recN1, itemAdr, 0);
                     if typeDef <> '' then recN1._type := typeDef;
                   End
@@ -16198,9 +16005,9 @@ Begin
                     End;
                   End;
                   if DelphiVersion < 2009 then
-                    SetFlags(cfData, itemPos - 8, (8 + len + 1 + 3) and (-4))
+                    SetFlags([cfData], itemPos - 8, (8 + len + 1 + 3) and (-4))
                   else
-                    SetFlags(cfData, itemPos - 12, (12 + (len + 1)*elemSize + 3) and (-4));
+                    SetFlags([cfData], itemPos - 12, (12 + (len + 1)*elemSize + 3) and (-4));
                 End
                 else
                 Begin
@@ -16213,7 +16020,7 @@ Begin
                       if typeDef <> '' then recN1._type := typeDef;
                     End;
                   End;
-                  SetFlags(cfData, itemPos, 4);
+                  SetFlags([cfData], itemPos, 4);
                 End;
               End;
             End
@@ -16229,13 +16036,13 @@ Begin
                 if IsValidCodeAdr(strAdr) then
                 Begin
                   len := PInteger(Code + ap - 4)^;
-                  SetFlags(cfData, ap - 4, (4 + len + 1 + 3) and (-4));
+                  SetFlags([cfData], ap - 4, (4 + len + 1 + 3) and (-4));
                 End
                 else
                 Begin
                   if ap >= 0 then
                   Begin
-                    SetFlags(cfData, itemPos, 4);
+                    SetFlags([cfData], itemPos, 4);
                     MakeGvar(recN1, itemAdr, 0);
                     if typeDef <> '' then recN1._type := typeDef;
                   End
@@ -16267,7 +16074,7 @@ Begin
                     if typeDef <> '' then recN1._type := typeDef;
                   End;
                 End;
-                SetFlags(cfData, itemPos - 4, (4 + len + 1 + 3) and (-4));
+                SetFlags([cfData], itemPos - 4, (4 + len + 1 + 3) and (-4));
               End;
             End
             else if SameText(typeDef, 'TGUID') then
@@ -16275,7 +16082,7 @@ Begin
               recN1 := GetInfoRec(itemAdr);
               if not Assigned(recN1) then recN1 := InfoRec.Create(itemPos, ikGUID);
               recN1.kind := ikGUID;
-              SetFlags(cfData, itemPos, 16);
+              SetFlags([cfData], itemPos, 16);
               if not recN1.HasName then
               Begin
                 if IsValidCodeAdr(itemAdr) then
@@ -16297,7 +16104,7 @@ Begin
                 recN1.ConcatName('SResString' + IntToStr(LastResStrNo));
                 Inc(LastResStrNo);
                 //Set Flags
-                SetFlags(cfData, itemPos, 8);
+                SetFlags([cfData], itemPos, 8);
                 //Get Context
                 hInst := LoadLibraryEx(PAnsiChar(SourceFile), 0, LOAD_LIBRARY_AS_DATAFILE);
                 if hInst<>0 then
@@ -16352,7 +16159,8 @@ var
   bpBase, retBytes,retb:Word;
   num, instrLen, instrLen1, instrLen2, _procSize,macroFrom, macroTo,cTblAdr,jTblAdr,delta:Integer;
   firstPopRegIdx, popBytes, procStackSize, fromPos, curPos, Ps, reg1Idx, reg2Idx, sSize:Integer;
-  b, curAdr, Adr, Adr1, lastAdr, lastCallAdr, lastMovAdr, lastMovImm,sp,n,k,CNum,NPos:Integer;
+  curAdr, Adr, Adr1, lastAdr, lastCallAdr, lastMovAdr, lastMovImm,sp,n,k,CNum,NPos:Integer;
+  b:TCflagSet;
   argSize:Integer;
   recN, recN1:InfoRec;
   recX:PXrefRec;
@@ -16376,32 +16184,31 @@ Begin
   Result:='';
   fromPos := Adr2Pos(fromAdr);
   if (fromPos < 0) or
-    IsFlagSet(cfEmbedded, fromPos) or
-    IsFlagSet(cfExport, fromPos) then Exit;
+    IsFlagSet([cfEmbedded,cfExport], fromPos) then Exit;
   
   recN := GetInfoRec(fromAdr);
   if not Assigned(recN) or not Assigned(recN.procInfo) then Exit;
 
   //If cfPass is set exit
-  if IsFlagSet(cfPass, fromPos) then
+  if IsFlagSet([cfPass], fromPos) then
   begin
     Result:=recN._type;
     Exit;
   end;
 
   //Proc start
-  SetFlag(cfProcStart or cfPass, fromPos);
+  SetFlag([cfProcStart, cfPass], fromPos);
 
   //Skip Imports
-  if IsFlagSet(cfImport, fromPos) then
+  if IsFlagSet([cfImport], fromPos) then
   begin
     Result:=recN._type;
     Exit;
   end;
 
-  kb := (recN.procInfo.flags and PF_KBPROTO)<>0;
-  bpBased := (recN.procInfo.flags and PF_BPBASED)<>0;
-  emb := (recN.procInfo.flags and PF_EMBED)<>0;
+  kb := PF_KBPROTO in recN.procInfo.flags;
+  bpBased := PF_BPBASED in recN.procInfo.flags;
+  emb := PF_EMBED in recN.procInfo.flags;
   bpBase := recN.procInfo.bpBase;
   retBytes := recN.procInfo.retBytes;
 
@@ -16409,7 +16216,7 @@ Begin
   if (recN.kind = ikConstructor) or (recN.kind = ikDestructor) then
     clsName := ExtractClassName(recN.Name);
   //If ClassName not given and proc is dynamic, try to find minimal class
-  if (clsName = '') and ((recN.procInfo.flags and PF_DYNAMIC)<>0) and Assigned(recN.xrefs) then
+  if (clsName = '') and (PF_DYNAMIC in recN.procInfo.flags) and Assigned(recN.xrefs) then
   Begin
     minClassName := '';
     for n := 0 to recN.xrefs.Count-1 do
@@ -16424,7 +16231,7 @@ Begin
     if minClassName <> '' then clsName := minClassName;
   End;
   //If ClassName not given and proc is virtual, try to find minimal class
-  if (clsName = '') and ((recN.procInfo.flags and PF_VIRTUAL)<>0) and Assigned(recN.xrefs) then
+  if (clsName = '') and (PF_VIRTUAL in recN.procInfo.flags) and Assigned(recN.xrefs) then
   Begin
     minClassName := '';
     for n := 0 to recN.xrefs.Count-1 do
@@ -16453,7 +16260,7 @@ Begin
   Begin
     if curAdr >= Integer(CodeBase) + TotalSize then break;
     //Skip exception table
-    if IsFlagSet(cfETable, curPos) then
+    if IsFlagSet([cfETable], curPos) then
     Begin
       //dd num
       num := PInteger(Code + curPos)^;
@@ -16474,9 +16281,9 @@ Begin
     End;
     op := frmDisasm.GetOp(DisInfo.Mnem);
     //Code
-    SetFlags(cfCode, curPos, instrLen);
+    SetFlags([cfCode], curPos, instrLen);
     //Instruction begin
-    SetFlag(cfInstruction, curPos);
+    SetFlag([cfInstruction], curPos);
     if curAdr >= lastAdr then lastAdr := 0;
     if op = OP_JMP then
     Begin
@@ -16503,12 +16310,12 @@ Begin
       Begin
         //Get last instruction
         Dec(curPos, instrLen);
-        if (DisInfo.Ret and not IsFlagSet(cfSkip, curPos)) or   //ret not in SEH
-          IsFlagSet(cfCall, curPos) then                       //@Halt0
+        if (DisInfo.Ret and not IsFlagSet([cfSkip], curPos)) or   //ret not in SEH
+          IsFlagSet([cfCall], curPos) then                       //@Halt0
         Begin
-          if IsFlagSet(cfCall, curPos) then spRestored := true;  //acts like mov esp, ebp
+          if IsFlagSet([cfCall], curPos) then spRestored := true;  //acts like mov esp, ebp
           sp := -1;
-          SetFlags(cfFrame, curPos, instrLen);
+          SetFlags([cfFrame], curPos, instrLen);
           //ret - stop analyze output regs
           lastCallAdr := 0; 
           firstPopRegIdx := -1; 
@@ -16517,29 +16324,29 @@ Begin
           for Ps := curPos - 1 downto fromPos do 
           Begin
             b := FlagList[Ps];
-            if (b and cfInstruction)<>0 then
+            if cfInstruction in b then
             Begin
               //pop instruction
-              if (b and cfPop)<>0 then
+              if cfPop in b then
               Begin
                 //pop ecx
-                if (b and cfSkip)<>0 then break;
+                if cfSkip in b then break;
                 instrLen1 := frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps), @DisInfo1, Nil);
                 firstPopRegIdx := DisInfo1.OpRegIdx[0];
                 Inc(popBytes, 4);
-                SetFlags(cfFrame, Ps, instrLen1);
+                SetFlags([cfFrame], Ps, instrLen1);
               End
               else
               Begin
                 //skip frame instruction
-                if (b and cfFrame)<>0 then continue;
+                if cfFrame in b then continue;
                 //set eax - function
-                if (b and cfSetA)<>0 then
+                if cfSetA in b then
                 Begin
                   recN1 := GetInfoRec(fromAdr);
-                  recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
-                  if not kb and ((recN1.procInfo.flags and (PF_EVENT or PF_DYNAMIC))=0) and
-                    (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+                  Include(recN1.procInfo.flags, PF_OUTEAX);
+                  if not kb and (recN1.procInfo.flags * [PF_EVENT, PF_DYNAMIC] = []) and
+                    not(recN1.kind in [ikConstructor, ikDestructor]) then
                   Begin
                     recN1.kind := ikFunc;
                     frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps), @DisInfo1, Nil);
@@ -16565,11 +16372,11 @@ Begin
               //Proc end
               //if (Pos <> fromPos and (b & cfProcEnd))
               if (_procSize<>0) and (Ps - fromPos + 1 >= _procSize) then break;
-              if (b and cfInstruction)<>0 then
+              if cfInstruction in b then
               Begin
                 instrLen1 := frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps), @DisInfo1, Nil);
-                SetFlags(cfFrame, Ps, instrLen1);
-                if ((b and cfPush)<>0) and (DisInfo1.OpRegIdx[0] = firstPopRegIdx) then break;
+                SetFlags([cfFrame], Ps, instrLen1);
+                if (cfPush in b) and (DisInfo1.OpRegIdx[0] = firstPopRegIdx) then break;
               End;
               Inc(Ps);
             End;
@@ -16583,11 +16390,11 @@ Begin
               //End of proc
               //if (Pos <> fromPos and (b & cfProcEnd))
               if (_procSize<>0) and (Ps - fromPos + 1 >= _procSize) then break;
-              if (b and cfInstruction)<>0 then
+              if cfInstruction in b then
               Begin
                 instrLen1 := frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps), @DisInfo1, Nil);
                 op := frmDisasm.GetOp(DisInfo1.Mnem);
-                SetFlags(cfFrame, Ps, instrLen1);
+                SetFlags([cfFrame], Ps, instrLen1);
                 //add esp,...
                 if (op = OP_ADD) and (DisInfo1.OpRegIdx[0] = 20) then
                 Begin
@@ -16600,7 +16407,7 @@ Begin
                   Dec(popBytes, DisInfo1.Immediate);
                   continue;
                 End;
-                if (b and cfPush)<>0 then Dec(popBytes, 4);
+                if cfPush in b then Dec(popBytes, 4);
               End;
             End;
           End;
@@ -16609,7 +16416,7 @@ Begin
         if not recN.HasName and (clsName <> '') then
         Begin
           //dynamic
-          if (recN.procInfo.flags and PF_DYNAMIC)<>0 then
+          if PF_DYNAMIC in recN.procInfo.flags then
           Begin
 
           End;
@@ -16634,7 +16441,7 @@ Begin
         End;
         break;
       End;
-      if not IsFlagSet(cfSkip, curPos) then sp := -1;
+      if not IsFlagSet([cfSkip], curPos) then sp := -1;
     End;
     if op = OP_MOV then
     Begin
@@ -16642,7 +16449,7 @@ Begin
       lastMovImm := DisInfo.Immediate;
     End;
     //init stack via loop
-    if IsFlagSet(cfLoc, curPos) then
+    if IsFlagSet([cfLoc], curPos) then
     Begin
       recN1 := GetInfoRec(curAdr);
       if Assigned(recN1) and Assigned(recN1.xrefs) and (recN1.xrefs.Count = 1) then
@@ -16659,7 +16466,7 @@ Begin
             instrLen := frmDisasm.Disassemble(Code + Adr2Pos(Adr), Adr, Nil, Nil);
             curAdr := Adr + instrLen; 
             curPos := Adr2Pos(curAdr);
-            SetFlags(cfFrame, fromPos, curAdr - fromAdr);
+            SetFlags([cfFrame], fromPos, curAdr - fromAdr);
             continue;
           End;
         End;
@@ -16702,9 +16509,9 @@ Begin
 
     //mov esp, ebp
     if (b1 = $8B) and (b2 = $E5) then spRestored := true;
-    if not IsFlagSet(cfSkip, curPos) then
+    if not IsFlagSet([cfSkip], curPos) then
     Begin
-      if IsFlagSet(cfPush, curPos) then
+      if IsFlagSet([cfPush], curPos) then
       Begin
         if (curPos <> fromPos) and (sp < 255) then
         Begin
@@ -16712,12 +16519,12 @@ Begin
           stack[sp] := curPos;
         End;
       End;
-      if IsFlagSet(cfPop, curPos) and (sp >= 0) then
+      if IsFlagSet([cfPop], curPos) and (sp >= 0) then
       Begin
         macroFrom := stack[sp];
-        SetFlag(cfBracket, macroFrom);
+        SetFlag([cfBracket], macroFrom);
         macroTo := curPos;
-        SetFlag(cfBracket, macroTo);
+        SetFlag([cfBracket], macroTo);
         Dec(sp);
       End;
     End;
@@ -16744,12 +16551,12 @@ Begin
       for k := 0 to 4095 do
       Begin
         //Loc - end of table
-        if IsFlagSet(cfLoc, Ps) then break;
+        if IsFlagSet([cfLoc], Ps) then break;
         Adr1 := PInteger(Code + Ps)^;
         //Validate Adr1
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
         //Set cfLoc
-        SetFlag(cfLoc, Adr2Pos(Adr1));
+        SetFlag([cfLoc], Adr2Pos(Adr1));
         Inc(Ps, 4);
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
@@ -16865,7 +16672,7 @@ Begin
           recN1 := GetInfoRec(Adr);
           if Assigned(recN1) and Assigned(recN1.procInfo) then
           Begin
-            lastemb := (recN1.procInfo.flags and PF_EMBED)<>0;
+            lastemb := PF_EMBED in recN1.procInfo.flags;
             //@XStrCatN
             if recN1.SameName('@LStrCatN') or
               recN1.SameName('@WStrCatN') or
@@ -16939,7 +16746,7 @@ Begin
               Begin
                 if lastemb then
                 Begin
-                  SetFlag(cfSkip, curPos);
+                  SetFlag([cfSkip], curPos);
                   lastemb := false;
                 End;
                 lastCallAdr := 0;
@@ -16969,10 +16776,10 @@ Begin
         Begin
           recN1 := GetInfoRec(lastCallAdr);
           if Assigned(recN1) and Assigned(recN1.procInfo) and
-            ((recN1.procInfo.flags and (PF_KBPROTO or PF_EVENT or PF_DYNAMIC))=0) and
-            (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+            (recN1.procInfo.flags * [PF_KBPROTO, PF_EVENT, PF_DYNAMIC] = []) and
+            not(recN1.kind in [ikConstructor, ikDestructor]) then
           Begin
-            recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
+            Include(recN1.procInfo.flags, PF_OUTEAX);
             recN1.kind := ikFunc;
           End;
           lastCallAdr := 0;
@@ -16999,23 +16806,23 @@ Begin
               if not inCX then argC := false;
             End;
           End;
-          SetFlags(cfSkip, curPos, instrLen);
+          SetFlags([cfSkip], curPos, instrLen);
           break;
         End;
         //Instructions fst, fstp after call means that it was call of function
         if (DisInfo.Mnem = 'fst') or (DisInfo.Mnem = 'fstp') then
         Begin
           Ps := GetNearestUpInstruction(curPos, fromPos, 1);
-          if (Ps <> -1) and IsFlagSet(cfCall, Ps) then
+          if (Ps <> -1) and IsFlagSet([cfCall], Ps) then
           Begin
             if lastCallAdr<>0 then
             Begin
               recN1 := GetInfoRec(lastCallAdr);
               if Assigned(recN1) and Assigned(recN1.procInfo) and
-                ((recN1.procInfo.flags and (PF_KBPROTO or PF_EVENT or PF_DYNAMIC))=0) and
-                (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+                (recN1.procInfo.flags * [PF_KBPROTO, PF_EVENT, PF_DYNAMIC] = []) and
+                not(recN1.kind in [ikConstructor, ikDestructor]) then
               Begin
-                recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
+                Include(recN1.procInfo.flags, PF_OUTEAX);
                 recN1.kind := ikFunc;
               End;
               lastCallAdr := 0;
@@ -17040,7 +16847,7 @@ Begin
         //eax, ax, ah, al
         if DisInfo.OpRegIdx[0] in [0,4,8,16] then
         Begin
-          SetFlag(cfSetA, curPos);
+          SetFlag([cfSetA], curPos);
           if argA and not inAX then
           Begin
             argA := false;
@@ -17051,7 +16858,7 @@ Begin
         //edx, dx, dh, dl
         if DisInfo.OpRegIdx[0] in [2,6,10,18] then
         Begin
-          SetFlag(cfSetD, curPos);
+          SetFlag([cfSetD], curPos);
           if argD and not inDX then
           Begin
             argD := false;
@@ -17061,7 +16868,7 @@ Begin
         //ecx, cx, ch, cl
         if DisInfo.OpRegIdx[0] in [1,5,9,17] then
         Begin
-          SetFlag(cfSetC, curPos);
+          SetFlag([cfSetC], curPos);
           if argC and not inCX then argC := false;
         End;
         break;
@@ -17075,10 +16882,10 @@ Begin
           Begin
             recN1 := GetInfoRec(lastCallAdr);
             if Assigned(recN1) and Assigned(recN1.procInfo) and
-              ((recN1.procInfo.flags and (PF_KBPROTO or PF_EVENT or PF_DYNAMIC))=0) and
-              (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+              (recN1.procInfo.flags * [PF_KBPROTO, PF_EVENT, PF_DYNAMIC] = []) and
+              not(recN1.kind in [ikConstructor, ikDestructor]) then
             Begin
-              recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
+              Include(recN1.procInfo.flags, PF_OUTEAX);
               recN1.kind := ikFunc;
             End;
             lastCallAdr := 0;
@@ -17133,15 +16940,15 @@ Begin
                 Begin
                   recN1 := GetInfoRec(lastCallAdr);
                   if Assigned(recN1) and Assigned(recN1.procInfo) and
-                    ((recN1.procInfo.flags and (PF_KBPROTO or PF_EVENT or PF_DYNAMIC))=0) and
-                    (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+                    (recN1.procInfo.flags * [PF_KBPROTO, PF_EVENT, PF_DYNAMIC] = []) and
+                    not(recN1.kind in [ikConstructor, ikDestructor]) then
                   Begin
-                    recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
+                    Include(recN1.procInfo.flags, PF_OUTEAX);
                     recN1.kind := ikFunc;
                   End;
                   lastCallAdr := 0;
                 End;
-                SetFlag(cfSetA, curPos);
+                SetFlag([cfSetA], curPos);
                 if argA and not inAX then
                 Begin
                   inAX := true;
@@ -17150,7 +16957,7 @@ Begin
               End;
             18: //edx
               Begin
-                SetFlag(cfSetD, curPos);
+                SetFlag([cfSetD], curPos);
                 if argD and not inDX then
                 Begin
                   inDX := true;
@@ -17164,7 +16971,7 @@ Begin
               End;
             17: //ecx
               Begin
-                SetFlag(cfSetC, curPos);
+                SetFlag([cfSetC], curPos);
                 //xchg ecx, [ebp...] - ecx used as argument
                 if DisInfo.BaseReg = 21 then
                 Begin
@@ -17181,7 +16988,7 @@ Begin
                     argD := false;
                   End;
                   //Set cfFrame upto start of procedure
-                  SetFlags(cfFrame, fromPos, curPos + instrLen - fromPos);
+                  SetFlags([cfFrame], fromPos, curPos + instrLen - fromPos);
                 End
                 else if argC and not inCX then
                 Begin
@@ -17210,15 +17017,15 @@ Begin
                 Begin
                   recN1 := GetInfoRec(lastCallAdr);
                   if Assigned(recN1) and Assigned(recN1.procInfo) and
-                    ((recN1.procInfo.flags and (PF_KBPROTO or PF_EVENT or PF_DYNAMIC))=0) and
-                    (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+                    (recN1.procInfo.flags * [PF_KBPROTO, PF_EVENT, PF_DYNAMIC] = []) and
+                    not(recN1.kind in [ikConstructor, ikDestructor]) then
                   Begin
-                    recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
+                    Include(recN1.procInfo.flags, PF_OUTEAX);
                     recN1.kind := ikFunc;
                   End;
                   lastCallAdr := 0;
                 End;
-                SetFlag(cfSetA, curPos);
+                SetFlag([cfSetA], curPos);
                 if argA and not inAX then
                 Begin
                   inAX := true;
@@ -17227,7 +17034,7 @@ Begin
               End;
             18: // EDX
               Begin
-                SetFlag(cfSetD, curPos);
+                SetFlag([cfSetD], curPos);
                 if argD and not inDX then
                 Begin
                   inDX := true;
@@ -17241,7 +17048,7 @@ Begin
               End;
             17: // ECX
               Begin
-                SetFlag(cfSetC, curPos);
+                SetFlag([cfSetC], curPos);
                 if argC and not inCX then
                 Begin
                   inCX := true;
@@ -17271,10 +17078,10 @@ Begin
           Begin
             recN1 := GetInfoRec(lastCallAdr);
             if Assigned(recN1) and Assigned(recN1.procInfo) and
-              ((recN1.procInfo.flags and (PF_KBPROTO or PF_EVENT or PF_DYNAMIC))=0) and
-              (recN1.kind <> ikConstructor) and (recN1.kind <> ikDestructor) then
+              (recN1.procInfo.flags * [PF_KBPROTO, PF_EVENT, PF_DYNAMIC] = []) and
+              not(recN1.kind in [ikConstructor, ikDestructor]) then
             Begin
-              recN1.procInfo.flags := recN1.procInfo.flags or PF_OUTEAX;
+              Include(recN1.procInfo.flags,PF_OUTEAX);
               recN1.kind := ikFunc;
             End;
             lastCallAdr := 0;
@@ -17375,7 +17182,7 @@ Begin
           //eax, ax, ah, al
           if DisInfo.OpRegIdx[0] in [0,4,8,16] then
           Begin
-            SetFlag(cfSetA, curPos);
+            SetFlag([cfSetA], curPos);
             if argA and not inAX then
             Begin
               argA := false;
@@ -17387,7 +17194,7 @@ Begin
           //edx, dx, dh, dl
           else if DisInfo.OpRegIdx[0] in [2,6,10,18] then
           Begin
-            SetFlag(cfSetD, curPos);
+            SetFlag([cfSetD], curPos);
             if argD and not inDX then
             Begin
               argD := false;
@@ -17398,7 +17205,7 @@ Begin
           //ecx, cx, ch, cl
           else if DisInfo.OpRegIdx[0] in [1,5,9,17] then
           Begin
-            SetFlag(cfSetC, curPos);
+            SetFlag([cfSetC], curPos);
             if argC and not inCX then argC := false;
           End;
         End;
@@ -17420,7 +17227,7 @@ Begin
           //@Halt0 is not executed
           if recN1.SameName('@Halt0') then
           Begin
-            SetFlags(cfSkip, curPos, instrLen);
+            SetFlags([cfSkip], curPos, instrLen);
             if (fromAdr = EP) and (lastAdr=0) then break;
           End
           //Procs together previous unstruction
@@ -17429,19 +17236,19 @@ Begin
            recN1.SameName('@InitResStringImports') then
           Begin
             Ps := GetNearestUpInstruction(curPos, fromPos, 1);
-            if Ps <> -1 then SetFlags(cfSkip, Ps, curPos - Ps + instrLen);
+            if Ps <> -1 then SetFlags([cfSkip], Ps, curPos - Ps + instrLen);
           End
           //@BoundErr
           else if recN1.SameName('@BoundErr') then
           Begin
-          	if IsFlagSet(cfLoc, curPos) then
+          	if IsFlagSet([cfLoc], curPos) then
             Begin
               Ps := GetNearestUpInstruction(curPos, fromPos, 1);
               frmDisasm.Disassemble(Code + Ps, Pos2Adr(Ps), @DisInfo1, Nil);
               if DisInfo1.Branch then
               Begin
               	Ps := GetNearestUpInstruction(Ps, fromPos, 3);
-                SetFlags(cfSkip, Ps, curPos - Ps + instrLen);
+                SetFlags([cfSkip], Ps, curPos - Ps + instrLen);
               End;
             End
             else
@@ -17451,9 +17258,9 @@ Begin
               if DisInfo1.Branch then
               Begin
                 Ps := GetNearestUpInstruction(Ps, fromPos, 1);
-                if IsFlagSet(cfPop, Ps) then
+                if IsFlagSet([cfPop], Ps) then
                  	Ps := GetNearestUpInstruction(Ps, fromPos, 3);
-              	SetFlags(cfSkip, Ps, curPos - Ps + instrLen);
+              	SetFlags([cfSkip], Ps, curPos - Ps + instrLen);
               End;
             End;
           End
@@ -17461,7 +17268,7 @@ Begin
           else if recN1.SameName('@_IOTest') or
            recN1.SameName('@InitExe') or
            recN1.SameName('@InitLib') or
-      		 recN1.SameName('@DoneExcept') then SetFlags(cfSkip, curPos, instrLen);
+      		 recN1.SameName('@DoneExcept') then SetFlags([cfSkip], curPos, instrLen);
         End;
       End;
       Inc(curPos, instrLen);
@@ -17509,12 +17316,12 @@ Begin
       if delta < 0 then
       Begin
       	//If delta between N bytes (in 'ret N' instruction) and total size of argumnets <> 0
-        recN.procInfo.flags := recN.procInfo.flags or PF_ARGSIZEG;
+        Include(recN.procInfo.flags, PF_ARGSIZEG);
         //delta := 4 and proc can be embbedded - allow that it really embedded
-        if (delta = 4) and ((recN.procInfo.flags and PF_MAYBEEMBED)<>0) then
+        if (delta = 4) and (PF_MAYBEEMBED in recN.procInfo.flags) then
         Begin
         	//Ставим флажок PF_EMBED
-          recN.procInfo.flags := recN.procInfo.flags or PF_EMBED;
+          Include(recN.procInfo.flags, PF_EMBED);
           //Skip following after call instrcution 'pop ecx'
           for n := 0 to recN.xrefs.Count-1 do
           Begin
@@ -17525,18 +17332,18 @@ Begin
             	Ps := Adr2Pos(Adr);
           		instrLen := frmDisasm.Disassemble(Code + Ps, Adr, @DisInfo, Nil);
           		Inc(Ps, instrLen);
-          		if Code[Ps] = #$59 then SetFlag(cfSkip, Ps);
+          		if Code[Ps] = #$59 then SetFlag([cfSkip], Ps);
             End;
           End;
         End;
       End
       //If delta < 0, then part of arguments can be unusable
-      else if delta < 0 then recN.procInfo.flags := recN.procInfo.flags or PF_ARGSIZEL;
+      else if delta < 0 then Include(recN.procInfo.flags, PF_ARGSIZEL);
     End;
   End;
   recN := GetInfoRec(fromAdr);
   //if PF_OUTEAX not set - Procedure
-  if not kb and ((recN.procInfo.flags and PF_OUTEAX)=0) then
+  if not kb and not(PF_OUTEAX in recN.procInfo.flags) then
   Begin
     if (recN.kind <> ikConstructor) and (recN.kind <> ikDestructor) then recN.kind := ikProc;
   End;
@@ -17605,7 +17412,7 @@ begin
   if recN.xrefs.Count <> 1 then Exit;
   recX := recN.xrefs[0];
   for ofs := recX.offset Downto 0 do
-    if IsFlagSet(cfPush, Adr2Pos(recX.adr) + ofs) then break;
+    if IsFlagSet([cfPush], Adr2Pos(recX.adr) + ofs) then break;
   {
   curPos = Adr2Pos(recX.adr) + ofs;
   curAdr = Pos2Adr(curPos);
@@ -17754,7 +17561,7 @@ Begin
   Begin
   	fInfo := Nil;
     idx := KBase.TypeOffsets[idx].NamId;
-    if KBase.GetTypeInfo(idx, INFO_FIELDS, tInfo) then
+    if KBase.GetTypeInfo(idx, [INFO_FIELDS], tInfo) then
     if Assigned(tInfo.Fields) then
     Begin
       p := tInfo.Fields;
@@ -17871,7 +17678,7 @@ begin
         Begin
           for adr := CurProcAdr downto fromAdr do
           Begin
-            if IsFlagSet(cfProcStart, Adr2Pos(adr)) then
+            if IsFlagSet([cfProcStart], Adr2Pos(adr)) then
             Begin
               Inc(upCnt);
               recN := GetInfoRec(adr);
@@ -17884,7 +17691,7 @@ begin
           End;
           for adr := CurProcAdr to toAdr-1 do
           Begin
-            if IsFlagSet(cfProcStart, Adr2Pos(adr)) then
+            if IsFlagSet([cfProcStart], Adr2Pos(adr)) then
             Begin
               Inc(dnCnt);
               recN := GetInfoRec(adr);
@@ -18049,7 +17856,7 @@ begin
       m := 0; 
       while m < CodeSize do 
       Begin
-        if IsFlagSet(cfImport, m) then
+        if IsFlagSet([cfImport], m) then
         Begin
           recN := GetInfoRec(Pos2Adr(m));
           dot := Pos('.',recN.Name);
@@ -18061,7 +17868,7 @@ begin
             if idx <> -1 then
             Begin
               idx := KBase.ProcOffsets[idx].NamId;
-              if KBase.GetProcInfo(idx, INFO_ARGS, pInfo) then
+              if KBase.GetProcInfo(idx, [INFO_ARGS], pInfo) then
               Begin
                 moduleName := KBase.GetModuleName(pInfo.ModuleID);
                 if tmpList.IndexOf(moduleName) = -1 then tmpList.Add(moduleName);
@@ -18089,6 +17896,7 @@ var
   isLastStep:BOOL;
   root:TTreeNode;
   adr:Integer;
+  proc_data:PProcNode;
 Begin
   case ThreadAnalysisOperation(msg.WParam) of
     taStartPrBar:
@@ -18133,7 +17941,13 @@ Begin
         isLastStep := LongBool(msg.LParam);
         tsUnits.Enabled := true;
         ShowUnits(isLastStep);
-        ShowUnitItems(GetUnit(CurUnitAdr), lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+        adr:=0;
+        if Assigned(vtProc.FocusedNode) Then
+        Begin
+          proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+          adr:=proc_data.adres;
+        end;
+        ShowUnitItems(GetUnit(CurUnitAdr), 0{lbUnitItems.TopIndex}, adr);
       End;
     taUpdateRTTIs:
       Begin
@@ -18275,7 +18089,7 @@ Begin
           v := 0;
           while true do
           Begin
-            if IsFlagSet(cfVTable, ps) then Inc(cnt);
+            if IsFlagSet([cfVTable], ps) then Inc(cnt);
             if cnt = 2 then break;
             iAdr := PInteger(Code + ps)^;
             adr := iAdr;
@@ -18660,12 +18474,9 @@ begin
               if not Assigned(recN) or not Assigned(recN.procInfo) then continue;
               dotpos := Pos('.',recN.Name);
               if (dotpos=0) or not SameText(clsName, Copy(recN.Name,1, dotpos - 1)) then continue;
-              if ((recN.procInfo.flags and PF_VIRTUAL)<>0) or
-                ((recN.procInfo.flags and PF_DYNAMIC)<>0) or
-                ((recN.procInfo.flags and PF_EVENT)<>0) then
-                continue;
+              if recN.procInfo.flags * [PF_VIRTUAL, PF_DYNAMIC, PF_EVENT] <> [] then continue;
 
-              if (recN.kind = ikConstructor) or ((recN.procInfo.flags and PF_METHOD)<>0) then
+              if (recN.kind = ikConstructor) or (PF_METHOD in recN.procInfo.flags) then
               Begin
                 procName := recN.MakePrototype(adr1, true, false, false, false, false);
                 if Pos(':?',procName)=0 then
@@ -18909,7 +18720,7 @@ Begin
   lbSXrefs.Font.Assign(font);
   lbCXrefs.Font.Assign(font);
   lbSourceCode.Font.Assign(font);
-  lbUnitItems.Font.Assign(font);
+  vtProc.Font.Assign(font);
 
   tvClassesShort.Font.Assign(font);
   tvClassesFull.Font.Assign(font);
@@ -18917,15 +18728,15 @@ end;
 
 procedure TFMain.pmUnitItemsPopup(Sender : TObject);
 begin
-  miEditFunctionI.Enabled := lbUnitItems.ItemIndex >= 0;
-  miCopyAddressI.Enabled := lbUnitItems.ItemIndex >= 0;
+  miEditFunctionI.Enabled := Assigned(vtProc.FocusedNode);
+  miCopyAddressI.Enabled := miEditFunctionI.Enabled;
 end;
 
-Procedure TFMain.CopyAddress (line:AnsiString; ofs, bytes:Integer);
+Procedure TFMain.CopyAddress (adr:Integer);
 var
   p:AnsiString;
 Begin
-  p:=Copy(line,ofs,bytes);
+  p:=IntToHex(adr,0);
   Clipboard.Open;
   Clipboard.SetTextBuf(@p[1]);
   Clipboard.Close;
@@ -18933,12 +18744,13 @@ end;
 
 procedure TFMain.miCopyAddressCodeClick(Sender : TObject);
 begin
-  if lbCode.ItemIndex<>0 Then CopyAddress(lbCode.Items[lbCode.ItemIndex], 2, 8);
+  // TMCDOS - TODO, update when lbCode becomes vtCode
+  if lbCode.ItemIndex<>0 Then //CopyAddress(lbCode.Items[lbCode.ItemIndex], 2, 8);
 end;
 
 Procedure TFMain.ClearPassFlags;
 Begin
-  ClearFlags(cfPass0 or cfPass1 or cfPass2 or cfPass, 0, TotalSize);
+  ClearFlags([cfPass0, cfPass1, cfPass2, cfPass], 0, TotalSize);
 end;
 
 procedure TFMain.miCopySource2ClipboardClick(Sender : TObject);
@@ -18960,7 +18772,7 @@ begin
   begin
     if lbCode.ItemIndex <= 0 then Exit;
     sscanf(PAnsiChar(lbCode.Items[lbCode.ItemIndex])+2,'%lX',[@adr]);
-    if (adr <> CurProcAdr) and IsFlagSet(cfLoc, Adr2Pos(adr)) then
+    if (adr <> CurProcAdr) and IsFlagSet([cfLoc], Adr2Pos(adr)) then
     begin
       recN := GetInfoRec(adr);
       if Assigned(recN) and Assigned(recN.xrefs) and (recN.xrefs.Count > 0) then
@@ -19180,7 +18992,7 @@ end;
 
 procedure TFMain.miSwitchSkipFlagClick(Sender : TObject);
 var
-  adr,n:Integer;
+  adr,n,p:Integer;
 begin
   if lbCode.SelCount > 0 then
   begin
@@ -19188,7 +19000,11 @@ begin
       if lbCode.Selected[n] then
       begin
         sscanf(PAnsiChar(lbCode.Items[n])+2,'%lX',[@adr]);
-        FlagList[Adr2Pos(adr)] :=FlagList[Adr2Pos(adr)] xor (cfDSkip or cfSkip);
+        p:=Adr2Pos(adr);
+        if cfDSkip in FlagList[p] then Exclude(FlagList[p], cfDSkip)
+          else Include(FlagList[p], cfDSkip);
+        if cfSkip in FlagList[p] then Exclude(FlagList[p], cfSkip)
+          else Include(FlagList[p], cfSkip);
       end;
     RedrawCode;
     ProjectModified := true;
@@ -19197,7 +19013,7 @@ end;
 
 procedure TFMain.miSwitchFrameFlagClick(Sender : TObject);
 var
-  adr,n:Integer;
+  adr,n,p:Integer;
 begin
   if lbCode.SelCount > 0 then
   begin
@@ -19205,7 +19021,9 @@ begin
       if lbCode.Selected[n] then
       begin
         sscanf(PAnsiChar(lbCode.Items[n])+2,'%lX',[@adr]);
-        FlagList[Adr2Pos(adr)] :=FlagList[Adr2Pos(adr)] xor cfFrame;
+        p:=Adr2Pos(adr);
+        if cfFrame in FlagList[p] then Exclude(FlagList[p], cfFrame)
+          else Include(FlagList[p], cfFrame);
       end;
     RedrawCode;
     ProjectModified := true;
@@ -19214,7 +19032,7 @@ end;
 
 procedure TFMain.cfTry1Click(Sender : TObject);
 var
-  adr,n:Integer;
+  adr,n,p:Integer;
 begin
   if lbCode.SelCount > 0 then
   begin
@@ -19222,7 +19040,9 @@ begin
       if lbCode.Selected[n] then
       begin
         sscanf(PAnsiChar(lbCode.Items[n])+2,'%lX',[@adr]);
-        FlagList[Adr2Pos(adr)] :=FlagList[Adr2Pos(adr)] xor cfTry;
+        p:=Adr2Pos(adr);
+        if cfTry in FlagList[p] then Exclude(FlagList[p], cfTry)
+          else Include(FlagList[p], cfTry);
       end;
     RedrawCode;
     ProjectModified := true;
@@ -19233,6 +19053,12 @@ procedure TFMain.miProcessDumperClick(Sender : TObject);
 Begin
   FActiveProcesses.ShowProcesses;
   FActiveProcesses.ShowModal;
+end;
+
+procedure TFMain.vtProcClick(Sender: TObject);
+begin
+  UnitItemsSearchFrom := vtProc.FocusedNode;
+  WhereSearch := SEARCH_UNITITEMS;
 end;
 
 procedure TFMain.vtNameClick(Sender: TObject);
@@ -19252,19 +19078,19 @@ begin
       else if D1.adr > D2.adr then Result:=1
       else Result:=0;
     1: // Item name
-      Result:=CompareStr(D1.item_name,D2.item_name);
+      Result:=lstrcmpiA(PAnsiChar(D1.item_name),PAnsiChar(D2.item_name));
     2: // Item type
-      Result:=CompareStr(D1.item_type,D2.item_type);
+      Result:=lstrcmpiA(PAnsiChar(D1.item_type),PAnsiChar(D2.item_type));
   End;
 end;
 
 procedure TFMain.vtNameFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
 var
-  adr:Integer;
   Data:PNameNode;
 begin
   if Assigned(Node) Then
   begin
+    NamesSearchFrom:=Node;
     Data:=vtName.GetNodeData(Node);
     if Assigned(Data) then ShowNameXrefs(Data.adr, -1);
   end;
@@ -19292,6 +19118,228 @@ begin
   end;
 end;
 
+procedure TFMain.vtProcCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
+var
+  D1,D2:PProcNode;
+begin
+  D1:=Sender.GetNodeData(Node1);
+  D2:=Sender.GetNodeData(Node2);
+  Case Column Of
+    0: // Address
+      if D1.adres < D2.adres then Result:=-1
+      else if D1.adres > D2.adres then Result:=1
+      else Result:=0;
+    1: // Xref
+      if D1.refs < D2.refs then Result:=-1
+      else if D1.refs > D2.refs then Result:=1
+      else Result:=0;
+    2: // Item type
+      Result:=lstrcmpiA(PAnsiChar(D1.type_name),PAnsiChar(D2.type_name));
+    3: // Prototype
+      Result:=lstrcmpiA(PAnsiChar(D1.prototype),PAnsiChar(D2.prototype));
+    4: // procedure flags
+      if Ord(D1.is_virtual) < Ord(D2.is_virtual) then Result:=-1
+      else if Ord(D1.is_virtual) > Ord(D2.is_virtual) then Result:=1
+      Else
+      Begin
+        if Ord(D1.is_dynamic) < Ord(D2.is_dynamic) then Result:=-1
+        else if Ord(D1.is_dynamic) > Ord(D2.is_dynamic) then Result:=1
+        else
+        Begin
+          if Ord(D1.is_event) < Ord(D2.is_event) then Result:=-1
+          else if Ord(D1.is_event) > Ord(D2.is_event) then Result:=1
+          else Result:=0;
+        end;
+      end;
+  End;
+end;
+
+procedure TFMain.vtProcDblClick(Sender: TObject);
+var
+  db:Byte;
+  bytes,ps,idx, len, size:Integer;
+  use:TWordDynArray;
+  tmpBuf:PAnsiChar;
+  recN:InfoRec;
+  tInfo:MTypeInfo;
+  rec:PROCHISTORYREC;
+  dat:PProcNode;
+begin
+  if not Assigned(vtProc.FocusedNode) then Exit;
+  dat:=vtProc.GetNodeData(vtProc.FocusedNode);
+  ps := Adr2Pos(Dat.adres);
+  if Dat.refs=-1 then
+  Begin
+    //Find end of unexplored Data
+    bytes := 1024;
+    //Get first byte (use later for filtering code?data)
+    db := Byte(Code[ps]);
+
+    with FExplorer do
+    begin
+      tsCode.TabVisible := true;
+      ShowCode(dat.adres, bytes);
+      tsData.TabVisible := true;
+      ShowData(dat.adres, bytes);
+      tsString.TabVisible := true;
+      ShowString(dat.adres, 1024);
+      tsText.TabVisible := false;
+      WAlign := 0;
+      btnDefCode.Enabled := true;
+      btnUndefCode.Enabled := false;
+    end;
+    if IsFlagSet([cfCode], ps) then FExplorer.btnDefCode.Enabled := false;
+    if IsFlagSet([cfCode, cfData], ps) then FExplorer.btnUndefCode.Enabled := true;
+    if (IsValidCode(dat.adres) <> -1) and (db >= 15) then
+    	FExplorer.pc1.ActivePage := FExplorer.tsCode
+    else
+    	FExplorer.pc1.ActivePage := FExplorer.tsData;
+    if FExplorer.ShowModal = mrOk then
+    case FExplorer.DefineAs of
+      DEFINE_AS_CODE:
+        begin
+          recN := GetInfoRec(dat.adres);
+          if not Assigned(recN) then
+            recN := InfoRec.Create(ps, ikRefine)
+          else if not (recN.kind in [ikRefine..ikFunc]) then
+          Begin
+            recN.Free;
+            recN := InfoRec.Create(ps, ikRefine);
+          End;
+
+          //AnalyzeProcInitial(adr);
+          AnalyzeProc1(dat.adres, #0, 0, 0, false);
+          AnalyzeProc2(dat.adres, true, true);
+          AnalyzeArguments(Dat.adres);
+          AnalyzeProc2(dat.adres, true, true);
+
+          if not ContainsUnexplored(GetUnit(dat.adres)) then ShowUnits(true);
+          ShowUnitItems(GetUnit(Dat.adres), 0{lbUnitItems.TopIndex}, Dat.adres);
+          ShowCode(dat.adres, 0, -1, -1);
+        end;
+      DEFINE_AS_STRING: ;
+    End;
+    Exit;
+  End
+  else if (dat.pkind = ikVMT) and tsClassView.TabVisible then
+  Begin
+    ShowClassViewer(dat.adres);
+    Exit;
+  End
+  else if dat.pkind = ikResString then
+  Begin
+    FStringInfo.memStringInfo.Clear;
+    FStringInfo.Caption := 'ResString';
+    recN := GetInfoRec(Dat.adres);
+    FStringInfo.memStringInfo.Lines.Add(recN.rsInfo);
+    FStringInfo.ShowModal;
+    Exit;
+  End
+  else if dat.pkind in [ikString,ikLString,ikWString,ikCString,ikWCString] then
+  Begin
+    FStringInfo.memStringInfo.Clear;
+    FStringInfo.Caption := 'Ansi/Wide String';
+    recN := GetInfoRec(dat.adres);
+    FStringInfo.memStringInfo.Lines.Add(recN.Name);
+    FStringInfo.ShowModal;
+    Exit;
+  End
+  else if dat.pkind = ikUString then
+  Begin
+    FStringInfo.memStringInfo.Clear;
+    FStringInfo.Caption := 'Unicode String';
+    recN := GetInfoRec(dat.adres);
+    len := lstrlenw(PWideChar(Code) + ps);
+    size := WideCharToMultiByte(CP_ACP, 0, PWideChar(Code) + ps, len, Nil, 0, Nil, Nil);
+    if size<>0 then
+    Begin
+      GetMem(tmpBuf,size + 1);
+      WideCharToMultiByte(CP_ACP, 0, PWideChar(Code) + ps, len, tmpBuf, len, Nil, Nil);
+      FStringInfo.memStringInfo.Lines.Add(MakeString(tmpBuf, len));
+      FreeMem(tmpBuf);
+      FStringInfo.ShowModal;
+    End;
+    Exit;
+  End
+  else if dat.pkind in [ikInteger,ikChar,ikEnumeration,ikFloat,ikSet,ikClass,
+    ikMethod,ikWChar,ikArray,ikRecord,ikInterface,ikInt64,ikDynArray,
+    ikClassRef,ikPointer,ikProcedure] then
+  Begin
+    use := KBase.GetTypeUses(PAnsiChar(dat.prototype));
+    idx := KBase.GetTypeIdxByModuleIds(use, PAnsiChar(dat.prototype));
+    use:=Nil;
+    if idx <> -1 then
+    Begin
+      idx := KBase.TypeOffsets[idx].NamId;
+      if KBase.GetTypeInfo(idx, [INFO_FIELDS, INFO_PROPS, INFO_METHODS], tInfo) then
+      Begin
+        FTypeInfo.ShowKbInfo(tInfo);
+        //as delete tInfo;
+      End;
+    End
+    else FTypeInfo.ShowRTTI(dat.adres);
+    Exit;
+  End
+  else if dat.pkind in [ikProc,ikFunc,ikConstructor,ikDestructor,ikRefine] then
+  Begin
+    rec.adr := CurProcAdr;
+    rec.itemIdx := lbCode.ItemIndex;
+    rec.xrefIdx := lbCXrefs.ItemIndex;
+    rec.topIdx := lbCode.TopIndex;
+    ShowCode(dat.adres, 0, -1, -1);
+    CodeHistoryPush(@rec);
+    pcWorkArea.ActivePage := tsCodeView;
+  End;
+end;
+
+procedure TFMain.vtProcFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+var
+  Data:PProcNode;
+begin
+  Data:=Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+procedure TFMain.vtProcGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: WideString);
+var
+  Data:PProcNode;
+begin
+  CellText:='';
+  Data:=Sender.GetNodeData(Node);
+  if Assigned(Data) then
+  Case Column Of
+    0: // Address
+      CellText:=IntToHex(Data.adres,8);
+    1: // Xref
+      If Data.refs=-1 then CellText:='???'
+      else If Data.refs>0 then CellText:=IntToStr(Data.refs);
+    2: // Item type
+      CellText:=Data.type_name;
+    3: // Prototype
+      CellText:=Data.prototype;
+    4: // procedure flags
+      if Data.is_virtual then CellText:='virtual'
+      else If Data.is_dynamic Then CellText:='dynamic'
+      else If Data.is_event then CellText:='event';
+  end;
+end;
+
+procedure TFMain.vtProcPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
+var
+  Data:PProcNode;
+begin
+  Data:=Sender.GetNodeData(Node);
+  if Assigned(Data) and Not (vsSelected in Node.States) Then
+  Begin
+    if Data.refs>0 Then
+    Begin
+      if Data.not_KB then TargetCanvas.Font.Color:=TColor($00B000) //Green
+        else TargetCanvas.Font.Color:=TColor($C08000); //Blue
+    end
+    else if Data.refs=-1 then TargetCanvas.Font.Color:=TColor($8080FF); //Red - unresolved items
+  end;
+end;
+
 procedure TFMain.vtRTTIClick(Sender: TObject);
 begin
   RTTIsSearchFrom := vtRTTI.FocusedNode;
@@ -19314,7 +19362,7 @@ begin
       else if D1.kind > D2.kind then Result:=1
       else Result:=0;
     2: // names
-      Result:=CompareStr(D1.name,D2.name);
+      Result:=lstrcmpiA(PAnsiChar(D1.name),PAnsiChar(D2.name));
   End;
 end;
 
@@ -19377,9 +19425,9 @@ begin
       else if D1.adr > D2.adr then Result:=1
       else Result:=0;
     1: // Item type
-      Result:=CompareStr(D1.item_type,D2.item_type);
+      Result:=lstrcmpiA(PAnsiChar(D1.item_type),PAnsiChar(D2.item_type));
     2: // Item name
-      Result:=CompareStr(D1.item_name,D2.item_name);
+      Result:=lstrcmpiA(PAnsiChar(D1.item_name),PAnsiChar(D2.item_name));
   End;
 end;
 
@@ -19404,11 +19452,11 @@ end;
 
 procedure TFMain.vtStringFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
 var
-  adr:Integer;
   Data:PNameNode;
 begin
   if Assigned(Node) Then
   begin
+    StringsSearchFrom:=Node;
     Data:=vtName.GetNodeData(Node);
     if Assigned(Data) then ShowStringXrefs(Data.adr, -1);
   end;
@@ -19472,7 +19520,7 @@ begin
       else if U1.iniOrder > U2.iniOrder then Result:=1
       else Result:=0;
     2: // names
-      Result:=CompareStr(D1.names,D2.names);
+      Result:=lstrcmpi(PAnsiChar(D1.names),PAnsiChar(D2.names));
   End;
 end;
 
@@ -19480,6 +19528,8 @@ procedure TFMain.vtUnitDblClick(Sender: TObject);
 var
   Data:PUnitNode;
   recU:PUnitRec;
+  proc_data:PProcNode;
+  n:Integer;
 begin
   if Assigned(vtUnit.FocusedNode) Then
   Begin
@@ -19492,7 +19542,16 @@ begin
         CurUnitAdr := recU.fromAdr;
         ShowUnitItems(recU, 0, -1);
       end
-      else ShowUnitItems(recU, lbUnitItems.TopIndex, lbUnitItems.ItemIndex);
+      else
+      Begin
+        n:=0;
+        if Assigned(vtProc.FocusedNode) Then
+        Begin
+          proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+          n:=proc_data.adres;
+        end;
+        ShowUnitItems(recU, 0{lbUnitItems.TopIndex}, n);
+      End;
       CurUnitAdr := recU.fromAdr;
     end;
   end;

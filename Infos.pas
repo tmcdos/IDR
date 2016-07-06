@@ -19,7 +19,8 @@ Type
 
   InfoProcInfo = class
   public
-	  flags:Integer;
+    call_kind:Byte;
+	  flags:TProcFlagSet;
     bpBase:WORD;    	//First argument distance from base ebp
     retBytes:WORD;
     procSize:Integer;
@@ -592,7 +593,7 @@ Begin
   CrtSection.Enter;
   Fname := AValue;
   if (ExtractClassName(name) <> '') and (kind in [ikRefine..ikFunc]) 
-    and Assigned(procInfo) then procInfo.flags:=procInfo.flags or PF_METHOD;
+    and Assigned(procInfo) then Include(procInfo.flags, PF_METHOD);
   CrtSection.Leave; 
 end;
 
@@ -693,8 +694,8 @@ Begin
   while fromPos >= 0 do
   begin
     Dec(fromPos);
-    if IsFlagSet(cfProcStart, fromPos) then break;
-    if IsFlagSet(cfInstruction, fromPos) then
+    if IsFlagSet([cfProcStart], fromPos) then break;
+    if IsFlagSet([cfInstruction], fromPos) then
     begin
       frmDisasm.Disassemble(Code + fromPos, Pos2Adr(fromPos), @disInfo, Nil);
       if (disInfo.Immediate = itemAdr) or (disInfo.Offset = itemAdr) then
@@ -1129,7 +1130,7 @@ Begin
       firstArg := 2;
       Dec(num, 2);
     End
-    else if (procInfo.flags and PF_ALLMETHODS)<>0 then
+    else if procInfo.flags * PF_ALLMETHODS <> [] then
     Begin
       firstArg := 1;
       Dec(num);
@@ -1165,7 +1166,7 @@ Begin
       else result:=Result + '?';
   End;
   result:=Result + ';';
-  callKind := procInfo.flags and 7;
+  callKind := procInfo.call_kind;
   case callKind of
     1: result:=result + ' cdecl;';
     2: result:=result + ' pascal;';
@@ -1195,8 +1196,8 @@ Begin
     //output registers
     //if (info.procInfo.flags and PF_OUTEAX)<>0 then result:=result + ' out';
     if procInfo.retBytes<>0 then result:=result + ' RET ' + Val2Str(procInfo.retBytes);
-    if (procInfo.flags and PF_ARGSIZEG)<>0 then result:=result + '+';
-    if (procInfo.flags and PF_ARGSIZEL)<>0 then result:=result + '-';
+    if PF_ARGSIZEG in procInfo.flags then result:=result + '+';
+    if PF_ARGSIZEL in procInfo.flags then result:=result + '-';
   End;
 end;
 
@@ -1230,7 +1231,7 @@ Begin
   callKind:=0;
   if num<>0 then
   Begin
-    if (procInfo.flags and PF_ALLMETHODS)<>0 then
+    if procInfo.flags * PF_ALLMETHODS <> [] then
     Begin
       firstArg := 1;
       Dec(num);
@@ -1243,7 +1244,7 @@ Begin
     if num<>0 then
     Begin
       Result:=Result + '(';
-      callKind := procInfo.flags and 7;
+      callKind := procInfo.call_kind;
       for n := firstArg to argsNum-1 do
       Begin
         if n <> firstArg then Result:=Result + '; ';
@@ -1293,7 +1294,7 @@ Begin
     firstArg := 2;
     Dec(num, 2);
   End
-  else if (procInfo.flags and PF_ALLMETHODS)<>0 then
+  else if procInfo.flags * PF_ALLMETHODS <> [] then
   Begin
     if num=0 then
     Begin
@@ -1324,7 +1325,7 @@ Begin
     firstArg := 1;
   End;
   if num > 0 then result:=result + '('+#13;
-  callKind := procInfo.flags and 7;
+  callKind := procInfo.call_kind;
   for n := firstArg to argsNum-1 do
   Begin
     if n <> firstArg then result:=result + ';'+#13;
@@ -1370,8 +1371,7 @@ Begin
   Begin
     kind := ikFunc;
     _type := 'HRESULT';
-    procInfo.flags := procInfo.flags and $FFFFFFF8;
-    procInfo.flags := procInfo.flags or 3; //stdcall
+    procInfo.call_kind := 3; //stdcall
     procInfo.AddArg($21, 8, 4, 'Self', '');
     procInfo.AddArg($21, 12, 4, 'IID', 'TGUID');
     procInfo.AddArg($22, 16, 4, 'Obj', 'Pointer');
@@ -1383,8 +1383,7 @@ Begin
   Begin
     kind := ikFunc;
     _type := 'Integer';
-    procInfo.flags := procInfo.flags and $FFFFFFF8;
-    procInfo.flags := procInfo.flags or 3; //stdcall
+    procInfo.call_kind := 3; //stdcall
     procInfo.AddArg($21, 8, 4, 'Self', '');
     Exit;
   End

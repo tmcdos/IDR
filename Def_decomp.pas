@@ -2,6 +2,33 @@ unit Def_decomp;
 
 interface
 
+Type
+  TDecomIflag = (
+    IF_ARG,          // 1;
+    IF_VAR,          // 2;
+    IF_STACK_PTR,    // 4;
+    IF_CALL_RESULT,  // 8;
+    IF_VMT_ADR,      // 16;
+    IF_CYCLE_VAR,    // 32;
+    IF_FIELD,        // 64;
+    IF_ARRAY_PTR,    // 128;
+    IF_INTVAL,       // 256;
+    IF_INTERFACE,    // 512;
+    IF_EXTERN_VAR    // 1024; // Used for embedded procedures
+  );
+  TDecomIset = Set of TDecomIflag;
+
+  TDecomCflag = (
+    CF_CONSTRUCTOR,   // 1;
+    CF_DESTRUCTOR,    // 2;
+    CF_FINALLY,       // 4;
+    CF_EXCEPT,        // 8;
+    CF_LOOP,          // 16;
+    CF_BJL,           // 32;
+    CF_ELSE           // 64;
+  );
+  TDecomCset = Set Of TDecomCflag;
+
 Const
   //Precedence of operations
   PRECEDENCE_ATOM  = 8;
@@ -12,26 +39,6 @@ Const
   PRECEDENCE_NONE  = 0;
 
   TAB_SIZE         = 2;
-
-  IF_ARG           = 1;
-  IF_VAR           = 2;
-  IF_STACK_PTR     = 4;
-  IF_CALL_RESULT   = 8;
-  IF_VMT_ADR       = 16;
-  IF_CYCLE_VAR     = 32;
-  IF_FIELD         = 64;
-  IF_ARRAY_PTR     = 128;
-  IF_INTVAL        = 256;
-  IF_INTERFACE     = 512;
-  IF_EXTERN_VAR    = 1024; // Used for embedded procedures
-
-  CF_CONSTRUCTOR   = 1;
-  CF_DESTRUCTOR    = 2;
-  CF_FINALLY       = 4;
-  CF_EXCEPT        = 8;
-  CF_LOOP          = 16;
-  CF_BJL           = 32;
-  CF_ELSE          = 64;
 
   CMP_FAILED       = 0;
   CMP_BRANCH       = 1;
@@ -84,7 +91,7 @@ Type
     Size:Integer;       //Size in bytes
     Offset:Integer;     //Offset from beginning of type
     IntValue:Integer;   //For array element size calculation
-    Flags:Integer;
+    Flags:TDecomIset;
     Value:AnsiString;
     Value1:AnsiString;  //For various purposes
     _Type:AnsiString;

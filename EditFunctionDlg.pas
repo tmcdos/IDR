@@ -4,7 +4,8 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics,
-  Controls, Forms, Dialogs, StdCtrls, ExtCtrls, ComCtrls;
+  Controls, Forms, Dialogs, StdCtrls, ExtCtrls, ComCtrls,
+  Def_info;
 
 type
   TFEditFunctionDlg=class(TForm)
@@ -57,14 +58,13 @@ type
     procedure cbMethodClick(Sender : TObject);
   private
     { Private declarations }
-    //bool    ProcessMethodClick;
     TypModified:Boolean;
     VarModified:Boolean;
     ArgEdited:Integer;
     VarEdited:Integer;
     VmtCandidatesNum:Integer;
     StackSize:Integer;
-    SFlags:DWORD;
+    SFlags:TProcFlagSet;
     SName:AnsiString;
     Procedure FillVMTCandidates;
     Procedure FillType;
@@ -83,7 +83,7 @@ implementation
 
 {$R *.DFM}
 
-Uses Infos,Misc,StrUtils,Def_main,Def_info,Main,Def_know;
+Uses Infos,Misc,StrUtils,Def_main,Main,Def_know;
 
 procedure TFEditFunctionDlg.bOkClick(Sender : TObject);
 begin
@@ -268,10 +268,10 @@ begin
       end;
     3: recN.kind:=ikFunc;
   End;
-  recN.procInfo.flags := (recN.procInfo.flags and $FFFFFFF8) or rgCallKind.ItemIndex;
+  recN.procInfo.call_kind := rgCallKind.ItemIndex;
 
-  if cbEmbedded.Checked then recN.procInfo.flags := recN.procInfo.flags or PF_EMBED
-    else recN.procInfo.flags := recN.procInfo.flags and not PF_EMBED;
+  if cbEmbedded.Checked then Include(recN.procInfo.flags, PF_EMBED)
+    else Exclude(recN.procInfo.flags, PF_EMBED);
   decl:='';
   (*
   if (recN.kind = ikConstructor) or (recN.kind = ikDestructor) then
@@ -302,13 +302,13 @@ begin
     recN.SetName(cbVmtCandidates.Text + '.Destroy')
   else if SameText(name, GetDefaultProcName(Adr)) then
   begin
-    if cbMethod.Checked and ((recN.procInfo.flags and PF_ALLMETHODS)<>0) then
+    if cbMethod.Checked and (recN.procInfo.flags * PF_ALLMETHODS <> []) then
       recN.SetName(cbVmtCandidates.Text + '.' + name)
     else recN.SetName('');
   end
   else
   begin
-    if cbMethod.Checked and ((recN.procInfo.flags and PF_ALLMETHODS)<>0) then
+    if cbMethod.Checked and (recN.procInfo.flags * PF_ALLMETHODS <> []) then
       recN.SetName(cbVmtCandidates.Text + '.' + ExtractProcName(name))
     else recN.SetName(name);
   End;
@@ -320,7 +320,7 @@ begin
     recN.procInfo.AddArg($21, 1, 4, '_Dv__', 'Boolean');
     n:=2;
   end
-  else if (recN.procInfo.flags and PF_ALLMETHODS)<>0 then
+  else if recN.procInfo.flags * PF_ALLMETHODS <> [] then
   begin
     recN.procInfo.AddArg($21, 0, 4, 'Self', cbVmtCandidates.Text);
     n:=1;
@@ -480,7 +480,7 @@ Procedure TFEditFunctionDlg.FillType;
 Var
   callKind:Byte;
   argsBytes:Integer;
-  flags:DWORD;
+  flags:TProcFlagSet;
   recN:InfoRec;
   line:AnsiString;
 Begin
@@ -493,9 +493,9 @@ Begin
     ikFunc:        rgFunctionKind.ItemIndex := 3;
   end;
   flags := recN.procInfo.flags;
-  callKind := flags and 7;
+  callKind := recN.procInfo.call_kind;
   rgCallKind.ItemIndex := callKind;
-  cbEmbedded.Checked := (flags and PF_EMBED)<>0;
+  cbEmbedded.Checked := PF_EMBED in flags;
   if cbMethod.Checked then
     line := recN.MakeMultilinePrototype(Adr, argsBytes, cbVmtCandidates.Text)
   Else line := recN.MakeMultilinePrototype(Adr, argsBytes, '');
@@ -510,7 +510,7 @@ Begin
   else
   begin
     if VmtCandidatesNum = 1 then cbVmtCandidates.Text := cbVmtCandidates.Items[0];
-    if (recN.kind = ikConstructor) or (recN.kind = ikDestructor) or ((flags and PF_METHOD)<>0) then
+    if (recN.kind in [ikConstructor, ikDestructor]) or (PF_METHOD in flags) then
     begin
       cbMethod.Checked := true;
       if recN.HasName Then cbVmtCandidates.Text := ExtractClassName(recN.Name);
@@ -519,9 +519,9 @@ Begin
     cbMethod.Visible := true;
     cbVmtCandidates.Visible := true;
   End;
-  recN.procInfo.flags:= recN.procInfo.flags And not (PF_ARGSIZEL or PF_ARGSIZEG);
-  if argsBytes > recN.procInfo.retBytes then recN.procInfo.flags := recN.procInfo.flags or PF_ARGSIZEG;
-  if argsBytes < recN.procInfo.retBytes then recN.procInfo.flags := recN.procInfo.flags or PF_ARGSIZEL;
+  recN.procInfo.flags:= recN.procInfo.flags - [PF_ARGSIZEL, PF_ARGSIZEG];
+  if argsBytes > recN.procInfo.retBytes then Include(recN.procInfo.flags, PF_ARGSIZEG);
+  if argsBytes < recN.procInfo.retBytes then Include(recN.procInfo.flags, PF_ARGSIZEL);
 
   lRetBytes.Caption := 'RetBytes: ' + IntToStr(recN.procInfo.retBytes);
   lArgsBytes.Caption := 'ArgBytes: ' + IntToStr(argsBytes);
@@ -544,7 +544,7 @@ Begin
     maxwid := 0;
     cnt := recN.procInfo.args.Count;
     //recN.procInfo.args.Sort(ArgsCmpFunction);
-    callKind := recN.procInfo.flags and 7;
+    callKind := recN.procInfo.call_kind;
     if (callKind = 1) or (callKind = 3) then //cdecl, stdcall
     begin
       for n := 0 to cnt-1 do
@@ -636,7 +636,7 @@ Begin
   recN := GetInfoRec(Adr);
   if Assigned(recN.procInfo.locals) then
   begin
-    rgLocBase.ItemIndex := (recN.procInfo.flags and PF_BPBASED);
+    rgLocBase.ItemIndex := Ord(PF_BPBASED in recN.procInfo.flags);
     canva := lbVars.Canvas;
     maxwid := 0;
     cnt := recN.procInfo.locals.Count;
@@ -678,14 +678,14 @@ begin
   if cbMethod.Checked then
   begin
     cbVmtCandidates.Enabled := true;
-    recN.procInfo.flags := recN.procInfo.flags or PF_METHOD;
+    Include(recN.procInfo.flags, PF_METHOD);
     FillType;
     cbVmtCandidates.Text := PArgInfo(recN.procInfo.args.Items[0]).TypeDef;
   end
   else
   begin
     cbVmtCandidates.Enabled := false;
-    recN.procInfo.flags := recN.procInfo.flags and Not PF_METHOD;
+    Exclude(recN.procInfo.flags, PF_METHOD);
     FillType;
     cbVmtCandidates.Text := '';
   End;

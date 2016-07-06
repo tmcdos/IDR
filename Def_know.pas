@@ -90,7 +90,7 @@ WORD 	ArgsNum; //Arguments number
 ARGINFO Args[ArgNum]; //Arguments
 DWORD	LocalsTotal;	//Total size of local vars
 WORD 	LocalsNum; //Local vars number
-LOCALINFO Locals[LocalNum]; //Local vars 
+LOCALINFO Locals[LocalNum]; //Local vars
 *)
 
 interface
@@ -98,6 +98,30 @@ interface
 Uses Classes;
 
 Type
+
+  // Flags about validity of the class info structures
+  TInfoFlags = (
+    INFO_DUMP,     // 1;
+    INFO_ARGS,     // 2;
+    INFO_LOCALS,   // 4;
+    INFO_FIELDS,   // 8;
+    INFO_PROPS,    // 16;
+    INFO_METHODS,  // 32;
+    INFO_ABSNAME   // 64;
+  );
+  TInfoFlagSet = set of TInfoFlags;
+
+  TKBsection = (
+    //Sections of the Knowledge Base
+    //KB_NO_SECTION      = 0;
+    KB_CONST_SECTION,   // 1;
+    KB_TYPE_SECTION,    // 2;
+    KB_VAR_SECTION,     // 4;
+    KB_RESSTR_SECTION,  // 8;
+    KB_PROC_SECTION     // 16;
+  );
+  TKBset = set of TKBsection;
+
   // Information about offsets of names and data
   OffsetInfo = record
     Offset,
@@ -253,15 +277,6 @@ Type
 
 Const
 
-  // Flags about validity of the class info structures
-  INFO_DUMP     = 1;
-  INFO_ARGS     = 2;
-  INFO_LOCALS   = 4;
-  INFO_FIELDS   = 8;
-  INFO_PROPS    = 16;
-  INFO_METHODS  = 32;
-  INFO_ABSNAME  = 64;
-
   // Description of the Kind values
   drArrayDef         = $4C;    //'L'
   drClassDef         = $46;    //'F'
@@ -285,14 +300,6 @@ Const
   VT_ABSVAR     =  'A';
   VT_SPECVAR    =  'S';
   VT_THREADVAR  =  'T';
-
-  //Sections of the Knowledge Base
-  KB_NO_SECTION      = 0;
-  KB_CONST_SECTION   = 1;
-  KB_TYPE_SECTION    = 2;
-  KB_VAR_SECTION     = 4;
-  KB_RESSTR_SECTION  = 8;
-  KB_PROC_SECTION    = 16;
 
 implementation
 

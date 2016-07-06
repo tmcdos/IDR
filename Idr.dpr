@@ -35,7 +35,8 @@ uses
   Threads in 'Threads.pas',
   Infos in 'Infos.pas',
   Decompiler in 'Decompiler.pas',
-  Resources in 'Resources.pas';
+  Resources in 'Resources.pas',
+  KnowledgeBase in 'KnowledgeBase.pas';
 
 {$R *.RES}
 

@@ -128,7 +128,7 @@ begin
   sscanf(PAnsiChar(item) + 1, '%lX%2c', [@adr, @_type]);
 
   for m := Adr2Pos(adr) Downto 0 do
-    if IsFlagSet(cfProcStart, m) then
+    if IsFlagSet([cfProcStart], m) then
     begin
       FMain.ShowCode(Pos2Adr(m), adr, -1, -1);
       break;

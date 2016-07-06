@@ -1380,13 +1380,13 @@ Begin
     recN1 := GetInfoRec(pos2Adr(_pos));
     if Assigned(recN1) and Assigned(recN1.Pcode) Then
       MakeComment(_pos, FMain.MakeComment(recN1.Pcode));
-    if IsFlagSet(cfExcept or cfFinally, _pos) then
+    if IsFlagSet([cfExcept, cfFinally], _pos) then
     begin
       MakeCode(_pos);
       Inc(_pos);
       continue;
     end;
-    if IsFlagSet(cfETable, _pos) then
+    if IsFlagSet([cfETable], _pos) then
     begin
       cnt := PInteger(Code + _pos)^;
       _pos := MakeDword(_pos);
@@ -1397,7 +1397,7 @@ Begin
       end;
       continue;
     end;
-    if IsFlagSet(cfLoc, _pos) and (_pos <> from_pos) then
+    if IsFlagSet([cfLoc], _pos) and (_pos <> from_pos) then
     begin
       MakeCode(_pos);
       Inc(_pos);

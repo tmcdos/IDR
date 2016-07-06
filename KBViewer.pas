@@ -51,7 +51,7 @@ implementation
 
 {$R *.DFM}
 
-Uses Def_know,Def_Disasm,Main,KnowledgeBase,Infos,Heuristic,Misc,Types;
+Uses Def_know,Def_Disasm,Main,KnowledgeBase,Infos,Heuristic,Misc,Types,Def_main;
 
 procedure TFKBViewer.FormCreate(Sender : TObject);
 begin
@@ -106,7 +106,7 @@ Begin
   lbKB.Clear;
   row := 0;
   maxwid := 0;
-  if KBase.GetProcInfo(CurrIdx, INFO_DUMP, pInfo) then
+  if KBase.GetProcInfo(CurrIdx, [INFO_DUMP], pInfo) then
   begin
     cbUnits.Text := KBase.GetModuleName(pInfo.ModuleID);
     KBase.GetProcIdxs(pInfo.ModuleID, @firstProcIdx, @lastProcIdx);
@@ -217,8 +217,9 @@ Var
   recN:InfoRec;
   kbName, idrName, kbLine, idrLine:AnsiString;
   use:TWordDynArray;
+  dat:PProcNode;
 begin
-  if KBase.GetProcInfo(CurrIdx, INFO_DUMP or INFO_ARGS, pInfo) then
+  if KBase.GetProcInfo(CurrIdx, [INFO_DUMP, INFO_ARGS], pInfo) then
   begin
     adr := CurProcAdr;
     ap := Adr2Pos(adr);
@@ -279,7 +280,7 @@ begin
               begin
                 Idx := KBase.ProcOffsets[Idx].NamId;
                 if not KBase.IsUsedProc(Idx) then
-                  if KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo) then
+                  if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) then
                     FMain.StrapProc(ap, Idx, @pInfo, true, pInfo.DumpSz);
               end
               else
@@ -289,7 +290,7 @@ begin
                 begin
                   Idx := KBase.ProcOffsets[Idx].NamId;
                   if Not KBase.IsUsedProc(Idx) then
-                    if KBase.GetProcInfo(Idx, INFO_DUMP or INFO_ARGS, pInfo) then
+                    if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) then
                       FMain.StrapProc(ap, Idx, @pInfo, false, FMain.EstimateProcSize(adr));
                 End;
               End;
@@ -299,7 +300,10 @@ begin
       End;
     End;
     FMain.RedrawCode;
-    FMain.ShowUnitItems(FMain.GetUnit(CurUnitAdr), FMain.lbUnitItems.TopIndex, FMain.lbUnitItems.ItemIndex);
+    dat:=FMain.vtProc.GetNodeData(FMain.vtProc.FocusedNode);
+    Idx:=0;
+    if Assigned(dat) then Idx:=Dat.adres;
+    FMain.ShowUnitItems(FMain.GetUnit(CurUnitAdr), 0{FMain.lbUnitItems.TopIndex}, Idx);
   End;
   Close;
 end;
@@ -336,7 +340,7 @@ begin
       begin
         idx := KBase.ProcOffsets[k].ModId;
         if not KBase.IsUsedProc(idx) then
-          if KBase.GetProcInfo(idx, INFO_DUMP or INFO_ARGS, pInfo) then
+          if KBase.GetProcInfo(idx, [INFO_DUMP, INFO_ARGS], pInfo) then
             if MatchCode(Code + Adr2Pos(CurProcAdr), @pInfo) then
             begin
               edtCurrIdx.Text := IntToStr(idx);

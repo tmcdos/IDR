@@ -7,6 +7,7 @@ Uses Messages, Classes;
 Type
   NameVersion = (nvPrimary, nvAfterScan, nvByUser);
   TChars = Set of Char;
+
   //Float Type
   TFloatKind = (FT_NONE, FT_SINGLE, FT_DOUBLE, FT_EXTENDED, FT_REAL, FT_COMP);
   TUnit_type = (
@@ -21,60 +22,112 @@ Type
 //tkClass, tkMethod, tkWChar, tkLString, tkLWString, tkVariant)
 
   LKind = (
-  ikUnknown,//       = $00;    //UserDefined!
-  ikInteger,//       = $01;
-  ikChar,//          = $02;
-  ikEnumeration,//   = $03;
-  ikFloat,//         = $04;
-  ikString,//        = $05;   //ShortString
-  ikSet,//           = $06;
-  ikClass,//         = $07;
-  ikMethod,//        = $08;
-  ikWChar,//         = $09;
-  ikLString,//       = $0A;   //String, AnsiString
-  ikWString,//       = $0B;   //WideString
-  ikVariant,//       = $0C;
-  ikArray,//         = $0D;
-  ikRecord,//        = $0E;
-  ikInterface,//     = $0F;
-  ikInt64,//         = $10;
-  ikDynArray,//      = $11;
-//>=2009
-  ikUString,//		    = $12;    //UnicodeString
-//>=2010
-  ikClassRef,//		  = $13;
-  ikPointer,//		    = $14;
-  ikProcedure,//		  = $15;
+    ikUnknown,//       = $00;    //UserDefined!
+    ikInteger,//       = $01;
+    ikChar,//          = $02;
+    ikEnumeration,//   = $03;
+    ikFloat,//         = $04;
+    ikString,//        = $05;   //ShortString
+    ikSet,//           = $06;
+    ikClass,//         = $07;
+    ikMethod,//        = $08;
+    ikWChar,//         = $09;
+    ikLString,//       = $0A;   //String, AnsiString
+    ikWString,//       = $0B;   //WideString
+    ikVariant,//       = $0C;
+    ikArray,//         = $0D;
+    ikRecord,//        = $0E;
+    ikInterface,//     = $0F;
+    ikInt64,//         = $10;
+    ikDynArray,//      = $11;
+  //>=2009
+    ikUString,//		    = $12;    //UnicodeString
+  //>=2010
+    ikClassRef,//		  = $13;
+    ikPointer,//		    = $14;
+    ikProcedure,//		  = $15;
 
-  ik16,ik17,ik18,ik19,ik1A,ik1B,ik1C,ik1D,ik1E,ik1F,
+    ik16,ik17,ik18,ik19,ik1A,ik1B,ik1C,ik1D,ik1E,ik1F,
 
-// additional types
-  ikCString,//       = $20;    //PChar, PAnsiChar
-  ikWCString,//      = $21;    //PWideChar
+    // additional types
+    ikCString,//       = $20;    //PChar, PAnsiChar
+    ikWCString,//      = $21;    //PWideChar
 
-  ikResString,//     = $22;
-  ikVMT,//           = $23;    //VMT
-  ikGUID,//          = $24;
-  ikRefine,//        = $25;    //Code, but what - procedure or function?
-  ikConstructor,//   = $26;
-  ikDestructor,//    = $27;
-  ikProc,//			    = $28;
-  ikFunc,//			    = $29;
+    ikResString,//     = $22;
+    ikVMT,//           = $23;    //VMT
+    ikGUID,//          = $24;
+    ikRefine,//        = $25;    //Code, but what - procedure or function?
+    ikConstructor,//   = $26;
+    ikDestructor,//    = $27;
+    ikProc,//			    = $28;
+    ikFunc,//			    = $29;
 
-  ikLoc,//           = $2A;
-  ikData,//          = $2B;
-  ikDataLink,//      = $2C;    //Link to variable from other module
-  ikExceptName,//    = $2D;
-  ikExceptHandler,// = $2E;
-  ikExceptCase,//    = $2F;
-  ikSwitch,//        = $30;
-  ikCase,//          = $31;
-  ikFixup,//         = $32;    //Fixup (for example, TlsLast)
-  ikThreadVar,//     = $33;
-  ikTry//			      = $34;  	//!!!Deleted - old format!!!
+    ikLoc,//           = $2A;
+    ikData,//          = $2B;
+    ikDataLink,//      = $2C;    //Link to variable from other module
+    ikExceptName,//    = $2D;
+    ikExceptHandler,// = $2E;
+    ikExceptCase,//    = $2F;
+    ikSwitch,//        = $30;
+    ikCase,//          = $31;
+    ikFixup,//         = $32;    //Fixup (for example, TlsLast)
+    ikThreadVar,//     = $33;
+    ikTry//			      = $34;  	//!!!Deleted - old format!!!
   );
 
-  ExportNameRec = record
+  TCFlags = (
+    //cfUndef, // $00000000;
+    cfCode, // $00000001;
+    cfData, // $00000002;
+    cfImport, // $00000004;
+    cfCall, // $00000008;
+    cfProcStart, // $00000010;
+    cfProcEnd, // $00000020;
+    cfRTTI, // $00000040;
+    cfEmbedded, // $00000080;  //Calls in range of one proc (for ex. calls in FormatBuf)
+    cfPass0, // $00000100;  //Initial Analyze was done
+    cfFrame, // $00000200;
+    cfSwitch, // $00000400;
+    cfPass1, // $00000800;  //Analyze1 was done
+    cfETable, // $00001000;  //Exception Table
+    cfPush, // $00002000;
+    cfDSkip, // $00004000;  //For Decompiler
+    cfPop, // $00008000;
+    cfSetA, // $00010000;  //eax setting
+    cfSetD, // $00020000;  //edx setting
+    cfSetC, // $00040000;  //ecx setting
+    cfBracket, // $00080000;	//Bracket (arithmetic operation)
+    cfPass2, // $00100000;  //Analyze2 was done
+    cfExport, // $00200000;
+    cfPass, // $00400000;  //Pass Flag (for AnalyzeArguments and Decompiler)
+    cfLoc, // $00800000;  //Loc_ position
+    cfTry, // $01000000;
+    cfFinally, // $02000000;
+    cfExcept, // $04000000;
+    cfLoop, // $08000000;
+    cfFinallyExit, // $10000000;  //Exit section (from try...finally construction)
+    cfVTable, // $20000000;	//Flags for Interface entries (to mark start end finish of VTables)
+    cfSkip, // $40000000;
+    cfInstruction // $80000000;  //Instruction begin
+  );
+  TCflagSet = Set Of TCFlags;
+  FlagArr = Array[0..$10000000] of TCflagSet;
+  PFlagArr = ^FlagArr;
+
+  //Search place
+  TSearchPlace = (
+    SEARCH_UNITS,        // 0;
+    SEARCH_UNITITEMS,    // 1;
+    SEARCH_RTTIS,        // 2;
+    SEARCH_CLASSVIEWER,  // 3;
+    SEARCH_STRINGS,		   // 4;
+    SEARCH_FORMS,        // 5;
+    SEARCH_CODEVIEWER,   // 6;
+    SEARCH_NAMES,        // 7;
+    SEARCH_SOURCEVIEWER  // 8;
+  );
+
+  ExportNameRec = record
     name:AnsiString;
     address:Integer;
     ord:WORD;
@@ -219,6 +272,17 @@ Type
   End;
   PStringNode = ^vtStringNode;
 
+  vtProcNode = Record
+    adres,refs:Integer;
+    type_name,prototype:AnsiString;
+    pkind:LKind;
+    not_KB:Boolean;
+    is_virtual:Boolean;
+    is_dynamic:Boolean;
+    is_event:Boolean;
+  end;
+  PProcNode = ^vtProcNode;
+
 Const
   USER_KNOWLEDGEBASE    = $80000000;
   SOURCE_LIBRARY        = $40000000;
@@ -280,47 +344,13 @@ Const
   drWideStrDef        = $55;    //'U'
   drWideRangeDef      = $56;    //'V'
 
-  cfUndef        = $00000000;
-  cfCode         = $00000001;
-  cfData         = $00000002;
-  cfImport       = $00000004;
-  cfCall         = $00000008;
-  cfProcStart    = $00000010;
-  cfProcEnd		   = $00000020;
-  cfRTTI			   = $00000040;
-  cfEmbedded     = $00000080;  //Calls in range of one proc (for ex. calls in FormatBuf)
-  cfPass0        = $00000100;  //Initial Analyze was done
-  cfFrame        = $00000200;
-  cfSwitch       = $00000400;
-  cfPass1        = $00000800;  //Analyze1 was done
-  cfETable       = $00001000;  //Exception Table
-  cfPush         = $00002000;
-  cfDSkip        = $00004000;  //For Decompiler
-  cfPop          = $00008000;
-  cfSetA         = $00010000;  //eax setting
-  cfSetD         = $00020000;  //edx setting
-  cfSetC         = $00040000;  //ecx setting
-  cfBracket		   = $00080000;	//Bracket (ariphmetic operation)
-  cfPass2        = $00100000;  //Analyze2 was done
-  cfExport       = $00200000;
-  cfPass         = $00400000;  //Pass Flag (for AnalyzeArguments and Decompiler)
-  cfLoc          = $00800000;  //Loc_ position
-  cfTry          = $01000000;
-  cfFinally      = $02000000;
-  cfExcept       = $04000000;
-  cfLoop         = $08000000;
-  cfFinallyExit  = $10000000;  //Exit section (from try...finally construction)
-  cfVTable       = $20000000;	//Flags for Interface entries (to mark start end finish of VTables)
-  cfSkip         = $40000000;
-  cfInstruction  = $80000000;  //Instruction begin
-
-//XRef Type
+  //XRef Type
   XREF_UNKNOWN   = $20;    //Black
   XREF_CALL      = 1;       //Blue
   XREF_JUMP      = 2;       //Green
   XREF_CONST     = 3;       //Light red
 
-//Common
+  //Common
   MAXLEN		            = 100;
   MAXLINE               = 1024;
   MAXNAME               = 1024;
@@ -329,16 +359,6 @@ Const
   MAX_DISASSEMBLE       = 250000;
   MAX_ITEMS             = $10000;    //Max items number for read-write
   HISTORY_CHUNK_LENGTH  = 256;
-//Search
-  SEARCH_UNITS        = 0;
-  SEARCH_UNITITEMS    = 1;
-  SEARCH_RTTIS        = 2;
-  SEARCH_CLASSVIEWER  = 3;
-  SEARCH_STRINGS		  = 4;
-  SEARCH_FORMS        = 5;
-  SEARCH_CODEVIEWER   = 6;
-  SEARCH_NAMES        = 7;
-  SEARCH_SOURCEVIEWER = 8;
 
   DelphiVersions:Array [1..15] of Integer = (2, 3, 4, 5, 6, 7, 2005, 2006, 2007, 2009, 2010, 2011, 2012, 2013, 2014);
 
@@ -513,12 +533,12 @@ Const
     (id:$229; typname:'WMMDIGetActive';         msgname:'WM_MDIGETACTIVE'),
     (id:$230; typname:'WMMDISetMenu';           msgname:'WM_MDISETMENU'),
     //($231; '?'; 'WM_ENTERSIZEMOVE'),       
-    //($232; '?'; 'WM_EXITSIZEMOVE'),        
+    //($232; '?'; 'WM_EXITSIZEMOVE'),
     (id:$233; typname:'WMDropFiles';            msgname:'WM_DROPFILES'),
     (id:$234; typname:'WMMDIRefreshMenu';       msgname:'WM_MDIREFRESHMENU'),
     //($281; '?'; 'WM_IME_SETCONTEXT'),      
     //($282; '?'; 'WM_IME_NOTIFY'),          
-    //($283; '?'; 'WM_IME_CONTROL'),         
+    //($283; '?'; 'WM_IME_CONTROL'),
     //($284; '?'; 'WM_IME_COMPOSITIONFULL'), 
     //($285; '?'; 'WM_IME_SELECT'), 
     //($286; '?'; 'WM_IME_CHAR'),   
@@ -640,16 +660,11 @@ Const
 
   IMAGE_NT_OPTIONAL_HDR32_MAGIC = $10B;
 
-  TRIV_UNIT  = 1;	//Trivial unit
-  USER_UNIT  = 2; //User unit
-  UNEXP_UNIT = 4; //Unit has undefined bytes
-
   HEX_COMENT = '0x'; // or '$'
   COMENT_QUOTE = ''''; // or '"'
 
 var
-  IID_IPersistFile: TGUID = (
-    D1:$0000010B;D2:$0000;D3:$0000;D4:($C0,$00,$00,$00,$00,$00,$00,$46));
+  IID_IPersistFile: TGUID = (D1:$0000010B;D2:$0000;D3:$0000;D4:($C0,$00,$00,$00,$00,$00,$00,$46));
 
 Function GetCtx(Ctx:TList;Adr:Integer):PRContext;
 procedure SetRegisterValue(var regs:RegList;Idx,Value:Integer);

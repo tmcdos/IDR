@@ -26,7 +26,7 @@ object FMain: TFMain
   TextHeight = 13
   object SplitterH1: TSplitter
     Left = 0
-    Top = 659
+    Top = 599
     Width = 1121
     Height = 4
     Cursor = crVSplit
@@ -39,7 +39,7 @@ object FMain: TFMain
   object SplitterV1: TSplitter
     Left = 215
     Top = 0
-    Height = 644
+    Height = 584
     AutoSnap = False
     Color = clNavy
     MinSize = 3
@@ -49,8 +49,8 @@ object FMain: TFMain
     Left = 218
     Top = 0
     Width = 903
-    Height = 644
-    ActivePage = tsSourceCode
+    Height = 584
+    ActivePage = tsStrings
     Align = alClient
     TabOrder = 1
     OnChange = pcWorkAreaChange
@@ -60,7 +60,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 591
+        Height = 531
         Cursor = crIBeam
         Style = lbOwnerDrawFixed
         AutoComplete = False
@@ -183,7 +183,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 591
+        Height = 531
         Style = lbOwnerDrawFixed
         Align = alRight
         Color = clWhite
@@ -209,7 +209,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 576
+        Height = 516
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -254,7 +254,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 576
+        Height = 516
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -301,7 +301,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 591
+        Height = 531
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -321,7 +321,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 591
+        Height = 531
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -364,7 +364,7 @@ object FMain: TFMain
         ScrollBarOptions.AlwaysVisible = True
         ShowHint = True
         TabOrder = 2
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
         TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
         OnClick = vtStringClick
@@ -426,7 +426,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 591
+        Height = 531
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -446,7 +446,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 591
+        Height = 531
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -488,7 +488,7 @@ object FMain: TFMain
         ScrollBarOptions.AlwaysVisible = True
         ShowHint = True
         TabOrder = 2
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
         TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
         OnClick = vtNameClick
@@ -512,7 +512,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 895
-        Height = 604
+        Height = 544
         Align = alClient
         Font.Charset = RUSSIAN_CHARSET
         Font.Color = clWindowText
@@ -533,8 +533,8 @@ object FMain: TFMain
     Left = 0
     Top = 0
     Width = 215
-    Height = 644
-    ActivePage = tsUnits
+    Height = 584
+    ActivePage = tsRTTIs
     Align = alLeft
     Constraints.MinWidth = 200
     TabOrder = 0
@@ -545,7 +545,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 616
+        Height = 556
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -587,7 +587,7 @@ object FMain: TFMain
         ScrollBarOptions.AlwaysVisible = True
         ShowHint = True
         TabOrder = 0
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
         TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
         OnClick = vtUnitClick
@@ -607,7 +607,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 616
+        Height = 556
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -650,7 +650,7 @@ object FMain: TFMain
         ScrollBarOptions.AlwaysVisible = True
         ShowHint = True
         TabOrder = 0
-        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toGridExtensions, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
         TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
         TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
         OnClick = vtRTTIClick
@@ -668,7 +668,7 @@ object FMain: TFMain
       ImageIndex = 3
       object Splitter1: TSplitter
         Left = 0
-        Top = 442
+        Top = 382
         Width = 207
         Height = 4
         Cursor = crVSplit
@@ -704,7 +704,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 207
-        Height = 402
+        Height = 342
         AutoComplete = False
         Align = alClient
         Color = clWhite
@@ -725,7 +725,7 @@ object FMain: TFMain
       end
       object Panel4: TPanel
         Left = 0
-        Top = 446
+        Top = 386
         Width = 207
         Height = 170
         Align = alBottom
@@ -831,7 +831,7 @@ object FMain: TFMain
   end
   object pb: TProgressBar
     Left = 0
-    Top = 644
+    Top = 584
     Width = 1121
     Height = 15
     Align = alBottom
@@ -839,34 +839,78 @@ object FMain: TFMain
     TabOrder = 3
     Visible = False
   end
-  object lbUnitItems: TListBox
+  object vtProc: TVirtualStringTree
     Left = 0
-    Top = 663
+    Top = 603
     Width = 1121
-    Height = 100
-    TabStop = False
-    Style = lbOwnerDrawFixed
-    AutoComplete = False
+    Height = 160
     Align = alBottom
-    Anchors = [akLeft, akTop, akRight, akBottom]
-    Color = clWhite
-    Constraints.MinHeight = 100
-    ExtendedSelect = False
-    Font.Charset = DEFAULT_CHARSET
+    Constraints.MinHeight = 160
+    DefaultText = 'Node'
+    Font.Charset = RUSSIAN_CHARSET
     Font.Color = clWindowText
     Font.Height = -12
-    Font.Name = 'Courier New'
+    Font.Name = 'Fixedsys'
     Font.Style = []
-    IntegralHeight = True
-    ItemHeight = 16
+    Header.AutoSizeIndex = 3
+    Header.Columns = <
+      item
+        Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+        Position = 0
+        Text = 'Address'
+        Width = 80
+      end
+      item
+        Alignment = taRightJustify
+        Hint = 'Initialization order'
+        Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+        Position = 1
+        Text = 'Xref'
+      end
+      item
+        Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+        Position = 2
+        Text = 'Kind'
+        Width = 80
+      end
+      item
+        Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus, coDisableAnimatedResize]
+        Position = 3
+        Text = 'Prototype'
+        Width = 821
+      end
+      item
+        Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+        Position = 4
+        Text = 'Flags'
+        Width = 70
+      end>
+    Header.Font.Charset = DEFAULT_CHARSET
+    Header.Font.Color = clWindowText
+    Header.Font.Height = -11
+    Header.Font.Name = 'Tahoma'
+    Header.Font.Style = []
+    Header.Options = [hoAutoResize, hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
+    Header.SortColumn = 0
+    Margin = 0
     ParentFont = False
+    ParentShowHint = False
     PopupMenu = pmUnitItems
+    ScrollBarOptions.AlwaysVisible = True
+    ScrollBarOptions.ScrollBars = ssVertical
+    ShowHint = True
     TabOrder = 4
-    OnClick = lbUnitItemsClick
-    OnDblClick = lbUnitItemsDblClick
-    OnDrawItem = lbUnitItemsDrawItem
-    OnKeyDown = lbUnitItemsKeyDown
-    OnMouseMove = lbUnitItemsMouseMove
+    TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
+    TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
+    TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
+    OnClick = vtProcClick
+    OnCompareNodes = vtProcCompareNodes
+    OnDblClick = vtProcDblClick
+    OnFreeNode = vtProcFreeNode
+    OnGetText = vtProcGetText
+    OnPaintText = vtProcPaintText
+    OnKeyDown = vtUnitKeyDown
+    OnMouseMove = vtUnitMouseMove
   end
   object MainMenu: TMainMenu
     AutoHotkeys = maManual
@@ -1369,8 +1413,8 @@ object FMain: TFMain
     end
   end
   object alMain: TActionList
-    Left = 1032
-    Top = 544
+    Left = 920
+    Top = 288
     object acOnTop: TAction
       Category = 'Appearance'
       Caption = 'Always on top'
@@ -1394,8 +1438,8 @@ object FMain: TFMain
     Font.Height = -11
     Font.Name = 'MS Sans Serif'
     Font.Style = []
-    Left = 1072
-    Top = 544
+    Left = 916
+    Top = 232
   end
   object pmSourceCode: TPopupMenu
     Left = 488
