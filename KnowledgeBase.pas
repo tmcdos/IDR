@@ -45,7 +45,7 @@ Type
     function GetTypeInfo(ATypeIdx:Integer; AFlags:TInfoFlagSet; out tInfo:MTypeInfo): Boolean; overload;
     function GetVarInfo(AVarIdx:Integer; AFlags:TInfoFlagSet; Out vInfo:MVarInfo): Boolean;
     function GetResStrInfo(AResStrIdx:Integer; AFlags:TInfoFlagSet; out rsInfo:MResStrInfo): Boolean;
-    function ScanCode(code:PAnsiChar;CodeFlags:PFlagArr; CodeSz:Integer; pInfo:PMProcInfo): Integer;
+    function ScanCode(code:PAnsiChar;var CodeFlags:array of TCflagSet; CodeSz:Integer; pInfo:PMProcInfo): Integer;
     function GetModuleUses(ModuleID:Word): TWordDynArray;
     function GetProcUses(ProcName:PAnsiChar; _Uses:TWordDynArray): Integer;
     function GetTypeUses(TypeName:PAnsiChar): TWordDynArray;
@@ -57,6 +57,7 @@ Type
     function GetKBProcInfo(typeName:PAnsiChar; out procInfo:MProcInfo; Var procIdx:Integer): Boolean;
     function GetKBTypeInfo(typeName:PAnsiChar; out typeInfo:MTypeInfo): Boolean;
     function GetKBPropertyInfo(clasName:PAnsiChar; propName:AnsiString; out typeInfo:MTypeInfo): Boolean;
+    Function IsPropFunction (clasName, procName:AnsiString):AnsiString;
   private
     Inited:Boolean;
     KBfile:TFileStream;
@@ -1184,7 +1185,7 @@ Begin
   REsult:=true;
 end;
 
-Function MKnowledgeBase.ScanCode (code:PAnsiChar;CodeFlags:PFlagArr; CodeSz:Integer; pInfo:PMProcInfo):Integer;
+Function MKnowledgeBase.ScanCode (code:PAnsiChar;var CodeFlags:array of TCflagSet; CodeSz:Integer; pInfo:PMProcInfo):Integer;
 var
   DumpSz:Integer;
   Dump,Reloc:PAnsiChar;
@@ -1612,6 +1613,70 @@ Begin
       End;
     End;
   end;
+end;
+
+Function MKnowledgeBase.IsPropFunction(clasName, procName:AnsiString):AnsiString;
+var
+  n, idx:Integer;
+  p:PAnsiChar;
+  Len:Word;
+  use:TWordDynArray;
+  tInfo:MTypeInfo;
+  pname, _type, fname:AnsiString;
+begin
+  use := GetTypeUses(PAnsiChar(clasName));
+  idx := GetTypeIdxByModuleIds(use, PAnsiChar(clasName));
+  use:=Nil;
+  if idx <> -1 then
+  begin
+    idx := TypeOffsets[idx].NamId;
+    if GetTypeInfo(idx, [INFO_PROPS], tInfo) then
+    begin
+      p := tInfo.Props;
+      for n := 0 to tInfo.PropsNum-1 do
+      begin
+        Inc(p);//Scope
+        Inc(p, 4);//Index
+        Inc(p, 4);//DispID
+        Len := PWord(p)^;
+        Inc(p, 2);
+        pname := MakeString(p, Len);
+        Inc(p, Len + 1);//Name
+        Len := PWord(p)^;
+        Inc(p, 2);
+        _type := TrimTypeName(MakeString(p, Len));
+        Inc(p, Len + 1);//TypeDef
+        Len := PWord(p)^;
+        Inc(p, 2);
+        fname := TrimTypeName(MakeString(p, Len));
+        Inc(p, Len + 1);//ReadName
+        if SameText(procName, fname) then
+        begin
+          Result:= pname;
+          Exit;
+        end;
+        Len := PWord(p)^;
+        Inc(p, 2);
+        fname := TrimTypeName(MakeString(p, Len));
+        Inc(p, Len + 1);//WriteName
+        if SameText(procName, fname) Then
+        begin
+          Result:= pname;
+          Exit;
+        end;
+        Len := PWord(p)^;
+        Inc(p, 2);
+        fname := TrimTypeName(MakeString(p, Len));
+        Inc(p, Len + 1);//StoredName
+        if SameText(procName, fname) Then
+        begin
+          Result:=pname;
+          Exit;
+        end;
+      end;
+    end;
+  End;
+  Result:='';
 end;
 
 End.

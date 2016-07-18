@@ -26,9 +26,9 @@ object FMain: TFMain
   TextHeight = 13
   object SplitterH1: TSplitter
     Left = 0
-    Top = 599
+    Top = 600
     Width = 1121
-    Height = 4
+    Height = 3
     Cursor = crVSplit
     Align = alBottom
     AutoSnap = False
@@ -39,7 +39,7 @@ object FMain: TFMain
   object SplitterV1: TSplitter
     Left = 215
     Top = 0
-    Height = 584
+    Height = 585
     AutoSnap = False
     Color = clNavy
     MinSize = 3
@@ -49,8 +49,8 @@ object FMain: TFMain
     Left = 218
     Top = 0
     Width = 903
-    Height = 584
-    ActivePage = tsStrings
+    Height = 585
+    ActivePage = tsNames
     Align = alClient
     TabOrder = 1
     OnChange = pcWorkAreaChange
@@ -60,7 +60,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 531
+        Height = 532
         Cursor = crIBeam
         Style = lbOwnerDrawFixed
         AutoComplete = False
@@ -183,7 +183,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 531
+        Height = 532
         Style = lbOwnerDrawFixed
         Align = alRight
         Color = clWhite
@@ -209,7 +209,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 516
+        Height = 517
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -254,7 +254,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 516
+        Height = 517
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -301,7 +301,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 531
+        Height = 532
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -321,7 +321,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 531
+        Height = 532
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -426,7 +426,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 531
+        Height = 532
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -446,7 +446,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 531
+        Height = 532
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -533,7 +533,7 @@ object FMain: TFMain
     Left = 0
     Top = 0
     Width = 215
-    Height = 584
+    Height = 585
     ActivePage = tsRTTIs
     Align = alLeft
     Constraints.MinWidth = 200
@@ -545,7 +545,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 556
+        Height = 557
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -607,7 +607,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 556
+        Height = 557
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -668,7 +668,7 @@ object FMain: TFMain
       ImageIndex = 3
       object Splitter1: TSplitter
         Left = 0
-        Top = 382
+        Top = 383
         Width = 207
         Height = 4
         Cursor = crVSplit
@@ -704,7 +704,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 207
-        Height = 342
+        Height = 343
         AutoComplete = False
         Align = alClient
         Color = clWhite
@@ -725,7 +725,7 @@ object FMain: TFMain
       end
       object Panel4: TPanel
         Left = 0
-        Top = 386
+        Top = 387
         Width = 207
         Height = 170
         Align = alBottom
@@ -831,7 +831,7 @@ object FMain: TFMain
   end
   object pb: TProgressBar
     Left = 0
-    Top = 584
+    Top = 585
     Width = 1121
     Height = 15
     Align = alBottom

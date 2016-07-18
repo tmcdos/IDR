@@ -173,7 +173,7 @@ end;
 
 Function StrTok(const str:AnsiString;Delim:TChars):AnsiString;
 Const
-  s:string = '';
+  s:Ansistring = '';
   p:Integer = 1;
 var
   j,k:Integer;
@@ -193,7 +193,7 @@ end;
 Function MakeString(p:PAnsiChar;L:Integer):AnsiString;
 Begin
   SetLength(Result,L);
-  StrLCopy(PAnsiChar(Result),p,L);
+  if L<>0 then StrLCopy(PAnsiChar(Result),p,L);
 end;
 
 Function Adr2Pos (adr:Integer):Integer;
@@ -207,11 +207,11 @@ Begin
     segInfo := SegmentList[n];
     if (segInfo.Start <= adr) and (adr < segInfo.Start + segInfo.Size) then
     begin
-      if (segInfo.Flags and $80000)<>0 then Result:= -1
+      if (segInfo.Flags and IMAGE_SCN_MEM_PRELOAD)<>0 then Result:= -1
         Else Result:=ofs + (adr - segInfo.Start);
       Exit;
     End;
-    if (segInfo.Flags and $80000)=0 then Inc(ofs, segInfo.Size);
+    if (segInfo.Flags and IMAGE_SCN_MEM_PRELOAD)=0 then Inc(ofs, segInfo.Size);
   End;
   Result:= -2;
 end;
@@ -225,7 +225,7 @@ Begin
   for n := 0 to SegmentList.Count-1 do
   begin
     segInfo := SegmentList[n];
-    if (segInfo.Flags and $80000)=0 then
+    if (segInfo.Flags and IMAGE_SCN_MEM_PRELOAD)=0 then
     begin
       fromPos := toPos;
       Inc(toPos, segInfo.Size);
@@ -2345,7 +2345,7 @@ var
   i:Integer;
 Begin
   i := IdxToIdx32Tab[Idx];
-  Result:= (i = 16) or (i = 17) or (i = 18);
+  Result:= i in [16..18];
 end;
 
 Function IsAnalyzedAdr(Adr:Integer):Boolean;
@@ -2359,7 +2359,7 @@ begin
     segInfo := SegmentList[n];
     if (segInfo.Start <= Adr) and (Adr < segInfo.Start + segInfo.Size) then
     begin
-      if (segInfo.Flags and $80000)=0 then REsult:=true;
+      if (segInfo.Flags and IMAGE_SCN_MEM_PRELOAD)=0 then Result:=true;
       break;
     End;
   End;

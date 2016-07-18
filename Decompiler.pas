@@ -121,7 +121,7 @@ Type
     function DecompileGeneralCase(fromAdr, markAdr:Integer; loopInfo:TLoopInfo; Q:Integer): Integer;
     Function DecompileTry(fromAdr:Integer; flags:TDecomCset; loopInfo:TLoopInfo):Integer;
     Function FGet(idx:Integer):PItem;
-    Procedure FPop;
+    function FPop: PITEM;
     Procedure FPush(val:PITEM);
     Procedure FSet(idx:Integer; val:PITEM);
     Function GetArrayFieldOffset(ATypeName:AnsiString; AFromOfs, AScale:Integer):FieldInfo;
@@ -573,8 +573,9 @@ Begin
   FSet(0, val);
 end;
 
-Procedure TDecompiler.FPop;
+Function TDecompiler.FPop:PITEM;
 Begin
+  Result:=FGet(0);
   _TOP_:=(_TOP_+1) and 7;
 end;
 
@@ -2861,7 +2862,8 @@ var
   recN, recN1:InfoRec;
   pCode:PPICODE;
   de:TDecompiler;
-  _name, alias, line, retType, _value, iname, embAdr, _typeName, comment, regName:AnsiString;
+  _name, alias, line, retType, _value, iname, embAdr:AnsiString;
+  _typeName, comment, regName,propName:AnsiString;
 Begin
   idx:=-1;
   pp := Nil;
@@ -2873,7 +2875,11 @@ Begin
   if IsValidCodeAdr(callAdr) then
   Begin
     recN := GetInfoRec(callAdr);
-    if recN.SameName('@AbstractError') then
+    _name:=recN.Name;
+    //Is it property function (Set, Get, Stored)?
+    if Pos('.',_name)<>0 then
+      propName := KBase.IsPropFunction(ExtractClassName(_name), ExtractProcName(_name));
+    if SameText(_name,'@AbstractError') then
     Begin
       Env.ErrAdr := curAdr;
       raise Exception.Create('Pure Virtual Call');
@@ -2897,7 +2903,7 @@ Begin
       End;
     End;
     //@DispInvoke
-    if recN.SameName('@DispInvoke') then
+    if SameText(_name,'@DispInvoke') then
     Begin
       Env.AddToBody('DispInvoke(...);');
       _value := ManualInput(CurProcAdr, curAdr, 'Input the number of RET bytes (in hex) of procedure at ' + Val2Str(curAdr,8), 'Bytes:');
@@ -3070,6 +3076,7 @@ Begin
         else line := _name;
     End
     else line := GetDefaultProcName(callAdr);
+    if propName <> '' then line:=line + '{' + propName + '}';
     if methodKind = ikFunc then
     Begin
       while true do
@@ -7220,18 +7227,48 @@ Begin
   Begin
     GetRegItem(16, item1);
     if IF_STACK_PTR in item1.Flags then
+    begin
       Env.Stack[item1.IntValue]._Type := 'Variant';
+      line := Env.GetLvarName(item1.IntValue);
+    end;
     GetRegItem(18, item2);
-    line := item1.Value + ' := Variant(' + item2.Value + ');';
+    line := line + ' := Variant(' + item2.Value + ');';
     Env.AddToBody(line);
     Exit;
   End
   else if SameText(name, '@VarFromTDateTime') then
   Begin
     GetRegItem(16, item1);
-    line := Env.GetLvarName(item1.IntValue) + ' := Variant(' + FGet(0).Value + ')';
+    if IF_STACK_PTR in item1.Flags then
+    begin
+      Env.Stack[item1.IntValue]._Type := 'Variant';
+      line := Env.GetLvarName(item1.IntValue);
+    end;
+    line:=line + ' := Variant(' + FPop.Value + ')'; //FGet(0)
     Env.AddToBody(line);
     FPop;
+    Exit;
+  end
+  else if SameText(name, '@VarFromReal') then
+  begin
+    GetRegItem(16, item1);
+    if IF_STACK_PTR in item1.Flags then
+      line := Env.GetLvarName(item1.IntValue);
+    line:=line + ' := Variant(' + FPop.Value + ')';
+    Env.AddToBody(line);
+    Exit;
+  end
+  else if SameText(name, '@VarToInt') then
+  begin
+    //eax=Variant, return Integer
+    GetRegItem(16, item1);
+    if IF_STACK_PTR in item1.Flags then
+      Env.Stack[item1.IntValue]._Type := 'Variant';
+    InitItem(@item);
+    item.Value := 'Integer(' + Env.GetLvarName(item1.IntValue) + ')';
+    SetRegItem(16, item);
+    line := 'EAX := ' + item.Value + ';';
+    Env.AddToBody(line);
     Exit;
   End
   else if SameText(name, '@VarToInteger') then
@@ -7649,13 +7686,8 @@ Begin
       Env.AddToBody(line);
       Exit;
     End;
-    //op st - do nothing
-    if DisaInfo.OpType[0] = otFST then
-    Begin
-      line := '// !!! - unknown situation';
-      Env.AddToBody(line);
-      Exit;
-    End;
+    //fstp - do nothing
+    if DisaInfo.OpType[0] = otFST then Exit;
   End;
   //fcom, fcomp, fcompp
   _pos := Pos('fcom',DisaInfo.Mnem);

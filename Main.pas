@@ -558,11 +558,11 @@ Var
   VmtList:TList;       //VMT list
   CodeBase:PAnsiChar;
   DelphiVersion:Integer;
-  InfoList:AInfoRec; //Array of pointers to store items data
+  InfoList:array of InfoRec; //Array of pointers to store items data
   BSSInfos:TStringList;  //Data from BSS
   SegmentList:TList;   //Information about Image Segments
   TotalSize:Integer;      //Size of sections CODE + DATA
-  FlagList:PFlagArr;     //flags for used data
+  FlagList:array of TCflagSet;     //flags for used data
   OwnTypeList:TList;
   SelectedAsmItem:AnsiString;    //Selected item in Asm Listing
   CrtSection:TCriticalSection;
@@ -7715,16 +7715,12 @@ Begin
     FreeMem(Image);
     Image:=Nil;
   end;
-  if Assigned(FlagList) Then
-  Begin
-    FreeMem(FlagList);
-    FlagList:=Nil;
-  end;
+  FlagList:=Nil;
   if Assigned(InfoList) then
   Begin
     for n := 0 to High(InfoList) do
       InfoList[n].Free;
-    SetLength(InfoList,0);
+    InfoList:=Nil;
   End;
   if Assigned(BSSInfos) then
   Begin
@@ -7824,113 +7820,52 @@ var
   line, msg:AnsiString;
   node:TTreeNode;
   uNode:PVirtualNode;
+
+  procedure find_vt(var from:PVirtualNode;var tree:TVirtualStringTree;col:Integer);
+  Begin
+    uNode:=from;
+    if not Assigned(uNode) then uNode:=tree.GetFirst;
+    while Assigned(uNode) do
+    Begin
+      If AnsiContainsText(tree.Text[uNode,0], str) Or
+        AnsiContainsText(tree.Text[uNode,col], str) then break;
+      uNode:=uNode.NextSibling;
+    end;
+    if Not Assigned(uNode) then
+    begin
+      uNode:=From;
+      if Assigned(uNode) then uNode:=uNode.PrevSibling;
+      while Assigned(uNode) do
+      Begin
+        If AnsiContainsText(tree.Text[uNode,0], str) Or
+          AnsiContainsText(tree.Text[uNode,col], str) then break;
+        uNode:=uNode.PrevSibling;
+      End;
+    end;
+    if Assigned(uNode) then
+    Begin
+      From := uNode;
+      with tree do
+      begin
+        FocusedNode:=uNode;
+        Selected[uNode]:=True;
+        ScrollIntoView(uNode,False,False);
+        SetFocus;
+      end;
+    End
+    else ShowMessage(msg);
+  end;
+
 begin
   idx:=-1;
   if str = '' then Exit;
   msg := 'Search string "' + str + '" not found';
   case WhereSearch of
-    SEARCH_UNITS:
-      begin
-        uNode:=UnitsSearchFrom;
-        if not Assigned(uNode) then uNode:=vtUnit.GetFirst;
-        while Assigned(uNode) do
-        Begin
-          If AnsiContainsText(vtUnit.Text[uNode,0], str) Or
-            AnsiContainsText(vtUnit.Text[uNode,2], str) then break;
-          uNode:=uNode.NextSibling;
-        end;
-        if Not Assigned(uNode) then
-        begin
-          uNode:=UnitsSearchFrom;
-          if Assigned(uNode) then uNode:=uNode.PrevSibling;
-          while Assigned(uNode) do
-          Begin
-            If AnsiContainsText(vtUnit.Text[uNode,0], str) Or
-              AnsiContainsText(vtUnit.Text[uNode,2], str) then break;
-            uNode:=uNode.PrevSibling;
-          End;
-        end;
-        if Assigned(uNode) then
-        Begin
-        	UnitsSearchFrom := uNode;
-          with vtUnit do
-          begin
-            FocusedNode:=uNode;
-            Selected[uNode]:=True;
-            ScrollIntoView(uNode,False,False);
-            SetFocus;
-          end;
-        End
-        else ShowMessage(msg);
-      end;
-    SEARCH_UNITITEMS:
-      begin
-        uNode:=UnitItemsSearchFrom;
-        if not Assigned(uNode) then uNode:=vtProc.GetFirst;
-        while Assigned(uNode) do
-        Begin
-          If AnsiContainsText(vtProc.Text[uNode,0], str) Or
-            AnsiContainsText(vtProc.Text[uNode,2], str) then break;
-          uNode:=uNode.NextSibling;
-        end;
-        if Not Assigned(uNode) then
-        begin
-          uNode:=UnitItemsSearchFrom;
-          if Assigned(uNode) then uNode:=uNode.PrevSibling;
-          while Assigned(uNode) do
-          Begin
-            If AnsiContainsText(vtProc.Text[uNode,0], str) Or
-              AnsiContainsText(vtProc.Text[uNode,2], str) then break;
-            uNode:=uNode.PrevSibling;
-          End;
-        end;
-        if Assigned(uNode) then
-        Begin
-        	UnitItemsSearchFrom := uNode;
-          with vtProc do
-          begin
-            FocusedNode:=uNode;
-            Selected[uNode]:=True;
-            ScrollIntoView(uNode,False,False);
-            SetFocus;
-          end;
-        End
-        else ShowMessage(msg);
-      end;
-    SEARCH_RTTIS:
-      begin
-        uNode:=RTTIsSearchFrom;
-        if not Assigned(uNode) then uNode:=vtRTTI.GetFirst;
-        while Assigned(uNode) do
-        Begin
-          If AnsiContainsText(vtRTTI.Text[uNode,0], str) Or
-            AnsiContainsText(vtRTTI.Text[uNode,2], str) then break;
-          uNode:=uNode.NextSibling;
-        end;
-        if Not Assigned(uNode) then
-        begin
-          uNode:=RTTIsSearchFrom;
-          if Assigned(uNode) then uNode:=uNode.PrevSibling;
-          while Assigned(uNode) do
-          Begin
-            If AnsiContainsText(vtRTTI.Text[uNode,0], str) Or
-              AnsiContainsText(vtRTTI.Text[uNode,2], str) then break;
-            uNode:=uNode.PrevSibling;
-          End;
-        end;
-        if Assigned(uNode) then
-        Begin
-        	RTTIsSearchFrom := uNode;
-          with vtRTTI do
-          begin
-            FocusedNode:=uNode;
-            Selected[uNode]:=True;
-            ScrollIntoView(uNode,False,False);
-            SetFocus;
-          end;
-        End
-        else ShowMessage(msg);
-      end;
+    SEARCH_UNITS: find_vt(UnitsSearchFrom,vtUnit,2);
+    SEARCH_UNITITEMS: find_vt(UnitItemsSearchFrom,vtProc,2);
+    SEARCH_RTTIS: find_vt(RTTIsSearchFrom,vtRTTI,2);
+    SEARCH_STRINGS: find_vt(StringsSearchFrom,vtString,2);
+    SEARCH_NAMES: find_vt(NamesSearchFrom,vtName,1);
     SEARCH_FORMS:
       begin
         for n := FormsSearchFrom to lbForms.Items.Count-1 do
@@ -8036,74 +7971,6 @@ begin
           else ShowMessage(msg);
         End;
       end;
-    SEARCH_STRINGS:
-      begin
-        uNode:=StringsSearchFrom;
-        if not Assigned(uNode) then uNode:=vtString.GetFirst;
-        while Assigned(uNode) do
-        Begin
-          If AnsiContainsText(vtString.Text[uNode,0], str) Or
-            AnsiContainsText(vtString.Text[uNode,2], str) then break;
-          uNode:=uNode.NextSibling;
-        end;
-        if Not Assigned(uNode) then
-        begin
-          uNode:=StringsSearchFrom;
-          if Assigned(uNode) then uNode:=uNode.PrevSibling;
-          while Assigned(uNode) do
-          Begin
-            If AnsiContainsText(vtString.Text[uNode,0], str) Or
-              AnsiContainsText(vtString.Text[uNode,2], str) then break;
-            uNode:=uNode.PrevSibling;
-          End;
-        end;
-        if Assigned(uNode) then
-        Begin
-        	StringsSearchFrom := uNode;
-          with vtString do
-          begin
-            FocusedNode:=uNode;
-            Selected[uNode]:=True;
-            ScrollIntoView(uNode,False,False);
-            SetFocus;
-          end;
-        End
-        else ShowMessage(msg);
-  	  end;
-    SEARCH_NAMES:
-      begin
-        uNode:=NamesSearchFrom;
-        if not Assigned(uNode) then uNode:=vtName.GetFirst;
-        while Assigned(uNode) do
-        Begin
-          If AnsiContainsText(vtName.Text[uNode,0], str) Or
-            AnsiContainsText(vtName.Text[uNode,1], str) then break;
-          uNode:=uNode.NextSibling;
-        end;
-        if Not Assigned(uNode) then
-        begin
-          uNode:=NamesSearchFrom;
-          if Assigned(uNode) then uNode:=uNode.PrevSibling;
-          while Assigned(uNode) do
-          Begin
-            If AnsiContainsText(vtName.Text[uNode,0], str) Or
-              AnsiContainsText(vtName.Text[uNode,1], str) then break;
-            uNode:=uNode.PrevSibling;
-          End;
-        end;
-        if Assigned(uNode) then
-        Begin
-        	NamesSearchFrom := uNode;
-          with vtName do
-          begin
-            FocusedNode:=uNode;
-            Selected[uNode]:=True;
-            ScrollIntoView(uNode,False,False);
-            SetFocus;
-          end;
-        End
-        else ShowMessage(msg);
-    	end;
   End;
 end;
 
@@ -9223,21 +9090,11 @@ Begin
   End;
   if Items<>0 then inStream.Read(pImage^, Items);
 
-  GetMem(FlagList,SizeOf(DWORD)*TotalSize);
-  FillMemory(FlagList,SizeOf(DWORD)*TotalSize,0);
-  Items := TotalSize;
-  pFlags := PInteger(FlagList);
-
-  while Items >= MAX_ITEMS do
-  Begin
-    inStream.Read(pFlags^, sizeof(DWORD)*MAX_ITEMS);
-    Inc(pFlags, MAX_ITEMS);
-    Dec(Items, MAX_ITEMS);
-  End;
-  if Items<>0 then inStream.Read(pFlags^, sizeof(DWORD)*Items);
+  SetLength(FlagList,TotalSize);
+  inStream.Read(FlagList[0], sizeof(TCFlagSet)*TotalSize);
 
   SetLength(InfoList,TotalSize);
-  FillMemory(@InfoList[0],SizeOf(InfoRec)*TotalSize,0);
+  FillMemory(@InfoList[0],SizeOf(Pointer)*TotalSize,0);
 
   inStream.Read(infosCnt, sizeof(infosCnt));
   StartProgress('Reading Infos Objects (number = '+IntToStr(infosCnt)+')...', '', TotalSize div 4096);
@@ -9386,17 +9243,7 @@ Begin
     //MemStream
     inStream.Read(size, sizeof(size));
     dfm.MemStream.Size := size;
-    while size >= 4096 do
-    Begin
-      inStream.Read(buf^, 4096);
-      dfm.MemStream.Write(buf^, 4096);
-      Dec(size, 4096);
-    End;
-    if size<>0 then
-    Begin
-      inStream.Read(buf^, size);
-      dfm.MemStream.Write(buf^, size);
-    End;
+    if size<>0 Then dfm.MemStream.CopyFrom(inStream,size);
     //Events
     dfm.Events := TList.Create;
     inStream.Read(evnum, sizeof(evnum));
@@ -11856,7 +11703,7 @@ Begin
       kind := recN.kind;
       //Skip calls, that are in the body of some asm-procs (for example, FloatToText from SysUtils)
       if (kind in [ikRefine..ikFunc]) and Assigned(recN.procInfo)
-        and (PF_EMBED in recN.procInfo.flags) then
+        and IsFlagSet([cfImport,cfEmbedded],ps) then
       begin
         Inc(adr);
         continue;
