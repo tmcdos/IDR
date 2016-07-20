@@ -593,7 +593,7 @@ Begin
     if aInfo.TypeDef = '' then Exit;
   end;
   if (ARec.kind = ikFunc) and (ARec._type = '') Then Exit;
-  Result:=False;
+  Result:=True;
 end;
 
 Function TDecompiler.Init (fromAdr:Integer):Boolean;
@@ -1782,7 +1782,9 @@ Begin
         if DeFlags[DisaInfo.Immediate - Env.StartAdr] = 1 then
         Begin
           //SetFlag(cfPass, _fromPos);
-          Inc(curPos, instrLen); 
+          //check Exit
+          if IsExit(DisaInfo.Immediate) then Env.AddToBody('Exit;');
+          Inc(curPos, instrLen);
           Inc(curAdr, instrLen);
           break;
         End;
@@ -1855,13 +1857,22 @@ Begin
           Env.CmpStack.Add(cmpItem);
           //skip jcc
           instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, Nil, Nil);
-          Inc(curPos, instrLen); 
+          Inc(curPos, instrLen);
           Inc(curAdr, instrLen);
           continue; //???
         End;
         if cmpRes = CMP_BRANCH then
         Begin
           instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disInfo, Nil);
+          //Exit
+          if IsExit(disInfo.Immediate) then
+          begin
+            line := 'if (' + CompInfo.L + ' ' + GetDirectCondition(CompInfo.O) + ' ' + CompInfo.R + ') then Exit;';
+            Env.AddToBody(line);
+            Inc(curPos, instrLen);
+            Inc(curAdr, instrLen);
+            continue;
+          end;
           //jcc up
           if disInfo.Immediate < curAdr then
           Begin
@@ -5524,7 +5535,7 @@ Begin
     CompInfo.R := itemSrc.Value;
     Exit;
   End
-  else if (Op = OP_ADD) or (Op = OP_SUB) or (Op = OP_XOR) then
+  else if Op in [OP_ADD, OP_SUB, OP_XOR] then
   Begin
     InitItem(@item);
     item.Precedence := PRECEDENCE_ADD;
@@ -5536,7 +5547,7 @@ Begin
     Env.AddToBody(line);
     Exit;
   End
-  else if (Op = OP_MUL) or (Op = OP_IMUL) or (Op = OP_AND) then
+  else if Op in [OP_MUL, OP_IMUL, OP_AND] then
   Begin
     InitItem(@item);
     item.Precedence := PRECEDENCE_MULT;
@@ -5661,6 +5672,13 @@ Begin
       Env.AddToBody(line);
       Exit;
     End
+    else if Op = OP_OR then
+    begin
+      Env.Stack[itemDst.IntValue].Value := _name;
+      line := _name + ' := ' + _name + ' Or ' + imm + ';';
+      Env.AddToBody(line);
+      Exit;
+    end
     else if Op = OP_XOR then
     Begin
       Env.Stack[itemDst.IntValue].Value := _name;
@@ -6578,7 +6596,7 @@ var
   _adr,n,r:Integer;
   item, item1, item2, item3, item4:TItem;
   recN:InfoRec;
-  line, _value, value1, value2, _typeName:AnsiString;
+  line, _value, value1, value2, _typeName,_op:AnsiString;
   _int64Val:Int64;
 Begin
   Result:=False;
@@ -7203,17 +7221,84 @@ Begin
     Env.AddToBody(line);
     Exit;
   end
-  else if SameText(name, '@VarAdd') then
+  else if SameText(name, '@VarAdd') or
+    SameText(name, '@VarSub') or
+    SameText(name, '@VarMul') or
+    SameText(name, '@VarDiv') or
+    SameText(name, '@VarMod') or
+    SameText(name, '@VarAnd') or
+    SameText(name, '@VarOr')  or
+    SameText(name, '@VarXor') or
+    SameText(name, '@VarShl') or
+    SameText(name, '@VarShr') or
+    SameText(name, '@VarRDiv') then
   begin
-    //eax=eax+edx
+    _op := Copy(name,5, Length(name));
     GetRegItem(16, item1);
     GetRegItem(18, item2);
     if IF_STACK_PTR in item1.Flags then
+    begin
       Env.Stack[item1.IntValue]._Type := 'Variant';
+      item1 := Env.Stack[item1.IntValue];
+    end;
     if IF_STACK_PTR in item2.Flags then
+    begin
       Env.Stack[item2.IntValue]._Type := 'Variant';
-    line := item1.Value + ' := ' + item1.Value + ' + ' + item2.Value + ';';
+      item2 := Env.Stack[item2.IntValue];
+    end;
+    line := item1.Name + ' := ' + item1.Name + ' ' + _op + ' ' + item2.Name + ';';
     Env.AddToBody(line);
+    Exit;
+  end
+  else if SameText(name, '@VarNeg') or SameText(name, '@VarNot') then
+  begin
+    _op := Copy(name,5, Length(name));
+    GetRegItem(16, item1);
+    if IF_STACK_PTR in item1.Flags then
+    begin
+      Env.Stack[item1.IntValue]._Type := 'Variant';
+      item1 := Env.Stack[item1.IntValue];
+    end;
+    line := item1.Name + ' := ' + _op + ' ' + item1.Name + ';';
+    Env.AddToBody(line);
+    Exit;
+  end
+  else if SameText(Copy(name,1, 7), '@VarCmp') then
+  begin
+    GetCmpInfo(procAdr + instrLen);
+    if (name[8] = 'E') and (name[9] = 'Q') then
+      CompInfo.O := 'E' //JZ
+    else if (name[8] = 'N') and (name[9] = 'E') then
+      CompInfo.O := 'F' //JNZ
+    else if name[8] = 'L' then
+    begin
+      if name[9] = 'E' then
+        CompInfo.O := 'O' //JLE
+      else if name[9] = 'T' then
+        CompInfo.O := 'M'; //JL
+    end
+    else if name[8] = 'G' then
+    begin
+      if name[9] = 'E' then
+        CompInfo.O := 'N' //JGE
+      else if name[9] = 'T' then
+        CompInfo.O := 'P'; //JG
+    end;
+    GetRegItem(16, item1); //eax - Left argument
+    if IF_STACK_PTR in item1.Flags then
+    begin
+      Env.Stack[item1.IntValue]._Type := 'Variant';
+      item1 := Env.Stack[item1.IntValue];
+      CompInfo.L := item1.Name;
+    end;
+    GetRegItem(18, item2); //edx - Right argument
+    if IF_STACK_PTR in item2.Flags then
+    begin
+      Env.Stack[item2.IntValue]._Type := 'Variant';
+      item2 := Env.Stack[item2.IntValue];
+      CompInfo.R := item2.Name;
+    end;
+    Result:=true;
     Exit;
   end
   //Cast to Variant
@@ -7229,22 +7314,22 @@ Begin
     if IF_STACK_PTR in item1.Flags then
     begin
       Env.Stack[item1.IntValue]._Type := 'Variant';
-      line := Env.GetLvarName(item1.IntValue);
+      item1 := Env.Stack[item1.IntValue];
     end;
     GetRegItem(18, item2);
-    line := line + ' := Variant(' + item2.Value + ');';
+    line := item1.Name + ' := Variant(' + item2.Name + ');';
     Env.AddToBody(line);
     Exit;
   End
-  else if SameText(name, '@VarFromTDateTime') then
+  else if SameText(name, '@VarFromTDateTime') or SameText(name, '@VarFromCurr') then
   Begin
     GetRegItem(16, item1);
     if IF_STACK_PTR in item1.Flags then
     begin
       Env.Stack[item1.IntValue]._Type := 'Variant';
-      line := Env.GetLvarName(item1.IntValue);
+      item1 := Env.Stack[item1.IntValue];
     end;
-    line:=line + ' := Variant(' + FPop.Value + ')'; //FGet(0)
+    line:=item1.Name + ' := Variant(' + FPop.Value + ')'; //FGet(0)
     Env.AddToBody(line);
     FPop;
     Exit;
@@ -9695,6 +9780,7 @@ Begin
       try
         Env.AddToBody('begin');
         _curAdr := de.Decompile(_bodyBegAdr, [], loopInfo);
+        if (_jmpAdr<>0) and IsExit(_jmpAdr) then Env.AddToBody('Exit;');
         Env.AddToBody('end');
       Except
         on E:exception do
@@ -9705,7 +9791,7 @@ Begin
       end;
       Env.RestoreContext(_bodyBegAdr); //if (_jmpAdr || de.WasRet)
       de.Free;
-      if _jmpAdr<>0 then
+      if (_jmpAdr<>0)and not IsExit(_jmpAdr) then
       Begin
         Env.AddToBody('else');
         _begAdr := _curAdr;

@@ -115,7 +115,7 @@ object FEditFunctionDlg: TFEditFunctionDlg
       end
       object lArgsBytes: TLabel
         Left = 78
-        Top = 429
+        Top = 421
         Width = 5
         Height = 13
         Font.Charset = DEFAULT_CHARSET
@@ -151,6 +151,7 @@ object FEditFunctionDlg: TFEditFunctionDlg
         Font.Style = []
         ParentFont = False
         TabOrder = 0
+        WantReturns = False
       end
       object rgCallKind: TRadioGroup
         Left = 11

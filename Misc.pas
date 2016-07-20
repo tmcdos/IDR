@@ -110,6 +110,8 @@ Procedure SaveCanvas(ACanvas:TCanvas);
 Procedure RestoreCanvas(ACanvas:TCanvas);
 Procedure DrawOneItem(AItem:AnsiString; ACanvas:TCanvas; var ARect:TRect; AColor:TColor; flags:Integer);
 
+Function OutputHex(v:Integer;sign:Boolean;dig:Integer=0):AnsiString;
+
 var
   StringBuf:Array [0..MAXSTRBUFFER] of Char;    //Buffer to make string
 
@@ -165,7 +167,7 @@ Function FirstWord(const str:AnsiString;from:Integer=1;Last:Integer=0):Integer;
 var
   k:Integer;
 Begin
-  Result:=1;
+  Result:=from;
   if Last<>0 then k:=Last else k:=Length(str);
   while (Result<=k)and not(str[Result] in [' ',#13,#10,#9]) Do Inc(Result);
   Dec(Result);
@@ -387,7 +389,8 @@ Begin
   if AName <>'' then
   begin
     p:= Pos('.',AName);
-    if p<>0 then Result:=Copy(AName,p+1, Length(AName));
+    if p<>0 then Result:=Copy(AName,p+1, Length(AName))
+      else Result:=AName;
   End;
 end;
 
@@ -2272,6 +2275,8 @@ begin
 end;
 
 Procedure Copy2Clipboard (items:TStrings; leftMargin:Integer; asmCode:Boolean);
+Const
+  CRLF:AnsiString = #13+#10;
 Var
   n,BufLen:Integer;
   line:AnsiString;
@@ -2292,8 +2297,9 @@ Begin
       //Запихиваем все данные в буфер
       for n := 0 to items.Count-1 do
       begin
-        line := Copy(items[n],leftMargin+1,1024)+#13+#10;
-        buf.Write(line[1],Length(line));
+        line := Copy(items[n],leftMargin+1,2000);
+        buf.Write(line[1],Length(line)-Ord(asmCode));
+        buf.Write(CRLF[1],2);
       End;
       n:=0;
       buf.Write(n,1);
@@ -2464,6 +2470,28 @@ Begin
   ACanvas.Font.Color := AColor;
   ACanvas.TextOut(ARect.Left, ARect.Top, AItem);
   RestoreCanvas(ACanvas);
+end;
+
+Function OutputHex(v:Integer;sign:Boolean;dig:Integer=0):AnsiString;
+begin
+  if sign then
+  begin
+    if (v>=-9) and (v<=9) then
+    begin
+      if v<0 then Result:=IntToStr(v)
+        else Result:='+'+IntToStr(v);
+    end
+    else
+    begin
+      if v<0 then Result:='-$'+IntToHex(-v,dig)
+        else Result:='+$'+IntToHex(v,dig);
+    end;
+  end
+  else
+  begin
+    if v in [0..9] then Result:=IntToStr(v)
+      else Result:='$'+IntToHex(v,dig);
+  end;
 end;
 
 Initialization

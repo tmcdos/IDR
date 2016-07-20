@@ -60,7 +60,7 @@ type
     { Private declarations }
     TypModified:Boolean;
     VarModified:Boolean;
-    ArgEdited:Integer;
+    //ArgEdited:Integer;
     VarEdited:Integer;
     VmtCandidatesNum:Integer;
     StackSize:Integer;
@@ -230,7 +230,7 @@ procedure TFEditFunctionDlg.bApplyTypeClick(Sender : TObject);
 Var
   newEndAdr:Integer;
   recN:InfoRec;
-  line,decl,name,retType:AnsiString;
+  decl,_name,retType:AnsiString;
   n,p:Integer;
 begin
   if cbMethod.Checked and (cbVmtCandidates.Text = '') then
@@ -272,45 +272,35 @@ begin
 
   if cbEmbedded.Checked then Include(recN.procInfo.flags, PF_EMBED)
     else Exclude(recN.procInfo.flags, PF_EMBED);
-  decl:='';
-  (*
-  if (recN.kind = ikConstructor) or (recN.kind = ikDestructor) then
-    decl:=decl + 'Self:' + cbVmtCandidates.Text + ';_Dv__:Boolean;'
-  else if (recN.info.procInfo.flags and PF_ALLMETHODS)<>0 then
-    decl:=decl + 'Self:' + cbVmtCandidates.Text + ';';
-  *)
-  for n:=0 To mType.Lines.Count-1 do
-  begin
-    line:=Trim(mType.Lines[n]);
-    if line = '' Then continue;
-    decl:=decl + line;
-  End;
-  decl:=Trim(decl);
-  p:=Length(decl);
-  if decl[p] = ';' then decl[p]:=' ';
-  name:='';
-  for n:=1 to p do
-    if decl[n] in [' ','(',';',':'] then
-    begin
-      name:=Copy(decl,1, n-1);
-      p:=n+1; // used later for "retType"
-      break;
-    End;
+  decl:=AnsiReplaceStr(mType.Text,#13#10,' ');
+  p:=Pos('(',decl);
+  If p<>0 then _name:=Trim(Copy(decl,1,p-1))
+  Else
+  Begin
+    p:=Pos(':',decl);
+    If p<>0 then _name:=Trim(Copy(decl,1,p-1))
+    else
+    Begin
+      p:=Pos(';',decl);
+      if p<>0 then _name:=Trim(Copy(decl,1,p-1))
+        else _name:=Trim(decl);
+    end;
+  end;
   if recN.kind = ikConstructor then
-    recN.SetName(cbVmtCandidates.Text + '.Create')
+    recN.Name:=cbVmtCandidates.Text + '.Create'
   else if recN.kind = ikDestructor then
-    recN.SetName(cbVmtCandidates.Text + '.Destroy')
-  else if SameText(name, GetDefaultProcName(Adr)) then
+    recN.Name:=cbVmtCandidates.Text + '.Destroy'
+  {else if SameText(_name, GetDefaultProcName(Adr)) then
   begin
     if cbMethod.Checked and (recN.procInfo.flags * PF_ALLMETHODS <> []) then
-      recN.SetName(cbVmtCandidates.Text + '.' + name)
+      recN.SetName(cbVmtCandidates.Text + '.' + _name)
     else recN.SetName('');
-  end
+  end}
   else
   begin
     if cbMethod.Checked and (recN.procInfo.flags * PF_ALLMETHODS <> []) then
-      recN.SetName(cbVmtCandidates.Text + '.' + ExtractProcName(name))
-    else recN.SetName(name);
+      recN.Name:=cbVmtCandidates.Text + '.' + ExtractProcName(_name)
+    else recN.Name:=_name;
   End;
   recN.procInfo.DeleteArgs;
   n:=0;
@@ -320,15 +310,36 @@ begin
     recN.procInfo.AddArg($21, 1, 4, '_Dv__', 'Boolean');
     n:=2;
   end
-  else if recN.procInfo.flags * PF_ALLMETHODS <> [] then
+  else if cbMethod.Checked {recN.procInfo.flags * PF_ALLMETHODS <> []} then
   begin
     recN.procInfo.AddArg($21, 0, 4, 'Self', cbVmtCandidates.Text);
     n:=1;
   end;
-  retType:=recN.procInfo.AddArgsFromDeclaration(Copy(decl,p,Length(decl)), n, rgCallKind.ItemIndex);
-  if recN.kind = ikFunc then recN._type:=retType;
+  p:=Pos('(',decl);
+  If p<>0 then retType:=recN.procInfo.AddArgsFromDeclaration(decl, n, rgCallKind.ItemIndex)
+  Else
+  Begin
+    p:=Pos(':',decl);
+    if p<>0 Then
+    begin
+      n:=PosEx(';',decl,p);
+      if n=0 then n:=Length(decl)+1;
+      retType:=Copy(decl,p+1,n-p-1);
+    End
+    Else retType:='';
+  end;
+  if recN.kind = ikFunc then
+  Begin
+    if retType<>'' then recN._type:=retType
+    Else
+    Begin
+      ShowMessage('Missing result type for function');
+      Exit;
+    end;
+  End;
   recN.procInfo.stackSize:=StackSize;
   FillType;
+  FillArgs;
 
   cbMethod.Enabled:=false;
   mType.Enabled:=false;
@@ -478,7 +489,6 @@ end;
 
 Procedure TFEditFunctionDlg.FillType;
 Var
-  callKind:Byte;
   argsBytes:Integer;
   flags:TProcFlagSet;
   recN:InfoRec;
@@ -493,8 +503,7 @@ Begin
     ikFunc:        rgFunctionKind.ItemIndex := 3;
   end;
   flags := recN.procInfo.flags;
-  callKind := recN.procInfo.call_kind;
-  rgCallKind.ItemIndex := callKind;
+  rgCallKind.ItemIndex := recN.procInfo.call_kind;
   cbEmbedded.Checked := PF_EMBED in flags;
   if cbMethod.Checked then
     line := recN.MakeMultilinePrototype(Adr, argsBytes, cbVmtCandidates.Text)
@@ -523,8 +532,8 @@ Begin
   if argsBytes > recN.procInfo.retBytes then Include(recN.procInfo.flags, PF_ARGSIZEG);
   if argsBytes < recN.procInfo.retBytes then Include(recN.procInfo.flags, PF_ARGSIZEL);
 
-  lRetBytes.Caption := 'RetBytes: ' + IntToStr(recN.procInfo.retBytes);
-  lArgsBytes.Caption := 'ArgBytes: ' + IntToStr(argsBytes);
+  lRetBytes.Caption := {'RetBytes: ' +} IntToStr(recN.procInfo.retBytes);
+  lArgsBytes.Caption := {'ArgBytes: ' +} IntToStr(argsBytes);
 end;
 
 Procedure TFEditFunctionDlg.FillArgs;

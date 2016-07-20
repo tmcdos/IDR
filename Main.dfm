@@ -50,7 +50,7 @@ object FMain: TFMain
     Top = 0
     Width = 903
     Height = 585
-    ActivePage = tsNames
+    ActivePage = tsCodeView
     Align = alClient
     TabOrder = 1
     OnChange = pcWorkAreaChange
@@ -534,7 +534,7 @@ object FMain: TFMain
     Top = 0
     Width = 215
     Height = 585
-    ActivePage = tsRTTIs
+    ActivePage = tsUnits
     Align = alLeft
     Constraints.MinWidth = 200
     TabOrder = 0

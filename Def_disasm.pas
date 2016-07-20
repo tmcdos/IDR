@@ -7,21 +7,6 @@ Uses SysUtils;
 Const
   ASMMAXCOPLEN  = 12;
 
-  //Instruction type
-  itUnknown   = 0;   //Unknown instruction
-  itTransfer  = 1;   //Data transfer instruction
-  itArifm     = 2;   //Ariphmetical instruction
-  itLogic     = 3;   //Logical instruction
-  itControl   = 4;   //Control flow instruction
-  itString    = 5;   //String instruction
-  itFloat     = 6;   //Coprocessor instruction
-
-  otUND  = 0;
-  otIMM  = 1;
-  otREG	 = 2;
-  otMEM  = 3;
-  otFST  = 4;
-
   OP_RESET =  $80;
   OP_A2    =  $40;    //2 or 3 operands
 
@@ -91,6 +76,8 @@ Const
   );
 
 Type
+  TOperType = (otUND, otIMM, otREG, otMEM, otFST);
+
   TDisInfo = record
 	  Mnem:String[32];
     Op1:String[64];
@@ -116,7 +103,7 @@ Type
 	  RepPrefix:Integer;
     SegPrefix:Integer;
 	  OpNum:Byte;
-    OpType:Array [0..2] of Byte;
+    OpType:Array [0..2] of TOperType;
   End;
   PDisInfo = ^TDisInfo;
 

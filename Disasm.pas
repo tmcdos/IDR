@@ -233,11 +233,10 @@ Type
     Function GetPostByteMod:Byte;
     function GetPostByteReg: Byte;
     function GetPostByteRm: Byte;
-    function GetOpType(const Op:AnsiString): Integer;
+    function GetOpType(const Op:AnsiString): TOperType;
     procedure FormatInstr(DisInfo:PDISINFO; disLine:PAnsiString);
     procedure FormatArg(argno:Integer; cmd, arg:Integer; DisInfo:PDISINFO; disLine:PAnsiString);
     function OutputGeneralRegister(var dst:AnsiString; reg, size:Integer): Integer;
-    procedure OutputHex(var dst:AnsiString; val:Integer);
     Function GetAddress:Integer;
     procedure OutputSegPrefix(var dst:AnsiString; DisInfo:PDISINFO);
     Function EvaluateOperandSize:Integer;
@@ -263,7 +262,7 @@ Type
 
 Implementation
 
-Uses SysUtils,Main,Misc;
+Uses SysUtils,Main,Misc,Math;
 
 Destructor MDisasm.Destroy;
 Begin
@@ -322,13 +321,13 @@ Begin
   Else Result:=OP_UNK;
 end;
 
-Function MDisasm.GetOpType(const Op:AnsiString):Integer;
+Function MDisasm.GetOpType(const Op:AnsiString):TOperType;
 Begin
   if Op='' then Result:=otUND
   else
   begin
     if Pos('[',Op)<>0 then Result:=otMEM
-    else if Op[1] in ['0'..'9'] then Result:=otIMM
+    else if Op[1] in ['0'..'9','$','+','-'] then Result:=otIMM
     Else if (Op[1] = 's') and (Op[2] = 't') then Result:=otFST
     Else Result:=otREG;
   end;
@@ -362,7 +361,6 @@ end;
 Function MDisasm.Disassemble(from:PAnsiChar; address:Int64; DisInfo:PDISINFO; disLine:PAnsiString):Integer;
 var
 	InstrLen:Integer;
-  //Instr:String[101];
 Begin
   CrtSection.Enter;
   InstrLen:=DIS.CbDisassemble(0,DIS,100,from,address);
@@ -385,11 +383,6 @@ Begin
       end;
       FormatInstr(DisInfo, disLine);
       if (DisInfo.IndxReg <> -1) and (DisInfo.Scale=0) then DisInfo.Scale := 1;
-      {
-      //Compare results of Microsoft disassembler
-      CchFormatInstr(0,0,DIS,100,@Instr[1]);
-      if DisInfo.DisLine=Instr then p := Nil;
-      }
       if (DisInfo.Mnem[1] = 'f') or (DisInfo.Mnem = 'wait') then DisInfo.Float := true
       else if DisInfo.Mnem[1] = 'j' then
       begin
@@ -461,15 +454,6 @@ Begin
   DisInfo.Mnem:=OpName;
   Inc(Bytes,Length(OpName));
   ArgInfo:=PAnsiChar(@DIS.m_popcd.pops.modrmt)+SizeOf(_OPS)+1;
-  {
-  asm
-    mov     ecx, [DIS]
-    mov     edx, [ecx+4Ch]
-    mov     eax, [edx+4]
-    add     eax, 9
-    mov     [ArgInfo], eax
-  end;
-  }
   for i := 0 to 2 do
   begin
     if (ArgInfo=Nil) or (ArgInfo^=#0) then break;
@@ -485,19 +469,6 @@ Begin
     Cmd:=Byte(ArgInfo^);
     Arg:=PWord(ArgInfo+1)^;
     Inc(ArgInfo,4);
-    {
-    asm
-      mov     ecx, [ArgInfo]
-      xor     edx, edx
-      xor     eax, eax
-      mov     dx, [ecx+1]
-      mov     [Arg], edx
-      mov     al, [ecx]
-      mov     [Cmd], eax
-      add     ecx, 4
-      mov     [ArgInfo], ecx
-    end;
-    }
     FormatArg(i, Cmd, Arg, DisInfo, disLine);
     Inc(DisInfo.OpNum);
   End;
@@ -509,35 +480,22 @@ Begin
   begin
     dst:=dst + Reg8Tab[reg];
     Result:=0;
-    Exit;
   end
   Else if size = 2 then
   begin
     dst:=dst + Reg16Tab[reg];
     Result:=8;
-    Exit;
   end;
   if (size <> 4) And not GetOperandSize then
   begin
     dst:=dst + Reg16Tab[reg];
     Result:=8;
-    Exit;
-  End;
-  dst:=dst + Reg32Tab[reg];
-  Result:=16;
-end;
-
-Procedure MDisasm.OutputHex(var dst:AnsiString; val:Integer);
-Var
-  buf:AnsiString;
-Begin
-  //if val in [0..9] then dst:=dst + IntToStr(val)
-  //else
+  End
+  else
   begin
-    buf:=IntToHex(val,0);
-    if not (buf[1] in ['0'..'9']) Then dst:=dst+'0'+Buf
-      else dst:=dst + Buf;
-  End;
+    dst:=dst + Reg32Tab[reg];
+    Result:=16;
+  end;
 end;
 
 Function MDisasm.GetAddress:Integer;
@@ -557,44 +515,6 @@ Begin
         if DIS.m_dist = distX8616 then x:=(x and $FFFF) or (Integer(DIS.m_addr) and $FFFF0000);
         Result:=x;
       end;
-      {
-      asm
-        mov     ecx, [DIS]
-        mov     eax, [ecx+64h]
-        movsx   eax, byte ptr [eax+ecx+3Ch]
-        mov     edi, [ecx+38h]
-        mov     ebx, [ecx+28h]
-        cdq
-        xor     esi, esi
-        add     edi, eax
-        mov     al, [ecx+51h]
-        push    ebp
-        mov     ebp, [ecx+2Ch]
-        adc     esi, edx
-        add     edi, ebx
-        adc     esi, ebp
-        pop     ebp
-        test    al, al
-        jnz     @GA1
-        and     edi, $FFFF
-        and     esi, 0
-      @GA1:
-        mov     eax, [ecx+8]
-        test    eax, eax
-        jnz     @GA2
-        and     ebx, $FFFF0000
-        and     edi, $FFFF
-        or      ebx, edi
-        xor     esi, esi
-        xor     ecx, ecx
-        mov     edi, ebx
-        or      esi, ecx
-      @GA2:
-        mov     eax, edi
-        mov     edx, esi
-        mov     dword ptr [result], eax
-      end;
-      }
     trmtaJmpNear,
     trmtaJmpCcNear,
     trmtaCallNear16,
@@ -607,51 +527,6 @@ Begin
         if DIS.m_dist = distX8616 then x:=(x and $FFFF) or (Integer(DIS.m_addr) and $FFFF0000);
         Result:=x;
       end;
-      {
-      asm
-        mov     al, [ecx+51h]
-        test    al, al
-        jz      @GA3
-        mov     edx, [ecx+64h]
-        mov     eax, [edx+ecx+3Ch]
-        jmp     @GA4
-      @GA3:
-        mov     eax, [ecx+64h]
-        movsx   eax, word ptr [eax+ecx+3Ch]
-      @GA4:
-        mov     edi, [ecx+38h]
-        mov     ebx, [ecx+28h]
-        cdq
-        xor     esi, esi
-        add     edi, eax
-        mov     al, [ecx+51h]
-        push    ebp
-        mov     ebp, [ecx+2Ch]
-        adc     esi, edx
-        add     edi, ebx
-        adc     esi, ebp
-        pop     ebp
-        test    al, al
-        jnz     @GA5
-        and     edi, $FFFF
-        and     esi, 0
-      @GA5:
-        mov     eax, [ecx+8]
-        test    eax, eax
-        jnz     @GA6
-        and     ebx, $FFFF0000
-        and     edi, $FFFF
-        or      ebx, edi
-        xor     esi, esi
-        xor     ecx, ecx
-        mov     edi, ebx
-        or      esi, ecx
-      @GA6:
-        mov     eax, edi
-        mov     edx, esi
-        mov     dword ptr [result], eax
-      end;
-      }
     trmtaJmpFar,
     trmtaCallFar: Result:=PInteger(@DIS.m_rgbInstr[DIS.m_ibImmed])^;
   end;
@@ -843,27 +718,11 @@ Begin
     End;
   end
   else ofs1 := true;
-  if ofs then
+  if ofs or ofs1 then
   begin
     DisInfo.Offset := offset32;
-    if ib then
-    begin
-      if offset32 < 0 then dst:=dst + '-'
-        else dst:=dst + '+';
-    End;
-    OutputHex(dst, offset32);
-    dst:=dst + ']';
-    Exit;
-  end;
-  if ofs1 then
-  begin
-    DisInfo.Offset := offset32;
-    if ib then
-    begin
-      if offset32 < 0 then dst:=dst + '-'
-        else dst:=dst + '+';
-    End;
-    OutputHex(dst, offset32);
+
+    dst:=dst+OutputHex(offset32,True);
   End;
   dst:=dst + ']';
 end;
@@ -934,16 +793,14 @@ Begin
     if regcomb<>'' then dst:=dst + '+';
     dval:=PWord(@DIS.m_rgbInstr[DIS.m_ibModrm+1])^;
     DisInfo.Offset := dval;
-    dst:=dst + IntToHex(dval,4);
-    Exit;
-  end;
-  if sign<>#0 then
+    dst:=dst + OutputHex(dval,False,4);
+  end
+  else if sign<>#0 then
   begin
     DisInfo.Offset := offset16;
-    dst:=dst + sign;
-    OutputHex(dst, offset16);
-    dst:=dst + ']';
+    dst:=dst + OutputHex(offset16,True,0);
   end;
+  dst:=dst+']';
 end;
 
 Procedure MDisasm.FormatArg(argno:Integer; cmd, arg:Integer; DisInfo:PDISINFO; disLine:PAnsiString);
@@ -959,14 +816,14 @@ Begin
         if GetOperandSize then // 32-bit
         begin
           dval:=PWord(@DIS.m_rgbInstr[Dis.m_ibImmed+4])^;
-          Op:=IntToHex(dval,4)+':';
+          Op:='$'+IntToHex(dval,4)+':';
           dval:=PInteger(@DIS.m_rgbInstr[Dis.m_ibImmed])^;
           Op:=Op+IntToHex(dval,8);
         end
         else // 16-bit
         begin
           dval:=PWord(@DIS.m_rgbInstr[DIS.m_ibImmed+2])^;
-          Op:=IntToHex(dval,4)+':';
+          Op:='$'+IntToHex(dval,4)+':';
           dval:=PWord(@DIS.m_rgbInstr[DIS.m_ibImmed])^;
           Op:=Op+IntToHex(dval,4);
         end;
@@ -999,36 +856,37 @@ Begin
           else dval:=PByte(@DIS.m_rgbInstr[DIS.m_ibImmed])^; // unsigned
         DisInfo.Immediate := dval;
         //DisInfo.ImmPresent := true;
-        OutputHex(Op, dval);
+        Op:=OutputHex(dval,Boolean(IfThen(GetCop = $83,1)),2);
       end;
     8: //Immediate byte
       begin
         dval:=PByte(@DIS.m_rgbInstr[DIS.m_ibImmed+2])^;
         DisInfo.Immediate := dval;
         //DisInfo.ImmPresent := true;
-        OutputHex(Op, dval);
+        Op:=OutputHex(dval,False,2);
       end;
     9: //Immediate dword
       begin
         if GetOperandSize then dval:=PInteger(@DIS.m_rgbInstr[DIS.m_ibImmed])^ // 32-bit
-          else dval:=PWord(@DIS.m_rgbInstr[DIS.m_ibImmed])^; // 16-bit
+          else dval:=PSmallInt(@DIS.m_rgbInstr[DIS.m_ibImmed])^; // 16-bit
         DisInfo.Immediate := dval;
         //DisInfo.ImmPresent := true;
-        OutputHex(Op, dval);
+        Op:=OutputHex(dval,Boolean(IfThen(GetOp(DisInfo.Mnem)
+          in [OP_CMP,OP_ADD,OP_ADC,OP_SUB,OP_SBB,OP_MUL,OP_IMUL,OP_DIV,OP_IDIV],1)));
       end;
     10: //Immediate word (ret)
       begin
         dval:=PWord(@DIS.m_rgbInstr[DIS.m_ibImmed])^;
         DisInfo.Immediate := dval;
         //DisInfo.ImmPresent := true;
-        OutputHex(Op, dval);
+        Op:=OutputHex(dval,False);
       end;
     11,12: //Address (jmp, jcond, call)
       begin
         adr := GetAddress;
         DisInfo.Immediate := adr;
         //DisInfo.ImmPresent := true;
-        Op:=IntToHex(adr,8);
+        Op:=OutputHex(adr,False,8);
       end;
     13,15,27: //Memory
         if GetAddressSize then
@@ -1054,7 +912,7 @@ Begin
         OutputSegPrefix(Op, DisInfo);
         if GetAddressSize then dval:=PInteger(@DIS.m_rgbInstr[DIS.m_ibImmed])^ // 32-bit
           else dval:=PWord(@DIS.m_rgbInstr[DIS.m_ibImmed])^; // 16-bit
-        Op:=Op+'['+IntToHex(dval,8)+']';
+        Op:='['+OutputHex(dval,False)+']';
         DisInfo.Offset := dval;    //!
       end;
     19: //8-bit register

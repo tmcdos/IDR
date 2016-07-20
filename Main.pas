@@ -582,7 +582,7 @@ Uses Threads,Misc,StrUtils,Def_disasm,Heuristic,{Highlight,}ActiveX,ShlObj,
   StringInfo, Explorer, FindDlg, EditFieldsDlg,Def_res,IniFiles,TypeInfos,
   InputDlg,Def_thread, EditFunctionDlg,IDCGen,AboutDlg,ShellAPI,Contnrs,
   KBViewer, Legend,Decompiler, Hex2Double,Clipbrd, Plugins,ActiveProcesses,
-  Scanf,TypInfo{,CodeSiteLogging};
+  Scanf,TypInfo,Math{,CodeSiteLogging};
 
 Var
   //Dest:TCodeSiteDestination;
@@ -998,7 +998,7 @@ Begin
                   recN.kind := ikDestructor;
                 End;
                 _pos := Pos('@',recN.Name);
-                if _pos > 1 then PAnsiChar(recN.Name)[_pos] := '.';
+                if _pos > 1 then PAnsiChar(recN.Name)[_pos-1] := '.';
               End;
             End
             else recN.Name:=recI.module + '.' + recI.name;
@@ -5492,9 +5492,8 @@ Begin
     End;
     if op = OP_MOV then lastMovAdr := DisInfo.Offset;
     //short relative abs jmp or cond jmp
-    if (b1 = $EB) or				 
-    	((b1 >= $70) and (b1 <= $7F)) or
-      ((b1 = 15) and (b2 >= $80) and (b2 <= $8F)) then
+    if (b1 = $EB) or (b1 in [$70..$7F]) or
+      ((b1 = 15) and (b2 in [$80..$8F])) then
     Begin
       Adr := DisInfo.Immediate;
       if IsValidCodeAdr(Adr) then
@@ -5509,10 +5508,10 @@ Begin
         flags := flags or 8;
         if (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
       End;
-      wid := AddAsmLine(curAdr, line, flags); 
+      wid := AddAsmLine(curAdr, line, flags);
       Inc(row);
       if wid > maxwid then maxwid := wid;
-      Inc(curPos, instrLen); 
+      Inc(curPos, instrLen);
       Inc(curAdr, instrLen);
       continue;
     End
@@ -5528,7 +5527,7 @@ Begin
         flags := flags or 8;
         if not Assigned(recN) and (Adr >= fromAdr) and (Adr > lastAdr) then lastAdr := Adr;
       End;
-      wid := AddAsmLine(curAdr, line, flags); 
+      wid := AddAsmLine(curAdr, line, flags);
       Inc(row);
       if wid > maxwid then maxwid := wid;
       Inc(curPos, instrLen);
@@ -5547,7 +5546,7 @@ Begin
           //Found @Halt0 - exit
           if recN.SameName('@Halt0') and (fromAdr = EP) and (lastAdr=0) then
           Begin
-            wid := AddAsmLine(curAdr, line, flags); 
+            wid := AddAsmLine(curAdr, line, flags);
             Inc(row);
             if wid > maxwid then maxwid := wid;
             break;
@@ -5556,23 +5555,24 @@ Begin
       End;
       recN := GetInfoRec(curAdr);
       if Assigned(recN) and Assigned(recN.Pcode) then line := line + ';' + MakeComment(recN.pcode);
-      wid := AddAsmLine(curAdr, line, flags); 
+      wid := AddAsmLine(curAdr, line, flags);
       Inc(row);
       if wid > maxwid then maxwid := wid;
-      Inc(curPos, instrLen); 
+      Inc(curPos, instrLen);
       Inc(curAdr, instrLen);
       continue;
     End
-    else if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM) and IsValidImageAdr(DisInfo.Offset) then //near absolute indirect jmp (Case)
+    else if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM)
+      and IsValidImageAdr(DisInfo.Offset) then //near absolute indirect jmp (Case)
     Begin
-      wid := AddAsmLine(curAdr, line, flags); 
+      wid := AddAsmLine(curAdr, line, flags);
       Inc(row);
       if wid > maxwid then maxwid := wid;
       if not IsValidCodeAdr(DisInfo.Offset) then break;
-      
+
       //First instruction
       //if (curAdr = fromAdr) break;
-      
+
       cTblAdr := 0;
       jTblAdr := 0;
       Pos2 := curPos + instrLen;
@@ -5589,10 +5589,10 @@ Begin
         Begin
           db := Code[Pos2];
           CTab[k] := db;
-          wid := AddAsmLine(Adr, 'db          ' + IntToStr(Ord(db)), $22);
+          wid := AddAsmLine(Adr, 'db          ' + OutputHex(Ord(db),False), $22);
           Inc(row);
           if wid > maxwid then maxwid := wid;
-          Inc(Pos2); 
+          Inc(Pos2);
           Inc(Adr);
         End;
       End;
@@ -5610,17 +5610,17 @@ Begin
         if not IsValidCodeAdr(Adr1) or (Adr1 < fromAdr) then break;
 
         //Add row to assembler listing
-        wid := AddAsmLine(Adr, 'dd          ' + Val2Str(Adr1,8), $22); 
+        wid := AddAsmLine(Adr, 'dd          ' + Val2Str(Adr1,8), $22);
         Inc(row);
         if wid > maxwid then maxwid := wid;
         //Set cfLoc
         SetFlag([cfLoc], Adr2Pos(Adr1));
-        Inc(Pos2, 4); 
+        Inc(Pos2, 4);
         Inc(Adr, 4);
         if Adr1 > lastAdr then lastAdr := Adr1;
       End;
       if Adr > lastAdr then lastAdr := Adr;
-      curPos := Pos2; 
+      curPos := Pos2;
       curAdr := Adr;
       continue;
     End;
@@ -5650,16 +5650,14 @@ Begin
     Begin
       NPos := curPos + instrLen;
       //check that next instruction is push fs:[reg] or retn
-      if ((Code[NPos] = #$64) and
-          (Code[NPos + 1] = #$FF) and
-          (((Code[NPos + 2] >= #$30) and (Code[NPos + 2] <= #$37)) or (Code[NPos + 2] = #$75))
-        ) or (Code[NPos] = #$C3) then
+      if ((Code[NPos] = #$64) and (Code[NPos + 1] = #$FF) and (Code[NPos + 2] in [#$30..#$37,#$75]))
+        or (Code[NPos] = #$C3) then
       Begin
         Adr := DisInfo.Immediate;      //Adr:=@1
         if IsValidCodeAdr(Adr) then
         Begin
           if Adr > lastAdr then lastAdr := Adr;
-          Pos2 := Adr2Pos(Adr); 
+          Pos2 := Adr2Pos(Adr);
           assert(Pos2 >= 0);
           delta := Pos2 - NPos;
           if delta >= 0 then // && delta < outRows)
@@ -5690,7 +5688,7 @@ Begin
                 else if recN.SameName('@HandleAnyException') or recN.SameName('@HandleAutoException') then
                 Begin
                   //jmp HandleAnyException
-                  Inc(Pos2, instrLen1); 
+                  Inc(Pos2, instrLen1);
                   Inc(Adr, instrLen1);
                   //call DoneExcept
                   instrLen2 := frmDisasm.Disassemble(Code + Pos2, Adr, Nil, Nil);
@@ -5829,7 +5827,7 @@ Begin
       if comment <> '' then line := line + comment;
       if namei <> '' then line := line + 'Begin' + namei + 'End;';
     End;
-    if Length(line) > MAXLEN then line := Copy(line,1, MAXLEN) + '...';
+    //if Length(line) > MAXLEN then line := Copy(line,1, MAXLEN) + '...';
     wid := AddAsmLine(curAdr, line, flags);
     Inc(row);
     if wid > maxwid then maxwid := wid;
@@ -7862,7 +7860,7 @@ begin
   msg := 'Search string "' + str + '" not found';
   case WhereSearch of
     SEARCH_UNITS: find_vt(UnitsSearchFrom,vtUnit,2);
-    SEARCH_UNITITEMS: find_vt(UnitItemsSearchFrom,vtProc,2);
+    SEARCH_UNITITEMS: find_vt(UnitItemsSearchFrom,vtProc,3);
     SEARCH_RTTIS: find_vt(RTTIsSearchFrom,vtRTTI,2);
     SEARCH_STRINGS: find_vt(StringsSearchFrom,vtString,2);
     SEARCH_NAMES: find_vt(NamesSearchFrom,vtName,1);
@@ -8337,7 +8335,7 @@ Begin
   begin
     OpenDlg.InitialDir := WrkDir;
     OpenDlg.FileName := '';
-    OpenDlg.Filter := 'EXE, DLL|*.exe;*.dll|All files|*.*';
+    OpenDlg.Filter := 'EXE, DLL, BPL|*.exe;*.dll;*.bpl|All files|*.*';
     if OpenDlg.Execute then FileName := OpenDlg.FileName;
   end;
   if FileName <> '' then
@@ -8390,6 +8388,7 @@ Begin
       Screen.Cursor := crDefault;
       ShowMessage('File ' + FileName + ' is probably Delphi 4, 5, 6, 7, 2005, 2006 or 2007 file, try manual selection');
       FInputDlg.Caption := 'Enter number of version (4, 5, 6, 7, 2005, 2006 or 2007)';
+      FInputDlg.edtName.EditLabel.Caption:='Version';
       FInputDlg.edtName.Text := '';
       if FInputDlg.ShowModal = mrCancel then
       Begin
@@ -8696,7 +8695,7 @@ Begin
   Begin
     if Application.MessageBox(
       PAnsiChar(Format('Possible invalid EP (NTHeader:%X, Evaluated:%X). Input valid EP?',
-        [NTHeaders.OptionalHeader.AddressOfEntryPoint + Cardinal(ImageBase), evalEP + CodeBase])),
+        [NTHeaders.OptionalHeader.AddressOfEntryPoint + Cardinal(ImageBase), evalEP + Integer(CodeBase)])),
       'Confirmation', MB_YESNO) = IDYES then
     Begin
       sEP := InputDialogExec('New EP', 'EP:', Val2Str(Integer(NTHeaders.OptionalHeader.AddressOfEntryPoint) + ImageBase));
@@ -8747,10 +8746,10 @@ Begin
   //DataSize := DataEnd - DataStart;
   //DataBase := ImageBase + DataStart;
 
-  GetMem(FlagList,TotalSize*SizeOf(DWORD));
-  FillMemory(FlagList, sizeof(DWORD) * TotalSize,0);
+  SetLength(FlagList,TotalSize);
+  FillMemory(@FlagList[0], sizeof(TCflagSet) * TotalSize,0);
   SetLength(InfoList, TotalSize);
-  FillMemory(@InfoList[0],TotalSize*SizeOf(InfoRec),0);
+  FillMemory(@InfoList[0],TotalSize*SizeOf(Pointer),0);
   BSSInfos := TStringList.Create;
   BSSInfos.Sorted := true;
 
@@ -8819,7 +8818,7 @@ Begin
 
         NameLength := StrLen(Image + Adr2Pos(ImportDescriptor.DllNameRVA + ImageBase));
         moduleName := MakeString(Image + Adr2Pos(ImportDescriptor.DllNameRVA + ImageBase), NameLength);
-    
+
         ps := Pos('.',moduleName);
         if ps<>0 then
           modName := Copy(moduleName,1, ps - 1)
@@ -10589,7 +10588,7 @@ begin
         //Spaces after db
         Inc(Rect.Right, (ASMMAXCOPLEN - 2) * sWid);
         db := Byte(Code[Adr2Pos(adr)]);
-        DrawOneItem(Val2Str(db), canva, Rect, TColor($FF8080), flag);
+        DrawOneItem(OutputHex(db,False), canva, Rect, TColor($FF8080), flag);
       End
       else if ddPos<>0 then
       Begin
@@ -10657,16 +10656,8 @@ begin
               End
               else item := Val2Str(_val,8);
             End
-            else
-            Begin
-              if _val <= 9 then
-                item := IntToStr(_val)
-              else
-              Begin
-                item := Val2Str(_val);
-                if not (item[1] in ['0'..'9']) then item := '0' + item;
-              End;
-            End;
+            else item:=OutputHex(_val,Boolean(IfThen(frmDisasm.GetOp(disInfo.Mnem)
+              in [OP_CMP,OP_ADD,OP_ADC,OP_SUB,OP_SBB,OP_MUL,OP_IMUL,OP_DIV,OP_IDIV],1)));
             DrawOneItem(item, canva, Rect, col, flag);
           End
           else if (disInfo.OpType[n] = otREG) or (disInfo.OpType[n] = otFST) then
@@ -10711,32 +10702,19 @@ begin
               if offset<>0 then
               Begin
                 if offset < 0 then
-                Begin
+                begin
                   item := '-';
                   offset := -offset;
-                End
+                end
                 else item := '+';
                 DrawOneItem(item, canva, Rect, TColor(0), flag);
-                if offset < 9 then
-                  item := IntToStr(offset)
-                else
-                Begin
-                  item := Val2Str(offset);
-                  if not (item[1] in ['0'..'9']) then item := '0' + item;
-                End;
+                item := OutputHex(offset,False,0);
                 DrawOneItem(item, canva, Rect, TColor($FF8080), flag);
               End;
             End
             else
             Begin
-              if offset < 0 then offset := -offset;
-              if offset < 9 then
-                item := IntToStr(offset)
-              else
-              Begin
-                item := Val2Str(offset);
-                if not (item[1] in ['0'..'9']) then item := '0' + item;
-              End;
+              item := OutputHex(offset,False,0);
               DrawOneItem(item, canva, Rect, TColor($FF8080), flag);
             End;
             DrawOneItem(']', canva, Rect, TColor(0), flag);
@@ -11109,7 +11087,8 @@ Begin
       Inc(curAdr, instrLen);
       continue;
     End
-    else if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM) and IsValidImageAdr(DisInfo.Offset) then //near absolute indirect jmp (Case)
+    else if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM)
+      and IsValidImageAdr(DisInfo.Offset) then //near absolute indirect jmp (Case)
     Begin
       OutputLine(outF, flags, curAdr, line); 
       Inc(row);
@@ -11132,7 +11111,7 @@ Begin
         Begin
           db := Byte(Code[Ps]);
           CTab[k] := db;
-          OutputLine(outF, flags, curAdr, 'db          ' + Char(db)); 
+          OutputLine(outF, flags, curAdr, 'db          ' + OutputHex(db,False));
           Inc(row);
           Inc(Ps); 
           Inc(Adr);
@@ -11702,8 +11681,7 @@ Begin
       end;
       kind := recN.kind;
       //Skip calls, that are in the body of some asm-procs (for example, FloatToText from SysUtils)
-      if (kind in [ikRefine..ikFunc]) and Assigned(recN.procInfo)
-        and IsFlagSet([cfImport,cfEmbedded],ps) then
+      if (kind in [ikRefine..ikFunc]) and Assigned(recN.procInfo) and IsFlagSet([cfImport],ps) then
       begin
         Inc(adr);
         continue;
@@ -19445,7 +19423,15 @@ end;
 
 procedure TFMain.vtUnitMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 begin
-  if TWinControl(Sender).CanFocus then ActiveControl := TWinControl(Sender);
+  if TWinControl(Sender).CanFocus then
+  begin
+    ActiveControl := TWinControl(Sender);
+    if ActiveControl=vtUnit Then WhereSearch:=SEARCH_UNITS
+    else if ActiveControl=vtRTTI then WhereSearch:=SEARCH_RTTIS
+    else if ActiveControl=vtName then WhereSearch:=SEARCH_NAMES
+    else if ActiveControl=vtString then WhereSearch:=SEARCH_STRINGS
+    else if ActiveControl=vtProc then WhereSearch:=SEARCH_UNITITEMS;
+  end;
 end;
 
 procedure TFMain.vtUnitPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);

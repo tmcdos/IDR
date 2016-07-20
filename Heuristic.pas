@@ -61,6 +61,11 @@ Begin
   frmDisasm.Disassemble(Pos2Adr(p), @disInfo, Nil);
   if disInfo.Branch then
   begin
+    if IsExit(disInfo.Immediate) then
+    begin
+      Result:= 0;
+      Exit;
+    end;
     if disInfo.Conditional then
     begin
       if disInfo.Immediate > Integer(CodeBase) + p then
@@ -72,7 +77,6 @@ Begin
     End
     Else
     begin
-      //if (IsExit(_disInfo.Immediate)) return 0;
       if disInfo.Immediate > Integer(CodeBase) + p then
       begin
         jmpAdr := disInfo.Immediate;
