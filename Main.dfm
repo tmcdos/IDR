@@ -784,7 +784,7 @@ object FMain: TFMain
             Font.Height = -12
             Font.Name = 'Courier New'
             Font.Style = []
-            ItemHeight = 15
+            ItemHeight = 0
             ParentFont = False
             Sorted = True
             TabOrder = 0

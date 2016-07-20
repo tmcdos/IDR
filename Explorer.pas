@@ -80,8 +80,7 @@ Begin
   while n < maxBytes do
   begin
     instrLen := frmDisasm.Disassemble(Code + _pos, curAdr, @DisInfo, @disLine);
-    //if (!instrLen) break;
-    if instrLen<>0 then
+    if instrLen=0 then
     begin
       instrLen := 1;
       lbCode.Items.Add(Val2Str(curAdr,8) + '  ???');
@@ -119,7 +118,7 @@ Begin
         for n := 0 to maxBytes-1 do
         begin
           if _pos > ImageSize then break;
-          if k<>0 then
+          if k=0 then
           begin
             line1 := Val2Str(curAdr,8) + ' ';
             line2 := '  ';

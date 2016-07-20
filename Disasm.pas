@@ -485,8 +485,8 @@ Begin
   begin
     dst:=dst + Reg16Tab[reg];
     Result:=8;
-  end;
-  if (size <> 4) And not GetOperandSize then
+  end
+  else if (size <> 4) And not GetOperandSize then
   begin
     dst:=dst + Reg16Tab[reg];
     Result:=8;

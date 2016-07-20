@@ -1,11 +1,11 @@
 object Form1: TForm1
-  Left = 263
-  Top = 138
+  Left = 474
+  Top = 266
   Width = 612
-  Height = 380
+  Height = 240
   Caption = 'Form1'
   Color = clBtnFace
-  Constraints.MinHeight = 380
+  Constraints.MinHeight = 240
   Constraints.MinWidth = 600
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -23,32 +23,32 @@ object Form1: TForm1
     Height = 65
     Align = alTop
     TabOrder = 0
-    object btn1: TButton
+    object btnLoad: TButton
       Left = 16
       Top = 7
       Width = 89
       Height = 22
       Caption = 'Choose IDP file'
       TabOrder = 0
-      OnClick = btn1Click
+      OnClick = btnLoadClick
     end
-    object btn2: TButton
-      Left = 16
-      Top = 36
+    object btnUpdate: TButton
+      Left = 232
+      Top = 34
       Width = 89
-      Height = 22
-      Caption = 'Choose TXT file'
-      TabOrder = 1
-      OnClick = btn2Click
+      Height = 25
+      Caption = 'Save IDP-3'
+      TabOrder = 3
+      OnClick = btnUpdateClick
     end
-    object btn3: TButton
-      Left = 448
-      Top = 20
+    object btnText: TButton
+      Left = 124
+      Top = 34
       Width = 75
       Height = 25
-      Caption = 'Convert'
-      TabOrder = 4
-      OnClick = btn3Click
+      Caption = 'Save TXT'
+      TabOrder = 2
+      OnClick = btnTextClick
     end
     object txt1: TEdit
       Left = 124
@@ -58,26 +58,128 @@ object Form1: TForm1
       AutoSize = False
       Color = clBtnFace
       ReadOnly = True
-      TabOrder = 2
-    end
-    object txt2: TEdit
-      Left = 124
-      Top = 36
-      Width = 313
-      Height = 21
-      AutoSize = False
-      Color = clBtnFace
-      ReadOnly = True
-      TabOrder = 3
+      TabOrder = 1
     end
   end
-  object progBar1: TProgressBar
+  object panel3: TPanel
     Left = 0
     Top = 65
     Width = 604
-    Height = 16
+    Height = 28
     Align = alTop
     TabOrder = 1
+    object txtInfos: TLabel
+      Left = 60
+      Top = 6
+      Width = 58
+      Height = 13
+      Alignment = taRightJustify
+      Caption = 'Info objects'
+    end
+    object progInfos: TProgressBar
+      Left = 124
+      Top = 1
+      Width = 479
+      Height = 26
+      Align = alRight
+      TabOrder = 0
+    end
+  end
+  object panel4: TPanel
+    Left = 0
+    Top = 93
+    Width = 604
+    Height = 28
+    Align = alTop
+    TabOrder = 2
+    object txtBSS: TLabel
+      Left = 62
+      Top = 6
+      Width = 56
+      Height = 13
+      Alignment = taRightJustify
+      Caption = 'BSS objects'
+    end
+    object progBSS: TProgressBar
+      Left = 124
+      Top = 1
+      Width = 479
+      Height = 26
+      Align = alRight
+      TabOrder = 0
+    end
+  end
+  object panel5: TPanel
+    Left = 0
+    Top = 121
+    Width = 604
+    Height = 28
+    Align = alTop
+    TabOrder = 3
+    object txtUnit: TLabel
+      Left = 89
+      Top = 6
+      Width = 29
+      Height = 13
+      Alignment = taRightJustify
+      Caption = 'Types'
+    end
+    object progUnit: TProgressBar
+      Left = 124
+      Top = 1
+      Width = 479
+      Height = 26
+      Align = alRight
+      TabOrder = 0
+    end
+  end
+  object panel6: TPanel
+    Left = 0
+    Top = 177
+    Width = 604
+    Height = 28
+    Align = alTop
+    TabOrder = 5
+    object txtType: TLabel
+      Left = 89
+      Top = 6
+      Width = 29
+      Height = 13
+      Alignment = taRightJustify
+      Caption = 'Forms'
+    end
+    object progType: TProgressBar
+      Left = 124
+      Top = 1
+      Width = 479
+      Height = 26
+      Align = alRight
+      TabOrder = 0
+    end
+  end
+  object panel7: TPanel
+    Left = 0
+    Top = 149
+    Width = 604
+    Height = 28
+    Align = alTop
+    TabOrder = 4
+    object txtForm: TLabel
+      Left = 94
+      Top = 6
+      Width = 24
+      Height = 13
+      Alignment = taRightJustify
+      Caption = 'Units'
+    end
+    object progForm: TProgressBar
+      Left = 124
+      Top = 1
+      Width = 479
+      Height = 26
+      Align = alRight
+      TabOrder = 0
+    end
   end
   object dlgOpen1: TOpenDialog
     DefaultExt = '.IDP'

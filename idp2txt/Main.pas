@@ -9,17 +9,30 @@ uses
 type
   TForm1 = class(TForm)
     panel2: TPanel;
-    btn1: TButton;
-    btn2: TButton;
+    btnLoad: TButton;
+    btnUpdate: TButton;
     dlgOpen1: TOpenDialog;
     dlgSave1: TSaveDialog;
-    progBar1: TProgressBar;
-    btn3: TButton;
+    progInfos: TProgressBar;
+    btnText: TButton;
     txt1: TEdit;
-    txt2: TEdit;
-    procedure btn1Click(Sender: TObject);
-    procedure btn2Click(Sender: TObject);
-    procedure btn3Click(Sender: TObject);
+    panel3: TPanel;
+    txtInfos: TLabel;
+    panel4: TPanel;
+    txtBSS: TLabel;
+    progBSS: TProgressBar;
+    panel5: TPanel;
+    txtUnit: TLabel;
+    progUnit: TProgressBar;
+    panel6: TPanel;
+    txtType: TLabel;
+    progType: TProgressBar;
+    panel7: TPanel;
+    txtForm: TLabel;
+    progForm: TProgressBar;
+    procedure btnLoadClick(Sender: TObject);
+    procedure btnTextClick(Sender: TObject);
+    procedure btnUpdateClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -166,18 +179,11 @@ Begin
   end;
 end;
 
-procedure TForm1.btn1Click(Sender: TObject);
+procedure TForm1.btnLoadClick(Sender: TObject);
 begin
   ForceCurrentDirectory:=True;
   If dlgOpen1.Execute Then txt1.Text:=dlgOpen1.FileName
     else txt1.Text:='';
-end;
-
-procedure TForm1.btn2Click(Sender: TObject);
-begin
-  dlgSave1.InitialDir:=ExtractFileDir(dlgOpen1.FileName);
-  if dlgSave1.Execute then txt2.Text:=dlgSave1.FileName
-    else txt2.Text:=''
 end;
 
 procedure read_info(var s:TextFile;buf:Pointer;ins:TMemoryStream);
@@ -391,7 +397,7 @@ Begin
   Application.ProcessMessages;
 end;
 
-procedure TForm1.btn3Click(Sender: TObject);
+procedure TForm1.btnTextClick(Sender: TObject);
 Var
   f:THandle;
   s:TextFile;
@@ -407,7 +413,11 @@ Var
 begin
   if txt1.Text<>'' then
   Begin
-    progBar1.Position:=0;
+    txtInfos.Caption:='InfoRec';
+    txtBSS.Caption:='BSS';
+    txtType.Caption:='Types';
+    txtUnit.Caption:='Units';
+    txtForm.Caption:='Forms';
     Screen.Cursor := crHourGlass;
     f:=FileOpen(txt1.Text, fmOpenRead or fmShareDenyNone);
     FileSeek(f, 12, Ord(soBeginning));
@@ -415,15 +425,13 @@ begin
     _ver:=_ver and $7FFF;
     MaxBufLen := 0;
     n:=FileSeek(f, -4, Ord(soEnd));
-    progBar1.Max:=n+4;
     FileRead(f,MaxBufLen, sizeof(MaxBufLen));
     FileClose(f);
-    if txt2.Text='' Then AssignFile(s,ChangeFileExt(txt1.Text,'.txt'))
-      else AssignFile(s,txt2.Text);
+    AssignFile(s,ChangeFileExt(txt1.Text,'.txt'));
     Rewrite(s);
 
     GetMem(buf,MaxBufLen);
-    inStream := TMemoryStream.Create; //new TFileStream(IDPFile, fmOpenRead);
+    inStream := TMemoryStream.Create;
     inStream.LoadFromFile(dlgOpen1.FileName);
     // Read
     inStream.Read(magic[1], 12);
@@ -462,8 +470,6 @@ begin
     Writeln(s,'{');
     for n := 0 to num-1 do
     Begin
-      progBar1.Position:=inStream.Position;
-      Application.ProcessMessages;
       WriteLn(s,'  segment #',IntToStr(n));
       WriteLn(s,'  {');
       inStream.Read(x, sizeof(x));
@@ -484,13 +490,16 @@ begin
     inStream.Position:=inStream.Position + TotalSize + SizeOf(DWORD)*TotalSize;
 
     inStream.Read(num, sizeof(num));
+    txtInfos.Caption:='InfoRec = '+IntToStr(num);
+    progInfos.Max:=num;
+    progInfos.Position:=0;
     WriteLn(s,'RecInfo count = '+IntToStr(num));
     WriteLn(s,'{');
     for n := 0 to TotalSize-1 do
     Begin
-      if (n and 4095) = 0 then
+      if (n and 1024) = 0 then
       Begin
-        progBar1.Position:=inStream.Position;
+        progInfos.Position:=n;
         Application.ProcessMessages;
       End;
       inStream.Read(x, sizeof(x));
@@ -505,11 +514,14 @@ begin
 
     //BSSInfos
     inStream.Read(num, sizeof(num));
+    txtBSS.Caption:='BSS = '+IntToStr(num);
+    progBSS.Max:=num;
+    progBSS.Position:=0;
     WriteLn(s,'BSS info count = '+IntToStr(num));
     Writeln(s,'{');
     for n := 0 to num-1 do
     Begin
-      progBar1.Position:=inStream.Position;
+      progBSS.Position:=n;
       Application.ProcessMessages;
       WriteLn(s,'  BSS #',n);
       Writeln(s,'  {');
@@ -523,11 +535,14 @@ begin
 
     //Units
     inStream.Read(num, sizeof(num));
+    txtUnit.Caption:='Units = '+IntToStr(num);
+    progUnit.Max:=num;
+    progUnit.Position:=0;
     WriteLn(s,'Units count = '+IntToStr(num));
     Writeln(s,'{');
     for n := 0 to num-1 do
     Begin
-      progBar1.Position:=inStream.Position;
+      progUnit.Position:=n;
       Application.ProcessMessages;
       WriteLn(s,'  Unit #',n);
       WriteLn(s,'  {');
@@ -573,7 +588,7 @@ begin
     End;
     WriteLn(s,'}');
 
-    if num2<>0 then
+    if num<>0 then
     Begin
       inStream.Read(x, sizeof(x));
       inStream.Read(m, sizeof(m)); // CurUnitAdr
@@ -589,11 +604,14 @@ begin
 
     //Types
     inStream.Read(num, sizeof(num));
+    txtType.Caption:='Types = '+IntToStr(num);
+    progType.Max:=num;
+    progType.Position:=0;
     WriteLn(s,'Types count = '+IntToStr(num));
     Writeln(s,'{');
     for n := 0 to num-1 do
     Begin
-      progBar1.Position:=inStream.Position;
+      progType.Position:=n;
       Application.ProcessMessages;
       WriteLn(s,'  Type #',n);
       WriteLn(s,'  {');
@@ -614,11 +632,14 @@ begin
 
     //Forms
     inStream.Read(num, sizeof(num));
+    txtForm.Caption:='Forms = '+IntToStr(num);
+    progForm.Max:=num;
+    progForm.Position:=0;
     WriteLn(s,'Forms count = '+IntToStr(num));
     Writeln(s,'{');
     for n := 0 to num-1 do
     Begin
-      progBar1.Position:=inStream.Position;
+      progForm.Position:=n;
       Application.ProcessMessages;
       WriteLn(s,'  Form #',n);
       WriteLn(s,'  {');
@@ -746,8 +767,510 @@ begin
     if Assigned(buf) then FreeMem(buf);
     inStream.Free;
     Screen.Cursor := crDefault;
-    progBar1.Position:=0;
     CloseFile(s);
+  end;
+end;
+
+procedure convert_info(ins,outs:TFileStream;buf:Pointer);
+var
+  x,num,xnum,m,xm,pxrefAdr,xrefAdr,adr,offset:Integer;
+  w:Word;
+  _type:Char;
+  kind:LKind;
+  b:Byte;
+  t:Boolean;
+Begin
+  ins.Read(kind, sizeof(kind));
+  outs.Write(kind, sizeof(kind));
+  // kbIdx
+  ins.Read(x, sizeof(x));
+  outs.Write(x, sizeof(x));
+  // name
+  ins.Read(x, sizeof(x));
+  ins.Read(buf^, x);
+  outs.Write(x, sizeof(x));
+  outs.Write(buf^, x);
+  // type
+  ins.Read(x, sizeof(x));
+  ins.Read(buf^, x);
+  outs.Write(x, sizeof(x));
+  outs.Write(buf^, x);
+  // PiCode
+  ins.Read(x, sizeof(x));
+  outs.Write(x, sizeof(x));
+  if x<>0 Then
+  Begin
+    // read Pcode
+    ins.Read(b, sizeof(b));
+    // Op
+    outs.Write(b, sizeof(b));
+    // offset
+    ins.Read(x, sizeof(x));
+    outs.Write(x, sizeof(x));
+    // name
+    ins.Read(x, sizeof(x));
+    ins.Read(buf^, x);
+    outs.Write(x, sizeof(x));
+    outs.Write(buf^, x);
+  end;
+  //xrefs
+  ins.Read(num, sizeof(num));
+  outs.Write(num, sizeof(num));
+  for m := 0 to num-1 do
+  Begin
+    //type
+    ins.Read(_type, sizeof(_type));
+    outs.Write(_type, sizeof(_type));
+    //adr
+    ins.Read(adr, sizeof(adr));
+    outs.Write(adr, sizeof(adr));
+    //offset
+    ins.Read(offset, sizeof(offset));
+    outs.Write(offset, sizeof(offset));
+  End;
+  if kind = ikResString then
+  Begin
+  	//value
+    ins.Read(x, sizeof(x));
+    ins.Read(buf^, x);
+    outs.Write(x, sizeof(x));
+    outs.Write(buf^, x);
+  End
+  else if kind = ikVMT then
+  Begin
+  	//interfaces
+    ins.Read(num, sizeof(num));
+    outs.Write(num, sizeof(num));
+    for m := 0 to num-1 do
+    Begin
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+    End;
+  	//fields
+    ins.Read(num, sizeof(num));
+    outs.Write(num, sizeof(num));
+    for m := 0 to num-1 do
+    Begin
+      // scope
+      ins.Read(b, sizeof(b));
+      outs.Write(b, sizeof(b));
+      // offset
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // case
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // name
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+      // type
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+      //xrefs
+      ins.Read(xnum, sizeof(xnum));
+      outs.Write(xnum, sizeof(xnum));
+      for xm := 0 to xnum-1 do
+        outs.CopyFrom(ins,9);
+    End;
+  	//methods
+    ins.Read(num, sizeof(num));
+    outs.Write(num, sizeof(num));
+    for m := 0 to num-1 do
+    Begin
+      // abstract
+      ins.Read(t, sizeof(t));
+      outs.Write(t, sizeof(t));
+      // kind
+      ins.Read(_type, sizeof(_type));
+      outs.Write(_type, sizeof(_type));
+      // ID
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // address
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // name
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+    End;
+  End
+  else if kind in [ikRefine..ikFunc] then
+  Begin
+    // flags
+    ins.Read(x, sizeof(x));
+    outs.Write(x, sizeof(x));
+    // BP-base
+    ins.Read(w, sizeof(w));
+    outs.Write(w, sizeof(w));
+    // ret Bytes
+    ins.Read(w, sizeof(w));
+    outs.Write(w, sizeof(w));
+    // proc size
+    ins.Read(x, sizeof(x));
+    outs.Write(x, sizeof(x));
+    // stack size
+//    ins.Read(x, sizeof(x));
+    x:=0;
+    outs.Write(x, sizeof(x));
+ 		//args
+    ins.Read(num, sizeof(num));
+    outs.Write(num, sizeof(num));
+    for m := 0 to num-1 do
+    Begin
+      // tag
+      ins.Read(b, sizeof(b));
+      outs.Write(b, sizeof(b));
+      // register
+      ins.Read(t, sizeof(t));
+      outs.Write(t, sizeof(t));
+      // Ndx
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // size
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // name
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+      // typeDef
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+    End;
+    //locals
+    ins.Read(num, sizeof(num));
+    outs.Write(num, sizeof(num));
+    for m := 0 to num-1 do
+    Begin
+      // ofs
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // size
+      ins.Read(x, sizeof(x));
+      outs.Write(x, sizeof(x));
+      // name
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+      // typeDef
+      ins.Read(x, sizeof(x));
+      ins.Read(buf^, x);
+      outs.Write(x, sizeof(x));
+      outs.Write(buf^, x);
+    End;
+  End;
+end;
+
+procedure TForm1.btnUpdateClick(Sender: TObject);
+Var
+  f:THandle;
+  outs,ins:TFileStream;
+  kind:LKind;
+  b:Byte;
+  t:Boolean;
+  _ver,MaxBufLen,num,num2,evnum,n,m,k,x:Integer;
+  Buf:PAnsiChar;
+  pImage:PAnsiChar;
+  q:AnsiString;
+  magic:Array[1..12] of Char;
+begin
+  if txt1.Text<>'' then
+  Begin
+    txtInfos.Caption:='InfoRec';
+    txtBSS.Caption:='BSS';
+    txtType.Caption:='Types';
+    txtUnit.Caption:='Units';
+    txtForm.Caption:='Forms';
+    Screen.Cursor := crHourGlass;
+    f:=FileOpen(txt1.Text, fmOpenRead or fmShareDenyNone);
+    FileSeek(f, 12, Ord(soBeginning));
+    FileRead(f,_ver, sizeof(_ver));
+    _ver:=_ver and $7FFF;
+    MaxBufLen := 0;
+    n:=FileSeek(f, -4, Ord(soEnd));
+    FileRead(f,MaxBufLen, sizeof(MaxBufLen));
+    FileClose(f);
+    outs:=Nil;
+    ins:=Nil;
+    Try
+      outs:=TFileStream.Create(ChangeFileExt(txt1.Text,'_.idp'),fmCreate);
+      ins := TFileStream.Create(dlgOpen1.FileName,fmOpenRead);
+      GetMem(buf,MaxBufLen);
+
+      ins.Read(magic[1], 12);
+      outs.Write(magic[1], 12);
+      ins.Read(_ver, sizeof(_ver));
+      outs.Write(_ver, sizeof(_ver));
+
+      ins.Read(Buf^, sizeof(Integer)*3);
+      outs.Write(Buf^, sizeof(Integer)*3);
+      ins.Read(TotalSize, sizeof(TotalSize));
+      outs.Write(TotalSize, sizeof(TotalSize));
+      ins.Read(Buf^, sizeof(Integer)*6);
+      outs.Write(Buf^, sizeof(Integer)*6);
+
+      //SegmentList
+      ins.Read(num, sizeof(num));
+      outs.Write(num, sizeof(num));
+      for n := 0 to num-1 do
+      Begin
+        ins.Read(buf^,sizeof(Integer)*3);
+        outs.Write(buf^,sizeof(Integer)*3);
+        ins.Read(x, sizeof(x));
+        ins.Read(buf^, x);
+        outs.Write(x, sizeof(x));
+        outs.Write(buf^, x);
+      End;
+
+      outs.CopyFrom(ins,TotalSize + SizeOf(DWORD)*TotalSize);
+
+      ins.Read(num, sizeof(num));
+      outs.Write(num, sizeof(num));
+      txtInfos.Caption:='Info objects = '+IntToStr(num);
+      progInfos.Max:=num;
+      progInfos.Position:=0;
+      for n := 0 to TotalSize-1 do
+      Begin
+        if (n and 1024) = 0 then
+        Begin
+          progInfos.Position:=n;
+          Application.ProcessMessages;
+        End;
+        ins.Read(x, sizeof(x));
+        outs.Write(x, sizeof(x));
+        if x = -1 then Break;
+        convert_info(ins,outs,Buf);
+      End;
+
+      //BSSInfos
+      ins.Read(num, sizeof(num));
+      outs.Write(num, sizeof(num));
+      txtBSS.Caption:='BSS info = '+IntToStr(num);
+      progBSS.Max:=num;
+      progBSS.Position:=0;
+      for n := 0 to num-1 do
+      Begin
+        progBSS.Position:=n;
+        Application.ProcessMessages;
+        ins.Read(x, sizeof(x));
+        ins.Read(buf^, x);
+        outs.Write(x, sizeof(x));
+        outs.Write(buf^, x);
+        convert_info(ins,outs,Buf);
+      End;
+
+      outs.CopyFrom(ins,ins.Size - ins.Position);
+      {
+      //Units
+      ins.Read(num, sizeof(num));
+      outs.Write(num, sizeof(num));
+      txtUnit.Caption:='Units = '+IntToStr(num);
+      progUnit.Max:=num;
+      progUnit.Position:=0;
+      for n := 0 to num-1 do
+      Begin
+        progUnit.Position:=n;
+        Application.ProcessMessages;
+        outs.CopyFrom(ins,4*SizeOf(Boolean)+7*SizeOf(Integer));
+        ins.Read(num2, sizeof(num2));
+        for m := 0 to num2-1 do
+        Begin
+          ins.Read(x, sizeof(x));
+          ins.Read(buf^, x);
+          outs.Write(x, sizeof(x));
+          outs.Write(buf^, x);
+        End;
+      End;
+
+      if num<>0 then
+      begin
+        ins.Read(x, sizeof(x));
+        outs.Write(x, sizeof(x));
+        ins.Read(m, sizeof(m)); // CurUnitAdr
+        outs.Write(m, sizeof(m)); // CurUnitAdr
+        ins.Read(x, sizeof(x));
+        outs.Write(x, sizeof(x));
+        ins.Read(x, sizeof(x));
+        outs.Write(x, sizeof(x));
+        //UnitItems
+        if m<>0 then
+        Begin
+          inStream.Read(x, sizeof(x));
+          outs.Write(x, sizeof(x));
+          inStream.Read(x, sizeof(x));
+          outs.Write(x, sizeof(x));
+        End;
+      end;
+
+      //Types
+      ins.Read(num, sizeof(num));
+      outs.Write(num, sizeof(num));
+      txtType.Caption:='Types = '+IntToStr(num);
+      progType.Max:=num;
+      progType.Position:=0;
+      for n := 0 to num-1 do
+      Begin
+        progType.Position:=n;
+        Application.ProcessMessages;
+        ins.Read(kind, sizeof(kind));
+        outs.Write(kind, sizeof(kind));
+        ins.Read(x, sizeof(x));
+        outs.Write(x, sizeof(x));
+        ins.Read(x, sizeof(x));
+        ins.Read(buf^, x);
+        outs.Write(x, sizeof(x));
+        outs.Write(buf^, x);
+      End;
+      if num<>0 then
+      Begin
+        ins.Read(x, sizeof(x));
+        outs.Write(x, sizeof(x));
+      end;
+
+      //Forms
+      ins.Read(num, sizeof(num));
+      outs.Write(num, sizeof(num));
+      txtForm.Caption:='Forms = '+IntToStr(num);
+      progForm.Max:=num;
+      progForm.Position:=0;
+      for n := 0 to num-1 do
+      Begin
+        progForm.Position:=n;
+        Application.ProcessMessages;
+        // Flags
+        ins.Read(b, sizeof(b));
+        outs.Write(b, sizeof(b));
+        // ResName
+        ins.Read(x, sizeof(x));
+        ins.Read(buf^, x);
+        outs.Write(x, sizeof(x));
+        outs.Write(buf^, x);
+        // Name
+        ins.Read(x, sizeof(x));
+        ins.Read(buf^, x);
+        outs.Write(x, sizeof(x));
+        outs.Write(buf^, x);
+        // ClassName
+        ins.Read(x, sizeof(x));
+        ins.Read(buf^, x);
+        outs.Write(x, sizeof(x));
+        outs.Write(buf^, x);
+        //MemStream
+        ins.Read(x, sizeof(x));
+        outs.Write(x,SizeOf(x));
+        if x<>0 then outs.CopyFrom(ins,x);
+        //Events
+        ins.Read(num2, sizeof(num2));
+        for m := 0 to num2-1 do
+        Begin
+          // event name
+          ins.Read(x, sizeof(x));
+          ins.Read(buf^, x);
+          outs.Write(x, sizeof(x));
+          outs.Write(buf^, x);
+          //ProcName
+          ins.Read(x, sizeof(x));
+          ins.Read(buf^, x);
+          outs.Write(x, sizeof(x));
+          outs.Write(buf^, x);
+        End;
+        //Components
+        ins.Read(num2, sizeof(num2));
+        for m := 0 to num2-1 do
+        Begin
+          // inherited
+          ins.Read(t, sizeof(t));
+          outs.Write(t, sizeof(t));
+          // hasGlyph
+          ins.Read(t, sizeof(t));
+          outs.Write(t, sizeof(t));
+          // Name
+          ins.Read(x, sizeof(x));
+          ins.Read(buf^, x);
+          outs.Write(x, sizeof(x));
+          outs.Write(buf^, x);
+          // ClassName
+          ins.Read(x, sizeof(x));
+          ins.Read(buf^, x);
+          outs.Write(x, sizeof(x));
+          outs.Write(buf^, x);
+          //Events
+          ins.Read(evnum, sizeof(evnum));
+          outs.Write(evnum, sizeof(evnum));
+          for k := 0 to evnum-1 do
+          Begin
+            // event name
+            ins.Read(x, sizeof(x));
+            ins.Read(buf^, x);
+            outs.Write(x, sizeof(x));
+            outs.Write(buf^, x);
+            //ProcName
+            ins.Read(x, sizeof(x));
+            ins.Read(buf^, x);
+            outs.Write(x, sizeof(x));
+            outs.Write(buf^, x);
+          End;
+        End;
+      End;
+
+      //Aliases
+      inStream.Read(num, sizeof(num));
+      if num<>0 Then
+      begin
+        for n := 0 to num-1 do
+        Begin
+          inStream.Read(x, sizeof(x));
+          inStream.Read(buf^, x);
+        End;
+      end;
+
+      //CodeHistory
+      inStream.Read(k, sizeof(k)); // CodeHistorySize
+      inStream.Read(x, sizeof(x));
+      inStream.Read(x, sizeof(x));
+      inStream.Position:=inStream.Position + sizeof(PROCHISTORYREC) * k;
+
+      inStream.Read(x, sizeof(x));
+      inStream.Read(x, sizeof(x));
+
+      //Important variables
+      inStream.Read(x, sizeof(x));
+      inStream.Read(x, sizeof(x));
+
+      inStream.Read(x, sizeof(x));
+      inStream.Read(x, sizeof(x));
+
+      inStream.Read(x, sizeof(x));
+
+      //Class Viewer
+      //Total nodes num (for progress)
+      inStream.Read(Num, sizeof(Num));
+      if Num<>0 then
+      Begin
+        ReadNode(s,Buf,inStream, 1);
+      End;
+
+      //Для проверки
+      inStream.Read(MaxBufLen, sizeof(MaxBufLen));
+      }
+    Finally
+      if Assigned(buf) then FreeMem(buf);
+      ins.Free;
+      outs.Free;
+      Screen.Cursor := crDefault;
+    End;
   end;
 end;
 

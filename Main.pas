@@ -9042,7 +9042,7 @@ Begin
   Update;
 
   GetMem(buf,MaxBufLen);
-  inStream := TMemoryStream.Create; //new TFileStream(IDPFile, fmOpenRead);
+  inStream := TMemoryStream.Create; 
   inStream.LoadFromFile(IDPFile);
 
   inStream.Read(magic[1], 12);
@@ -9148,10 +9148,10 @@ Begin
       Read(finSize, sizeof(finSize));
       Read(iniadr, sizeof(iniadr));
       Read(iniSize, sizeof(iniSize));
+      Read(iniOrder, sizeof(iniOrder));
+      matchedPercent := 0;
+      names := TStringList.Create;
     end;
-    recU.matchedPercent := 0;
-    inStream.Read(recU.iniOrder, sizeof(recU.iniOrder));
-    recU.names := TStringList.Create;
     namesNum := 0;
     inStream.Read(namesNum, sizeof(namesNum));
     for u := 0 to namesNum-1 do
@@ -11455,12 +11455,12 @@ var
   vNode:PVirtualNode;
   dat:PUnitNode;
 Begin
-  selAdr:=0;
   if Assigned(vtUnit.FocusedNode) Then
   Begin
     dat:=vtUnit.GetNodeData(vtUnit.FocusedNode);
     selAdr:=PUnitRec(Units[dat.unit_index]).fromAdr;
-  end;
+  end
+  else selAdr:=CurUnitAdr;
   maxwid:=50;
   vtUnit.Clear;
   vtUnit.BeginUpdate;
@@ -11562,6 +11562,7 @@ Procedure TFMain.ShowUnitItems (recU:PUnitRec; topIdx, itemIdx:Integer);
 var
   unk, imp, exp, emb, xref:Boolean;
   m,unknum, ps,adr,beg_adr:Integer;
+  recU2:PUnitRec;
   recN:InfoRec;
   recX:PXrefRec;
   line,line2:AnsiString;
@@ -11572,7 +11573,7 @@ var
 
   procedure retain_focus(a:Integer);
   Begin
-    if a = itemIdx Then
+    if ((itemIdx<$10000)and(node.Index=itemIdx))or((itemIdx>$FFFF)and(a=itemIdx)) then
     Begin
       vtProc.FocusedNode:=node;
       vtProc.Selected[node]:=True;
@@ -11848,8 +11849,8 @@ Begin
             for m := 0 to recN.xrefs.Count-1 do
             Begin
               recX := recN.xrefs[m];
-              recU := GetUnit(recX.adr);
-              if Assigned(recU) and not recU.kb then
+              recU2 := GetUnit(recX.adr);
+              if Assigned(recU2) and not recU2.kb then
               Begin
                 not_KB:=True; // this is user-defined unit, not present in KnowledgeBase
                 break;
