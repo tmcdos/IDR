@@ -7289,15 +7289,15 @@ Begin
     begin
       Env.Stack[item1.IntValue]._Type := 'Variant';
       item1 := Env.Stack[item1.IntValue];
-      CompInfo.L := item1.Name;
     end;
+    CompInfo.L := item1.Name;
     GetRegItem(18, item2); //edx - Right argument
     if IF_STACK_PTR in item2.Flags then
     begin
       Env.Stack[item2.IntValue]._Type := 'Variant';
       item2 := Env.Stack[item2.IntValue];
-      CompInfo.R := item2.Name;
     end;
+    CompInfo.R := item2.Name;
     Result:=true;
     Exit;
   end
@@ -7329,9 +7329,8 @@ Begin
       Env.Stack[item1.IntValue]._Type := 'Variant';
       item1 := Env.Stack[item1.IntValue];
     end;
-    line:=item1.Name + ' := Variant(' + FPop.Value + ')'; //FGet(0)
+    line:=item1.Name + ' := Variant(' + FPop.Value + ')';
     Env.AddToBody(line);
-    FPop;
     Exit;
   end
   else if SameText(name, '@VarFromReal') then
