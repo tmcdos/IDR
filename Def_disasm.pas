@@ -98,7 +98,7 @@ Type
     Offset:Integer;
     //ImmPresent:Boolean;
     Immediate:Integer;
-	  MemSize:Integer;
+	  OpSize:Byte;
     sSize:String[32];
 	  RepPrefix:Integer;
     SegPrefix:Integer;

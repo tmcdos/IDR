@@ -36,7 +36,8 @@ uses
   Infos in 'Infos.pas',
   Decompiler in 'Decompiler.pas',
   Resources in 'Resources.pas',
-  KnowledgeBase in 'KnowledgeBase.pas';
+  KnowledgeBase in 'KnowledgeBase.pas',
+  IdcSplitSize in 'IdcSplitSize.pas';
 
 {$R *.RES}
 
@@ -57,5 +58,6 @@ begin
   Application.CreateForm(TFHex2DoubleDlg, FHex2DoubleDlg);
   Application.CreateForm(TFPlugins, FPlugins);
   Application.CreateForm(TFActiveProcesses, FActiveProcesses);
+  Application.CreateForm(TFIdcSplitSize, FIdcSplitSize);
   Application.Run;
 end.

@@ -26,7 +26,7 @@ object FMain: TFMain
   TextHeight = 13
   object SplitterH1: TSplitter
     Left = 0
-    Top = 600
+    Top = 598
     Width = 1121
     Height = 3
     Cursor = crVSplit
@@ -39,7 +39,7 @@ object FMain: TFMain
   object SplitterV1: TSplitter
     Left = 215
     Top = 0
-    Height = 585
+    Height = 583
     AutoSnap = False
     Color = clNavy
     MinSize = 3
@@ -49,8 +49,8 @@ object FMain: TFMain
     Left = 218
     Top = 0
     Width = 903
-    Height = 585
-    ActivePage = tsCodeView
+    Height = 583
+    ActivePage = tsNames
     Align = alClient
     TabOrder = 1
     OnChange = pcWorkAreaChange
@@ -60,7 +60,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 532
+        Height = 530
         Cursor = crIBeam
         Style = lbOwnerDrawFixed
         AutoComplete = False
@@ -183,7 +183,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 532
+        Height = 530
         Style = lbOwnerDrawFixed
         Align = alRight
         Color = clWhite
@@ -209,7 +209,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 517
+        Height = 515
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -254,7 +254,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 517
+        Height = 515
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -301,7 +301,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 532
+        Height = 530
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -321,7 +321,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 532
+        Height = 530
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -426,7 +426,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 532
+        Height = 530
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -446,7 +446,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 532
+        Height = 530
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -485,6 +485,7 @@ object FMain: TFMain
         Margin = 0
         ParentFont = False
         ParentShowHint = False
+        PopupMenu = pmNames
         ScrollBarOptions.AlwaysVisible = True
         ShowHint = True
         TabOrder = 2
@@ -524,6 +525,7 @@ object FMain: TFMain
         ParentFont = False
         PopupMenu = pmSourceCode
         TabOrder = 0
+        OnClick = lbSourceCodeClick
         OnDrawItem = lbSourceCodeDrawItem
         OnMouseMove = lbSourceCodeMouseMove
       end
@@ -533,7 +535,7 @@ object FMain: TFMain
     Left = 0
     Top = 0
     Width = 215
-    Height = 585
+    Height = 583
     ActivePage = tsUnits
     Align = alLeft
     Constraints.MinWidth = 200
@@ -545,7 +547,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 557
+        Height = 555
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -607,7 +609,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 557
+        Height = 555
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -668,7 +670,7 @@ object FMain: TFMain
       ImageIndex = 3
       object Splitter1: TSplitter
         Left = 0
-        Top = 383
+        Top = 381
         Width = 207
         Height = 4
         Cursor = crVSplit
@@ -704,7 +706,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 207
-        Height = 343
+        Height = 341
         AutoComplete = False
         Align = alClient
         Color = clWhite
@@ -725,7 +727,7 @@ object FMain: TFMain
       end
       object Panel4: TPanel
         Left = 0
-        Top = 387
+        Top = 385
         Width = 207
         Height = 170
         Align = alBottom
@@ -815,7 +817,7 @@ object FMain: TFMain
   end
   object sb: TStatusBar
     Left = 0
-    Top = 763
+    Top = 761
     Width = 1121
     Height = 20
     Constraints.MaxHeight = 20
@@ -831,7 +833,7 @@ object FMain: TFMain
   end
   object pb: TProgressBar
     Left = 0
-    Top = 585
+    Top = 583
     Width = 1121
     Height = 15
     Align = alBottom
@@ -841,7 +843,7 @@ object FMain: TFMain
   end
   object vtProc: TVirtualStringTree
     Left = 0
-    Top = 603
+    Top = 601
     Width = 1121
     Height = 160
     Align = alBottom
@@ -1106,8 +1108,7 @@ object FMain: TFMain
         OnClick = miIDCGeneratorClick
       end
       object miLister: TMenuItem
-        Caption = 'Lister'
-        OnClick = miListerClick
+        Action = acDefCol
       end
       object miClassTreeBuilder: TMenuItem
         Caption = 'Class Tree &Builder'
@@ -1442,11 +1443,24 @@ object FMain: TFMain
     Top = 232
   end
   object pmSourceCode: TPopupMenu
+    OnPopup = pmSourceCodePopup
     Left = 488
     Top = 96
     object miCopySource2Clipboard: TMenuItem
       Caption = 'Copy to Clipboard'
       OnClick = miCopySource2ClipboardClick
+    end
+    object miSetLvartype: TMenuItem
+      Caption = 'Set Lvar type'
+      OnClick = SetLvartypeClick
+    end
+  end
+  object pmNames: TPopupMenu
+    Left = 558
+    Top = 96
+    object miCopytoClipboardNames: TMenuItem
+      Caption = 'Copy to Clipboard'
+      OnClick = miCopytoClipboardNamesClick
     end
   end
 end

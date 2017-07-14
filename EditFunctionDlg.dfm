@@ -42,14 +42,14 @@ object FEditFunctionDlg: TFEditFunctionDlg
       TabOrder = 1
       OnClick = bAddClick
     end
-    object bRemove: TButton
+    object bRemoveSelected: TButton
       Left = 212
       Top = 5
-      Width = 75
+      Width = 100
       Height = 25
-      Caption = 'Remove'
+      Caption = 'Remove Selected'
       TabOrder = 2
-      OnClick = bRemoveClick
+      OnClick = bRemoveSelectedClick
     end
     object bOk: TButton
       Left = 625
@@ -60,6 +60,15 @@ object FEditFunctionDlg: TFEditFunctionDlg
       ModalResult = 1
       TabOrder = 3
       OnClick = bOkClick
+    end
+    object bRemoveAll: TButton
+      Left = 368
+      Top = 5
+      Width = 97
+      Height = 25
+      Caption = 'Remove All'
+      TabOrder = 4
+      OnClick = bRemoveAllClick
     end
   end
   object pc: TPageControl
@@ -314,23 +323,26 @@ object FEditFunctionDlg: TFEditFunctionDlg
       object lbVars: TListBox
         Left = 0
         Top = 0
-        Width = 777
-        Height = 137
+        Width = 705
+        Height = 298
+        Align = alClient
         Font.Charset = RUSSIAN_CHARSET
         Font.Color = clWindowText
         Font.Height = -11
         Font.Name = 'Fixedsys'
         Font.Style = []
         ItemHeight = 16
+        MultiSelect = True
         ParentFont = False
         TabOrder = 0
         OnClick = lbVarsClick
       end
       object pnlVars: TPanel
         Left = 0
-        Top = 143
-        Width = 777
+        Top = 298
+        Width = 705
         Height = 146
+        Align = alBottom
         TabOrder = 1
         object rgLocBase: TRadioGroup
           Left = 260

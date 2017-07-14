@@ -63,6 +63,10 @@ Function GetParentName(const ClasName:AnsiString):AnsiString; Overload;
 Function GetParentSize(Adr:Integer):Integer;
 Function GetProcRetBytes(pInfo:MProcInfo):Integer;
 Function GetProcSize(fromAdr:Integer):Integer;
+function StrGetRecordSize(const str:AnsiString): Integer;
+function StrGetRecordFieldOffset(const str:AnsiString): Integer;
+function StrGetRecordFieldName(const str:AnsiString): AnsiString;
+function StrGetRecordFieldType(const str:AnsiString): AnsiString;
 Function GetRecordSize(AName:AnsiString):Integer;
 Function GetRecordFields(AOfs:Integer; ARecType:AnsiString):AnsiString;
 Function GetAsmRegisterName(Idx:Integer):AnsiString;
@@ -73,6 +77,7 @@ Function GetOwnTypeAdr(AName:AnsiString):Integer;
 Function GetOwnTypeByName(AName:AnsiString):PTypeRec;
 Function GetTypeDeref(ATypeName:AnsiString):AnsiString;
 Function GetTypeKind(AName:AnsiString; var size:Integer):LKind;
+Function GetRTTIRecordSize(adr:Integer):Integer;
 Function GetPackedTypeSize(AName:AnsiString):Integer;
 Function GetTypeName(Adr:Integer):AnsiString;
 Function GetTypeSize(AName:AnsiString):Integer;
@@ -86,6 +91,7 @@ Function IsSameRegister(Idx1, Idx2:Integer):Boolean;
 Function IsValidCodeAdr(Adr:Integer):Boolean;
 Function IsValidCString(p:Integer):Boolean;
 Function IsValidImageAdr(Adr:Integer):Boolean;
+function IsValidModuleName(len, p:Integer): Boolean;
 Function IsValidName(len, p:Integer):Boolean;
 Function IsValidString(len, p:Integer):Boolean;
 Procedure MakeGvar(recN:InfoRec; adr, xrefAdr:Integer);
@@ -102,6 +108,9 @@ Function TransformString(str:PAnsiChar; len:Integer):AnsiString;
 Function TransformUString(codePage:Word; data:PWideChar; len:Integer):AnsiString;
 Function TrimTypeName(const TypeName:AnsiString):AnsiString;
 Function TypeKind2Name(kind:LKind):AnsiString;
+function GetClassField(const TypeName:AnsiString;Offset:Integer): FieldInfo;
+function GetRecordField(ARecType:AnsiString;AOfs:Integer;Var name,_type:AnsiString): Integer;
+function GetField(const TypeName:AnsiString;Offset:Integer;Var name,_type:AnsiString): Integer;
 
 //Decompiler
 Function InputDialogExec(caption, labelText, text:AnsiString):AnsiString;
@@ -303,6 +312,7 @@ Begin
   Inc(p);
   locflags := PInteger(p)^;
   Inc(p,4);
+  If (locflags and 7) =1 then argInfo.tag:=$23; // Add by ZGL
   argInfo.in_Reg := (locflags and 8)<>0;
   ndx := PInteger(p)^;
   Inc(p, 4);
@@ -611,7 +621,7 @@ begin
       End;
       if (len<>0) and (DisInfo.Mnem=Instruction) then
       Begin
-        Result:= curPos + instrLen;
+        Result:= curPos {+ instrLen}; // removed by Crypto
         Exit;
       end;
       if DisInfo.Ret then break;
@@ -706,6 +716,45 @@ Begin
 *)
 end;
 
+Function StrGetRecordSize(const str:AnsiString):Integer;
+var
+  bpos,epos:Integer;
+Begin
+  Result:=0;
+  bpos:=Pos('size=',str);
+  epos:=LastDelimiter(#13,str);
+  If (bpos<>0)and(epos<>0) then Result:=StrToInt('$'+Copy(str,5+bpos,epos-bpos-5));
+end;
+
+Function StrGetRecordFieldOffset(const str:AnsiString):Integer;
+var
+  bpos,epos:Integer;
+Begin
+  Result:=-1;
+  bpos:=Pos('//',str);
+  epos:=LastDelimiter(#13,str);
+  If (bpos<>0)and(epos<>0) then Result:=StrToInt('$'+Copy(str,2+bpos,epos-bpos-2));
+end;
+
+Function StrGetRecordFieldName(const str:AnsiString):AnsiString;
+var
+  p:Integer;
+Begin
+  Result:='';
+  p:=Pos(':',str);
+  if p<>0 then Result:=Copy(str,1,p-1);
+end;
+
+Function StrGetRecordFieldType(const str:AnsiString):AnsiString;
+var
+  bpos,epos:Integer;
+Begin
+  Result:='';
+  bpos:=Pos(':',str);
+  epos:=LastDelimiter(':',str);
+  If (bpos<>0)and(epos<>0) then Result:=Copy(str,1+bpos,epos-bpos-1);
+end;
+
 Function GetRecordSize (AName:AnsiString):Integer;
 var
   len:Byte;
@@ -730,12 +779,8 @@ Begin
         Readln(recFile,str);
         if Pos(AName+'=',str) = 1 then
         begin
-          _pos := Pos('size=',str);
-          if _pos<>0 then
-          begin
-            sscanf(PAnsiChar(str)+_pos+5,'%lX',[@Result]);
-            Exit;
-          End;
+          Result:=StrGetRecordSize(str);
+          Exit;
         End;
       end;
     Finally
@@ -769,22 +814,70 @@ Begin
   End;
 end;
 
-Function GetRecordFields (AOfs:Integer; ARecType:AnsiString):AnsiString;
+Function GetClassField(const TypeName:AnsiString;Offset:Integer):FieldInfo;
 var
-  len, numOps:Byte;
+  n,ofs1,ofs2,classAdr,prevAdr:Integer;
+  recN:InfoRec;
+  fInfo1,fInfo2:FieldInfo;
+Begin
+  Result:=Nil;
+  prevAdr:=0;
+  classAdr:=GetClassAdr(TypeName);
+  while (classAdr<>0)and(Offset < GetClassSize(classAdr)) do
+  Begin
+    prevAdr:=classAdr;
+    classAdr:=GetParentAdr(classAdr);
+  end;
+  classAdr:=prevAdr;
+  If classAdr<>0 Then
+  Begin
+    recN := GetInfoRec(classAdr);
+    if Assigned(recN) and Assigned(recN.vmtInfo) and Assigned(recN.vmtInfo.fields) then
+    begin
+      for n := 0 to recN.vmtInfo.fields.Count-1 Do
+      begin
+        fInfo1 := FieldInfo(recN.vmtInfo.fields[n]);
+        Ofs1 := fInfo1.Offset;
+        if n = recN.vmtInfo.fields.Count - 1 then Ofs2 := GetClassSize(classAdr)
+        else
+        begin
+          fInfo2 := FieldInfo(recN.vmtInfo.fields[n + 1]);
+          Ofs2 := fInfo2.Offset;
+        end;
+        if (Offset >= Ofs1) and (Offset < Ofs2) then
+        begin
+          Result:=fInfo1;
+          Exit;
+        end;
+      end;
+    end;
+  end;
+end;
+
+Function GetRecordField(ARecType:AnsiString;AOfs:Integer;Var name,_type:AnsiString):Integer;
+var
+  brk:Boolean;
+  numOps:Byte;
   kind:LKind;
-  p:PAnsiChar;
-  dw, len1:Word;
+  p, ps:PAnsiChar;
+  dw,len:WORD;
   _uses:TWordDynArray;
-  i, k, _idx, _pos, _elNum, _elOfs,  _size, _case, _offset:Integer;
-  typeAdr:Integer;
+  n, m, k, _idx, _pos, _elNum, Ofs, Ofs1, Ofs2, _case, _fieldsNum, size:Integer;
+  tries,typeAdr:Integer;
   recT:PTypeRec;
   tInfo:MTypeInfo;
-  str, _name, _typeName:AnsiString;
   recFile:Text;
+  str, prevStr, _name, _typeName, _ofs, _sz, _result:AnsiString;
+  _fieldOfsets:Array[0..1024] of Integer;
+  _cases:Array[0..256] of CaseInfo;
 Begin
-  Result:='';
+  _result:='';
+  Result:=-1;
   if ARecType = '' then Exit;
+  _name:='';
+  _typeName:='';
+  _pos:=LastDelimiter('.',ARecType);
+  if (_pos>1)and(ARecType[_pos+1] <> ':') then ARecType:=Copy(ARecType,_pos+1,Length(ARecType));
   //File
   str:=FMain.WrkDir + '\types.idr';
   if FileExists(str) Then
@@ -797,73 +890,133 @@ Begin
         Readln(recFile,str);
         if Pos(ARecType+'=',str) = 1 then
         begin
+          size:=StrGetRecordSize(str);
+          prevStr:='';
+          brk:=false;
           while not eof(recFile) do
           begin
             Readln(recFile,str);
-            if Pos('end;',str)<>0 then break;
-            if Pos('//' + Val2Str(AOfs),str)<>0 then
+            Ofs1:=StrGetRecordFieldOffset(prevStr);
+            if Pos('end;',str)<>0 then
+            Begin
+              Ofs2:=size;
+              brk:=True;
+            end
+            else Ofs2:=StrGetRecordFieldOffset(str);
+            If (Ofs1>=0)and(AOfs>=Ofs1)and(AOfs<Ofs2) then
             begin
-              result := str;
-              _pos := LastDelimiter(';',Result);
-              if _pos<>0 then SetLength(Result,_pos - 1);
+              name:=StrGetRecordFieldName(prevStr);
+              _type:=StrGetRecordFieldType(prevStr);
+              result := Ofs1;
               Exit;
             End;
+            if brk then break;
+            prevStr:=str;
           End;
+          break;
         End;
       End;
     Finally
       closeFile(recFile);
     end;
   end;
-  //KB
-  _uses := KBase.GetTypeUses(PAnsiChar(ARecType));
-  _idx := KBase.GetTypeIdxByModuleIds(_uses, PAnsiChar(ARecType));
-  _uses:=Nil;
-  if _idx <> -1 then
+  tries:=5;
+  while(tries>=0) do
   begin
-    _idx := KBase.TypeOffsets[_idx].NamId;
-    if KBase.GetTypeInfo(_idx, [INFO_FIELDS], tInfo) then
+    Dec(tries);
+    //KB
+    _uses := KBase.GetTypeUses(PAnsiChar(ARecType));
+    _idx := KBase.GetTypeIdxByModuleIds(_uses, PAnsiChar(ARecType));
+    _uses:=Nil;
+    if _idx <> -1 then
     begin
-      if tInfo.FieldsNum<>0 then
+      _idx := KBase.TypeOffsets[_idx].NamId;
+      if KBase.GetTypeInfo(_idx, [INFO_FIELDS], tInfo) then
       begin
-        p := tInfo.Fields;
-        for k := 1 to tInfo.FieldsNum do
+        if tInfo.FieldsNum<>0 then
         begin
-          //Scope
-          Inc(p);
-          _offset := PInteger(p)^;
-          Inc(p, 4);
-          _case := PInteger(p)^;
-          Inc(p, 4);
-          //Name
-          len1 := PWord(p)^;
-          Inc(p, 2);
-          _name := MakeString(p, len1);
-          Inc(p, len1 + 1);
-          //Type
-          len1 := PWord(p)^;
-          Inc(p, 2);
-          _typeName := TrimTypeName(MakeString(p, len1));
-          Inc(p, len1 + 1);
-          kind := GetTypeKind(_typeName, _size);
-          if kind = ikRecord then
+          FillChar(_cases,SizeOf(_cases),0);
+          p := tInfo.Fields;
+          m:=0;
+          for n := 0 to tInfo.FieldsNum-1 do
           begin
-            _size := GetRecordSize(_typeName);
-            if (AOfs >= _offset) and (AOfs < _offset + _size) then
-              result:=result + _name + '.' + GetRecordFields(AOfs - _offset, _typeName);
-          end
-          else if (AOfs >= _offset) and (AOfs < _offset + _size) then
-          begin
-            if _size > 4 then
-              result := _name + '+' + IntToStr(AOfs - _offset) + ':' + _typeName
-            else
-              result := _name + ':' + _typeName;
-          End;
-        End;
+            Inc(p); // scope
+            Inc(p, 4); // offset
+            _case := PInteger(p)^;
+            Inc(p, 4);
+            if _cases[m].count=0 then _cases[m].caseno := _case
+            else if _cases[m].caseno <> _case Then
+            Begin
+              Inc(m);
+              _cases[m].caseno := _case;
+            end;
+            Inc(_cases[m].count);
+            // name
+            len := PWord(p)^;
+            Inc(p, len + 3);
+            //Type
+            len := PWord(p)^;
+            Inc(p, len + 3);
+          end;
+          For m:=Low(_cases) to High(_cases) do
+            if _cases[m].count<>0 then
+            Begin
+              p:=tInfo.Fields;
+              k:=0;
+              For n:=1 to tInfo.FieldsNum Do
+              Begin
+                ps:=p;
+                Inc(p); // scope
+                Ofs1 := PInteger(p)^;
+                Inc(p, 4); //offset
+                _case := PInteger(p)^;
+                Inc(p, 4); //case
+                len := PWord(p)^;
+                Inc(p, len + 3); //name
+                len := PWord(p)^;
+                Inc(p, len + 3); //type
+                if _case = _cases[m].caseno then
+                begin
+                  if k = _cases[m].count - 1 then Ofs2 := GetRecordSize(ARecType)
+                    else Ofs2 := PInteger(p + 1)^;
+                  if (AOfs >= Ofs1) and (AOfs < Ofs2) then
+                  begin
+                    p := ps;
+                    Inc(p); //scope
+                    Ofs1 := PInteger(p)^;
+                    Inc(p, 4); //offset
+                    Inc(p, 4); //case
+                    len := PWord(p)^;
+                    Inc(p, 2);
+                    name := MakeString(p, len);
+                    Inc(p, len + 1);
+                    len := PWord(p)^;
+                    Inc(p, 2);
+                    _type := MakeString(p, len);
+                    Inc(p, len + 1);
+                    Result:=Ofs1;
+                    Exit;
+                  end;
+                  Inc(k);
+                end;
+              end;
+            end;
+        end
+        Else if tInfo.Decl <> '' then
+        Begin
+          ARecType:=tInfo.Decl;
+          {
+          Ofs:=GetRecordField(tInfo.Decl,AOfs,name,_type);
+          If Ofs >=0 then
+          Begin
+            Result:=Ofs;
+            Exit;
+          end;
+          }
+        end;
       End;
     End;
-  End;
-  if result <> '' Then Exit;
+  end;
   //RTTI
   recT := GetOwnTypeByName(ARecType);
   if Assigned(recT) and (recT.kind = ikRecord) then
@@ -872,48 +1025,43 @@ Begin
     Inc(_pos, 4);//SelfPtr
     Inc(_pos);//TypeKind
     len := Byte(Code[_pos]);
+    _name:=MakeString(Code+_pos,len);
     Inc(_pos, len + 1);//Name
     Inc(_pos, 4);//Size
     _elNum := PInteger(Code + _pos)^;
     Inc(_pos, 4);
-    for i := 1 to _elNum do
+    for n := 1 to _elNum do
     begin
       typeAdr := PInteger(Code + _pos)^;
       Inc(_pos, 4);
-      _elOfs := PInteger(Code + _pos)^;
+      Ofs1:=PInteger(Code+_pos)^;
       Inc(_pos, 4);
-      _typeName := GetTypeName(typeAdr);
-      kind := GetTypeKind(_typeName, _size);
-      if kind = ikRecord then
-      begin
-        _size := GetRecordSize(_typeName);
-        if (AOfs >= _elOfs) and (AOfs < _elOfs + _size) then
-          result := 'f' + Val2Str(_elOfs) + '.' + GetRecordFields(AOfs - _elOfs, _typeName);
-      end
-      else if (AOfs >= _elOfs) and (AOfs < _elOfs + _size) then
-      begin
-        if _size > 4 then
-          result := 'f' + Val2Str(_elOfs) + '+' + IntToStr(AOfs - _elOfs) + ':' + _typeName
-        else
-          result := 'f' + Val2Str(_elOfs) + ':' + _typeName;
-      End;
+      if n = _elNum then Ofs2:=0
+        else Ofs2:=PInteger(Code+_pos+4)^;
+      if (AOfs>=Ofs1)and(AOfs<Ofs2) then
+      Begin
+        name:=_name+'.f'+Val2Str(Ofs1);
+        _type:=GetTypeName(typeAdr);
+        Result:=Ofs1;
+        Exit;
+      end;
     End;
     if DelphiVersion >= 2010 then
     begin
       //NumOps
       numOps := Byte(Code[_pos]);
       Inc(_pos);
-      for i := 1 to numOps do //RecOps
+      for n := 1 to numOps do //RecOps
         Inc(_pos, 4);
       _elNum := PInteger(Code + _pos)^;
       Inc(_pos, 4);  //RecFldCnt
-      for i := 1 to _elNum do
+      for n := 1 to _elNum do
       begin
         //TypeRef
         typeAdr := PInteger(Code + _pos)^;
         Inc(_pos, 4);
         //FldOffset
-        _elOfs := PInteger(Code + _pos)^;
+        Ofs1 := PInteger(Code + _pos)^;
         Inc(_pos, 4);
         //Flags
         Inc(_pos);
@@ -922,27 +1070,88 @@ Begin
         Inc(_pos);
         _name := MakeString(Code + _pos, len);
         Inc(_pos, len);
-        _typeName := GetTypeName(typeAdr);
-        kind := GetTypeKind(_typeName, _size);
-        if kind = ikRecord then
-        begin
-          _size := GetRecordSize(_typeName);
-          if (AOfs >= _elOfs) and (AOfs < _elOfs + _size) then
-            result := _name + '.' + GetRecordFields(AOfs - _elOfs, _typeName);
-        end
-        else if (AOfs >= _elOfs) and (AOfs < _elOfs + _size) then
-        begin
-          if _size > 4 then
-            result := _name + '+' + IntToStr(AOfs - _elOfs) + ':' + _typeName
-          else
-            result := _name + ':' + _typeName;
-        End;
         //AttrData
         dw := PWord(Code + _pos)^;
         Inc(_pos, dw);//ATR!!
+        if n = _elNum then Ofs2:=0
+          else Ofs2:=PInteger(Code+_pos+4)^;
+        if (AOfs>=Ofs1)and(AOfs<Ofs2) Then
+        Begin
+          if _name<>'' then name:=_name Else name:='f'+Val2Str(Ofs1);
+          _type:=GetTypeName(typeAdr);
+          Result:=Ofs1;
+          Exit;
+        end;
       End;
     End;
   End;
+end;
+
+Function GetField(const TypeName:AnsiString;Offset:Integer;Var name,_type:AnsiString):Integer;
+var
+  Size,ofs:Integer;
+  kind:LKind;
+  fInfo:FieldInfo;
+  fname,ftype,tip:AnsiString;
+Begin
+  tip:=TypeName;
+  fname:='';
+  ftype:='';
+  Result:=Offset;
+  while Result >= 0 do
+  begin
+    kind := GetTypeKind(_type, size);
+    case kind of
+      ikVMT:
+        begin
+          if Result=0 Then Exit;
+          fInfo := GetClassField(_type, Result);
+          if name <> '' Then name:=name + '.';
+          if fInfo.Name <> '' then name:=name + fInfo.Name
+            else name:=name + 'f' + IntToHex(Result, 0);
+          tip := fInfo._Type;
+          _type := tip;
+          Dec(Result, fInfo.Offset);
+          {
+          if Result=0 then
+          Begin
+            Result:=fInfo.Offset;
+            Exit;
+          end;
+          }
+        End;
+      ikRecord:
+        begin
+          ofs := GetRecordField(_type, Result, fname, ftype);
+          if ofs = -1 Then
+          Begin
+            Result:=-1;
+            Exit;
+          end;
+          if name <> '' then name:=name + '.';
+          name:=name + fname;
+          tip := ftype;
+          _type := ftype;
+          Dec(Result, ofs);
+          {
+          if Result=0 then
+          Begin
+            Result:=ofs;
+            Exit;
+          End;
+          }
+        end;
+      Else Break;
+    end;
+  end;
+end;
+
+Function GetRecordFields (AOfs:Integer; ARecType:AnsiString):AnsiString;
+var
+  name,TypeName:AnsiString;
+Begin
+  if (ARecType='')or(GetField(ARecType,AOfs,name,TypeName) < 0) then Result:=''
+    Else Result:=name+':'+TypeName;
 end;
 
 Function GetAsmRegisterName (Idx:Integer):AnsiString;
@@ -968,6 +1177,21 @@ Begin
     Else if Idx >= 8 then Result:=UpperCase(Reg32Tab[Idx - 8])
     else Result:=UpperCase(Reg32Tab[Idx]);
   End;
+end;
+
+Function IsValidModuleName (len, p:Integer):Boolean;
+var
+  i:Integer;
+  b:Char;
+Begin
+  Result:=False;
+  if len=0 then Exit;
+  for i := P to p + len-1 do
+  begin
+    b := Code[i];
+    if (b <' ')or(b>#127)or(b=':') then Exit;
+  End;
+  Result:=True;
 end;
 
 Function IsValidName (len, p:Integer):Boolean;
@@ -1208,7 +1432,7 @@ Begin
   begin
     c := p^;
     Inc(p);
-    if c in [' '..#126] then
+    if c in [' '..#126,'À'..'ÿ'] then
     Begin
       if (z=1)or(Result='') then Result:=Result + COMENT_QUOTE;
       result:=result + c;
@@ -1334,7 +1558,7 @@ Begin
   while classAdr<>0 do
   begin
     recN := GetInfoRec(classAdr);
-    if Assigned(recN) and Assigned(recN.vmtInfo.methods) then
+    if Assigned(recN) and Assigned(recN.vmtInfo) And Assigned(recN.vmtInfo.methods) then
     begin
       for m := 0 to recN.vmtInfo.methods.Count-1 do
       begin
@@ -1457,12 +1681,28 @@ Begin
   Result:='';
 end;
 
+Function GetRTTIRecordSize(Adr:Integer):Integer;
+var
+  len:Byte;
+  _pos,ap:Integer;
+  kind:LKind;
+Begin
+  ap:=Adr2Pos(adr);
+  _pos:=ap;
+  Inc(_pos,4);
+  kind:=LKind(Code[_pos]);
+  Inc(_pos);
+  len:=Ord(Code[_pos]);
+  Inc(_pos,len+1);
+  if kind=ikRecord then Result:=PInteger(Code+_pos)^ else Result:=0;
+end;
+
 Function GetTypeKind (AName:AnsiString; Var size:Integer):LKind;
 var
   p, idx:Integer;
   _uses:TWordDynArray;
   tInfo:MTypeInfo;
-  name, str:AnsiString;
+  name, str,sz:AnsiString;
   recFile:Text;
   recT:PTypeRec;
 Begin
@@ -1477,7 +1717,7 @@ Begin
         Else Result:=ikArray;
       Exit;
     end;
-    p := Pos('.',AName);
+    p := LastDelimiter('.',AName);
     if (p > 1) and (AName[p + 1] <> ':') then
       name := Copy(AName,p + 1, Length(AName))
     else name := AName;
@@ -1596,6 +1836,7 @@ Begin
           if Pos(AName + '=',str) = 1 then
             if Pos('=record',str)<>0 then
             begin
+              size:=StrGetRecordSize(str);
               REsult:=ikRecord;
               Exit;
             end;
@@ -1608,7 +1849,8 @@ Begin
     recT := GetOwnTypeByName(name);
     if Assigned(recT) then
     begin
-      size := 4;
+      size := GetRTTIRecordSize(recT.adr);
+      if size=0 then size:=4;
       Result:=recT.kind;
       Exit;
     end;
@@ -1659,6 +1901,11 @@ Begin
           drRecDef://0x4D
             begin
               Result:=ikRecord;
+              Exit;
+            end;
+          drInterfaceDef: // 0x54
+            Begin
+              Result:=ikInterface;
               Exit;
             end;
         end;
@@ -1858,6 +2105,7 @@ Begin
         if tInfo.Decl <> '' then
         begin
           e := 0;
+          b:=1;
           for n := 0 to _val do
           begin
             b := e + 1;
@@ -2388,7 +2636,7 @@ var
 Begin
   Result:=False;
   for Idx := 0 to 7 do
-    if SameText(AName, '_' + Reg32Tab[Idx] + '_') Then
+    if SameText(AName, Reg32Tab[Idx]) Then
     Begin
       Result:=true;
       Exit;
@@ -2404,6 +2652,7 @@ Begin
   else if SameText(AName, 'Extended') then result:=FT_EXTENDED
   else if SameText(AName, 'Real') then Result:=FT_REAL
   else if SameText(AName, 'Comp') then result:=FT_COMP
+  else if SameText(AName, 'Currency') then result:=FT_CURRENCY
   else Result:=TFloatKind(-1);
 end;
 

@@ -9,7 +9,7 @@ Type
   TChars = Set of Char;
 
   //Float Type
-  TFloatKind = (FT_NONE, FT_SINGLE, FT_DOUBLE, FT_EXTENDED, FT_REAL, FT_COMP);
+  TFloatKind = (FT_NONE, FT_SINGLE, FT_DOUBLE, FT_EXTENDED, FT_REAL, FT_COMP, FT_CURRENCY);
   TUnit_type = (
     ut_Trivial,  //Trivial unit
     ut_User,     //User unit
@@ -148,6 +148,11 @@ Type
     Name:AnsiString;
   End;
   PSegmentInfo = ^SegmentInfo;
+
+  CaseInfo = record
+    caseNo,count:Integer;
+  end;
+  PCaseInfo = ^CaseInfo;
 
   FuncListRec = record
     name:AnsiString;

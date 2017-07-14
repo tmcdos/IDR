@@ -61,12 +61,8 @@ Begin
   frmDisasm.Disassemble(Pos2Adr(p), @disInfo, Nil);
   if disInfo.Branch then
   begin
-    if IsExit(disInfo.Immediate) then
-    begin
-      Result:= 0;
-      Exit;
-    end;
-    if disInfo.Conditional then
+    if IsExit(disInfo.Immediate) then Result:= 0
+    else if disInfo.Conditional then
     begin
       if disInfo.Immediate > Integer(CodeBase) + p then
       begin
@@ -75,31 +71,25 @@ Begin
       End
       else Result:=2;
     End
-    Else
+    Else if disInfo.Immediate > Integer(CodeBase) + p then
     begin
-      if disInfo.Immediate > Integer(CodeBase) + p then
+      jmpAdr := disInfo.Immediate;
+      Result:=3;
+    End
+    Else if IsFlagSet([cfFinally], p) then
+    begin
+      //jmp after jmp @HandleFinally
+      p := GetNearestUpInstruction(Adr2Pos(disInfo.Immediate));
+      //push Adr
+      frmDisasm.Disassemble(Pos2Adr(p), @disInfo, Nil);
+      if disInfo.Immediate = fromAdr Then Result:=0
+      Else
       begin
         jmpAdr := disInfo.Immediate;
         Result:=3;
-      End
-      Else
-      begin
-        //jmp after jmp @HandleFinally
-        if IsFlagSet([cfFinally], p) then
-        begin
-          p := GetNearestUpInstruction(Adr2Pos(disInfo.Immediate));
-          //push Adr
-          frmDisasm.Disassemble(Pos2Adr(p), @disInfo, Nil);
-          if disInfo.Immediate = fromAdr Then Result:=0
-          Else
-          begin
-            jmpAdr := disInfo.Immediate;
-            Result:=3;
-          End;
-        End
-        else Result:=4;
       End;
-    End;
+    End
+    else Result:=4;
   End
   else Result:=0;
 end;

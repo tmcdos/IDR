@@ -14,7 +14,8 @@ Type
     IF_ARRAY_PTR,    // 128;
     IF_INTVAL,       // 256;
     IF_INTERFACE,    // 512;
-    IF_EXTERN_VAR    // 1024; // Used for embedded procedures
+    IF_EXTERN_VAR,   // 1024; // Used for embedded procedures
+    IF_RECORD_FOFS   // 2048; // Offset inside record
   );
   TDecomIset = Set of TDecomIflag;
 
@@ -31,11 +32,12 @@ Type
 
 Const
   //Precedence of operations
-  PRECEDENCE_ATOM  = 8;
-  PRECEDENCE_NOT   = 4;   //@,not
-  PRECEDENCE_MULT  = 3;   //*,/,div, mod,and,shl,shr,as
-  PRECEDENCE_ADD   = 2;   //+,-,or,xor
-  PRECEDENCE_CMP   = 1;   //=,<>,<,>,<=,>=,in,is
+  PRECEDENCE_ATOM  = 24;
+  PRECEDENCE_UNARY = 16;
+  PRECEDENCE_MULT  = 15;  //*,/,div, mod,and,shl,shr,as
+  PRECEDENCE_ADD   = 14;  //+,-,or,xor
+  PRECEDENCE_NOT   = 6;   //@,not
+  PRECEDENCE_CMP   = 9;   //=,<>,<,>,<=,>=,in,is
   PRECEDENCE_NONE  = 0;
 
   TAB_SIZE         = 2;
@@ -132,7 +134,8 @@ Type
   DContext = record
     adr:Integer;
     gregs:Regs;  //general registers
-    fregs:Regs;  //float point registers
+    fregs:Regs;  //floating point registers
+    fregsd:Regs; //floating point registers (copy)
   End;
   PDContext = ^DContext;
 

@@ -8,7 +8,7 @@ Const
 Type
   ThreadAnalysisOperation =
   (
-    taStartPrBar, taUpdatePrBar, taStopPrBar, taUpdateStBar,
+    taStartPrBar, taUpdatePrBar, taStopPrBar, taUpdateStBar, 
     taUpdateUnits, taUpdateRTTIs, taUpdateVmtList, taUpdateStrings, taUpdateCode, taUpdateXrefs,
     taUpdateShortClassViewer, taUpdateClassViewer, taUpdateBeforeClassViewer,
     taFinished

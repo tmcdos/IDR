@@ -70,10 +70,10 @@ Type
     BJLlist:TList;//TBJL
     CmpStack:TList;
     Embedded:Boolean; // Is proc emebedded ?
-    //EmbeddedList:TStringList;//List of embedded procedures addresses
+    EmbeddedList:TStringList;//List of embedded procedures addresses
     constructor Create(AStartAdr:Integer; ASize:Integer; recN:InfoRec);
     Destructor Destroy; Override;
-    Function GetLvarName(Ofs:Integer):AnsiString;
+    function GetLvarName(Ofs:Integer;Const _Type:AnsiString): AnsiString;
     Procedure AddToBody(src:AnsiString); Overload;
     Procedure AddToBody(src:TStringList); Overload;
     Function IsExitAtBodyEnd:Boolean;
@@ -124,7 +124,8 @@ Type
     function FPop: PITEM;
     Procedure FPush(val:PITEM);
     Procedure FSet(idx:Integer; val:PITEM);
-    Function GetArrayFieldOffset(ATypeName:AnsiString; AFromOfs, AScale:Integer):FieldInfo;
+    Procedure FXch(idx1,idx2:Integer);
+    function GetArrayFieldOffset(ATypeName:AnsiString; AFromOfs, AScale:Integer;var _name,_type:AnsiString): Integer;
     Function GetCmpInfo(fromAdr:Integer):Integer;
     Function GetCycleFrom:AnsiString;
     Procedure GetCycleIdx(IdxInfo:PIdxInfo; ADisInfo:TDisInfo);
@@ -147,7 +148,7 @@ Type
     procedure SetRegItem(Idx:Integer; var val:TITEM);
     Procedure SetStop(Adr:Integer);
     function SimulateCall(curAdr, callAdr:Integer; instrLen:Integer; mtd:PMethodRec; AClassAdr:Integer): Boolean;
-    Procedure SimulateFloatInstruction(curAdr:Integer; instrLen:Integer);
+    procedure SimulateFloatInstruction(curAdr:Integer);
     Procedure SimulateFormatCall;
     Procedure SimulateInherited(procAdr:Integer);
     Procedure SimulateInstr1(curAdr:Integer; Op:Byte);
@@ -159,9 +160,9 @@ Type
     Procedure SimulateInstr2MemReg(curAdr:Integer; Op:Byte);
     Procedure SimulateInstr3(curAdr:Integer; Op:Byte);
     Procedure SimulatePop(curAdr:Integer);
-    Procedure SimulatePush(curAdr:Integer);
+    Procedure SimulatePush(curAdr:Integer;bShowComment:Boolean);
     Function SimulateSysCall(name:AnsiString; procAdr:Integer; instrLen:Integer):Boolean;
-    Function AnalyzeConditions(brType:Integer; curAdr, sAdr, jAdr:Integer; loopInfo:TLoopInfo):Integer;
+    Function AnalyzeConditions(brType:Integer; curAdr, sAdr, jAdr:Integer; loopInfo:TLoopInfo;bFloat:Boolean):Integer;
   end;
 
 Implementation
@@ -328,7 +329,11 @@ Begin
   bjllist := TList.Create;
   CmpStack := TList.Create;
   Embedded := PF_EMBED in recN.procInfo.flags;
-  //EmbeddedList := TStringList.Create;
+  EmbeddedList := TStringList.Create;
+  BpBased := PF_BPBASED in recN.procInfo.flags;
+  LocBase := 0;
+  if not BpBased then LocBase := StackSize;
+  LastResString := '';
 end;
 
 Destructor TDecompileEnv.Destroy;
@@ -340,13 +345,36 @@ Begin
   BJLseq.Free;
   BJLlist.Free;
   CmpStack.Free;
-  //EmbeddedList.Free;
+  EmbeddedList.Free;
   Inherited;
 end;
 
-Function TDecompileEnv.GetLvarName (Ofs:Integer):AnsiString;
+Function TDecompileEnv.GetLvarName (Ofs:Integer;Const _Type:AnsiString):AnsiString;
+Var
+  locInfo:PLocalInfo;
+  _recN:InfoRec;
+  n:Integer;
 Begin
   Result:='lvar_' + Val2Str(LocBase - Ofs);
+  //Insert by ZGL
+  _recN := GetInfoRec(StartAdr);
+  if Assigned(_recN) and Assigned(_recN.procInfo) then
+  begin
+    if Assigned(_recN.procInfo.locals) then
+    begin
+      for n := 0 to _recN.procInfo.locals.Count-1 do
+      begin
+        locInfo := _recN.procInfo.locals[n];
+        if (locInfo.Ofs = Ofs) and (locInfo.Name <> '') Then //LocBase - Ofs
+        Begin
+          Result:=locInfo.Name;
+          Exit;
+        end;
+      end;
+    end;
+    locInfo := _recN.procInfo.AddLocal(Ofs, 1, Result, _Type);
+  end;
+  ////////////////
 end;
 
 Function TDecompileEnv.GetContext (Adr:Integer):PDContext;
@@ -521,6 +549,8 @@ Begin
     Raise Exception.Create('Attempt to PUSH on full Stack!');
   end;
   Dec(_ESP_, 4);
+  Env.Stack[_ESP_]:=item^;
+  {
   With Env.Stack[_ESP_] do
   Begin
     Flags := Item.Flags;
@@ -532,6 +562,7 @@ Begin
     _Type := Item._Type;
     Name := Item.Name;
   end;
+  }
 end;
 
 Function TDecompiler.Pop:PItem;
@@ -554,6 +585,8 @@ end;
 //Save val into ST(idx)
 Procedure TDecompiler.FSet (idx:Integer; val:PITEM);
 Begin
+  Env.FStack[(_TOP_ + idx) and 7] := val^;
+  {
   With Env.FStack[(_TOP_ + idx) and 7] do
   Begin
     Flags := val.Flags;
@@ -565,6 +598,49 @@ Begin
     _Type := val._Type;
     Name := val.Name;
   End;
+  }
+end;
+
+//Xchange ST(idx1) and ST(idx2)
+Procedure TDecompiler.FXch(idx1, idx2:Integer);
+var
+  tmp:TItem;
+  item1,item2:PItem;
+begin
+  item1 := FGet(idx1);
+  item2 := FGet(idx2);
+
+  tmp:=item1^;
+  item1^:=item2^;
+  item2^:=tmp;
+  {
+  tmp.Flags = _item1->Flags;
+  tmp.Precedence = _item1->Precedence;
+  tmp.Size = _item1->Size;
+  tmp.Offset = _item1->Offset;
+  tmp.IntValue = _item1->IntValue;
+  tmp.Value = _item1->Value;
+  tmp.Type = _item1->Type;
+  tmp.Name = _item1->Name;
+
+  _item1->Flags = _item2->Flags;
+  _item1->Precedence = _item2->Precedence;
+  _item1->Size = _item2->Size;
+  _item1->Offset = _item2->Offset;
+  _item1->IntValue = _item2->IntValue;
+  _item1->Value = _item2->Value;
+  _item1->Type = _item2->Type;
+  _item1->Name = _item2->Name;
+
+  _item2->Flags = _tmp.Flags;
+  _item2->Precedence = _tmp.Precedence;
+  _item2->Size = _tmp.Size;
+  _item2->Offset = _tmp.Offset;
+  _item2->IntValue = _tmp.IntValue;
+  _item2->Value = _tmp.Value;
+  _item2->Type = _tmp.Type;
+  _item2->Name = _tmp.Name;
+  }
 end;
 
 Procedure TDecompiler.FPush (val:PITEM);
@@ -598,6 +674,7 @@ end;
 
 Function TDecompiler.Init (fromAdr:Integer):Boolean;
 var
+  kind:LKind;
   retKind:LKind;
   callKind:Byte;
   n, argNum, ndx, rn, size:Integer;
@@ -605,7 +682,7 @@ var
   recN:InfoRec;
   aInfo:PArgInfo;
   item:TItem;
-  retType:AnsiString;
+  retType,typeDef:AnsiString;
 Begin
   Result:=True;
   retKind:=ikUnknown;
@@ -647,10 +724,11 @@ Begin
       InitItem(@item);
       item.Flags := [IF_ARG];
       if aInfo.Tag = $22 then Include(item.Flags, IF_VAR);
+      kind:=GetTypeKind(aInfo.TypeDef,size);
       item._Type := aInfo.TypeDef;
       item.Name := GetArgName(aInfo);
       item.Value := item.Name;
-      if aInfo.Size > 4 then
+      if (kind=ikFloat) and (aInfo.Tag <> $22) then
       Begin
         size := aInfo.Size;
         while size<>0 do
@@ -719,10 +797,12 @@ Begin
   //Push ret address
   InitItem(@item);
   Push(@item);
+  { removed by Crypto
   Env.BpBased := PF_BPBASED in recN.procInfo.flags;
   Env.LocBase := 0;
   if not Env.BpBased then Env.LocBase := _ESP_;
   Env.LastResString := '';
+  }
 end;
 
 Procedure TDecompileEnv.OutputSourceCodeLine (line:AnsiString);
@@ -783,13 +863,15 @@ Procedure TDecompileEnv.DecompileProc;
 var
   de:TDecompiler;
   recN:InfoRec;
+  locInfo:PLocalInfo;
+  n:Integer;
 Begin
   //EmbeddedList.Clear;
   De := TDecompiler.Create(Self);
   try
     if not De.Init(StartAdr) then
     begin
-      De.Env.ErrAdr := De.Env.StartAdr;
+      De.Env.ErrAdr := {De.Env.}StartAdr;
       Raise Exception.Create('Procedure Prototype is not completed');
     end;
     De.InitFlags;
@@ -798,6 +880,27 @@ Begin
     recN := GetInfoRec(StartAdr);
     ProcName := recN.Name;
     AddToBody(recN.MakePrototype(StartAdr, true, false, false, true, false));
+
+    //add vars -- Insert by ZGL
+    if Assigned(recN.procInfo.locals) and (recN.procInfo.locals.Count > 0) then
+    begin
+      for n := 0 to recN.procInfo.locals.Count-1 do
+      begin
+        locInfo := recN.procInfo.locals[n];
+        GetLvarName(locInfo.Ofs, locInfo.TypeDef);
+      End;
+    end;
+    if Assigned(recN.procInfo.locals) and (recN.procInfo.locals.Count > 0) then
+    begin
+      AddToBody('var');
+      for n := 0 to recN.procInfo.locals.Count-1 do
+      begin
+        locInfo := recN.procInfo.locals[n];
+        AddToBody('  ' + GetLvarName(locInfo.Ofs, locInfo.TypeDef) + ':' + locInfo.TypeDef + ';');
+      end;
+    end;
+    ///////////////////////////
+
     AddToBody('begin');
     if StartAdr <> EP then
     begin
@@ -1443,12 +1546,36 @@ Begin
     //@TryFinallyExit
     if IsFlagSet([cfFinallyExit], curPos) then
     Begin
-      Env.AddToBody('Exit;');
-      while IsFlagSet([cfFinallyExit], curPos) do
+      _pos := curPos;
+      adr := curAdr;
+      num := 0;
+      while IsFlagSet([cfFinallyExit], _pos) do
       Begin
-        Inc(curPos);
-        Inc(curAdr);
+        ClearFlag([cfFinallyExit], _pos); //to avoid infinity recursion
+        Inc(_Pos);
+        Inc(Adr);
+        Inc(num);
       End;
+      de := TDecompiler.Create(Env);
+      de.SetStackPointers(Self);
+      de.SetDeFlags(DeFlags);
+      de.SetStop(adr);
+      try
+        curAdr := de.Decompile(curAdr, [], Nil);
+        //Env.AddToBody('Exit;');
+      Except
+        on e:Exception do
+        begin
+          de.free;
+          raise Exception('FinallyExit->' + e.Message);
+        end;
+      End;
+      de.free;
+
+      SetFlags([cfFinallyExit], curPos, num); //restore flags
+      curPos := _pos;
+      curAdr := adr;
+
       continue;
     End;
     //Try
@@ -1510,7 +1637,7 @@ Begin
               Inc(adr, instrLen);
               instrLen := frmDisasm.Disassemble(Code + _pos, adr, @disInfo, Nil);
               branchAdr := disInfo.Immediate;
-              //Save position
+              //Save position and address
               sPos := _pos + instrLen;
               sAdr := adr + instrLen;
               for n := 0 to num-1 do
@@ -1522,7 +1649,7 @@ Begin
                   if _pos = decPos then break;
                   instrLen := frmDisasm.Disassemble(Code + _pos, adr, @DisaInfo, Nil);
                   op := frmDisasm.GetOp(DisaInfo.Mnem);
-                  if op = OP_PUSH then SimulatePush(adr);
+                  if op = OP_PUSH then SimulatePush(adr,true);
                   if (op = OP_ADD) or (op = OP_SUB) then SimulateInstr2(adr, op);
                   Inc(_pos, instrLen);
                   Inc(adr, instrLen);
@@ -1569,7 +1696,7 @@ Begin
                 line:=line + GetDecompilerRegisterName(varIdx);
               //local var
               if _loopInfo.forInfo.CntInfo.IdxType = itLVAR then
-                line:=line + Env.GetLvarName(varIdx);
+                line:=line + Env.GetLvarName(varIdx,'Integer');
             End
             else
             Begin
@@ -1579,7 +1706,7 @@ Begin
                 line:=line + GetDecompilerRegisterName(varIdx);
               //local var
               if _loopInfo.forInfo.VarInfo.IdxType = itLVAR then
-                line:=line + Env.GetLvarName(varIdx);
+                line:=line + Env.GetLvarName(varIdx,'Integer');
             End;
             line:=line + ' := ' + _loopInfo.forInfo.From + ' ';
             if _loopInfo.forInfo.Down then line:=line + 'down';
@@ -1885,7 +2012,7 @@ Begin
            brType := BranchGetPrevInstructionType(CmpAdr, jmpAdr, loopInfo);
           //Skip conditional branch
           Inc(curAdr, instrLen);
-          curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+          curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
           curPos := Adr2Pos(curAdr);
           continue;
         End
@@ -1928,23 +2055,23 @@ Begin
       bytesToSkip2 := IsInt64ComparisonViaStack2(curAdr, skip1, skip2, endAdr);
       if bytesToSkip1 + bytesToSkip2 = 0 then
       Begin
-        SimulatePush(curAdr);
+        SimulatePush(curAdr,Not IsFlagSet([cfFrame],curPos));
         Inc(curPos, instrLen); 
         Inc(curAdr, instrLen);
       End
       else
       Begin
-        //Save position
+        //Save position and address
         sPos := curPos;
         sAdr := curAdr;
   
         //Simulate push
         instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @DisaInfo, Nil);
-        SimulatePush(curAdr);
-        Inc(curPos, instrLen); 
+        SimulatePush(curAdr,true);
+        Inc(curPos, instrLen);
         Inc(curAdr, instrLen);
         instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @DisaInfo, Nil);
-        SimulatePush(curAdr);
+        SimulatePush(curAdr,true);
         Inc(curPos, instrLen);
         Inc(curAdr, instrLen);
 
@@ -2009,7 +2136,7 @@ Begin
            brType := BranchGetPrevInstructionType(CmpAdr, jmpAdr, loopInfo);
           //Skip conditional branch
           Inc(curAdr, instrLen);
-          curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+          curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
           curPos := Adr2Pos(curAdr);
         End;
       End;
@@ -2031,7 +2158,7 @@ Begin
     End
     else if (op = OP_CMP) or (DisaInfo.Float and (dd = 'fcom')) then
     Begin
-      //Save position
+      //Save position and address
       sPos := curPos; 
       sAdr := curAdr;
       bytesToSkip := IsBoundErr(curAdr);
@@ -2170,10 +2297,10 @@ Begin
           Inc(curAdr, instrLen);
         End;
         cmpRes := GetCmpInfo(curAdr);
-        //SimulateFloatInstruction(_sAdr, _instrLen);
+        //SimulateFloatInstruction(_sAdr{, _instrLen});
         if CF_BJL in flags then
         Begin
-          SimulateFloatInstruction(sAdr, instrLen);
+          SimulateFloatInstruction(sAdr{, instrLen});
           New(cmpItem);
           cmpItem.L := CompInfo.L;
           cmpItem.O := CompInfo.O;
@@ -2191,17 +2318,17 @@ Begin
         //jcc up
         if disInfo.Immediate < curAdr then
         Begin
-          //if (DisInfo.Float) SimulateFloatInstruction(_sAdr, _instrLen);
+          if DisInfo.Float then SimulateFloatInstruction(sAdr{, instrLen});
           line := 'if (' + CompInfo.L + ' ' + GetDirectCondition(CompInfo.O) + ' ' + CompInfo.R + ') then Continue;';
           Env.AddToBody(line);
-          Inc(curPos, instrLen); 
+          Inc(curPos, instrLen);
           Inc(curAdr, instrLen);
           continue;
         End;
         //jcc at BreakAdr
         if Assigned(loopInfo) and (loopInfo.BreakAdr = disInfo.Immediate) then
         Begin
-          //if (DisInfo.Float) SimulateFloatInstruction(_sAdr, _instrLen);
+          if DisInfo.Float then SimulateFloatInstruction(sAdr{, instrLen});
           line := 'if (' + CompInfo.L + ' ' + GetDirectCondition(CompInfo.O) + ' ' + CompInfo.R + ') then Break;';
           Env.AddToBody(line);
           Inc(curPos, instrLen); 
@@ -2220,7 +2347,7 @@ Begin
         brType := BranchGetPrevInstructionType(CmpAdr, jmpAdr, loopInfo);
         //Skip conditional branch
         Inc(curAdr, instrLen);
-        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
         curPos := Adr2Pos(curAdr);
         continue;
       End
@@ -2235,7 +2362,7 @@ Begin
     End
     else if (op = OP_TEST) or (op = OP_BT) then
     Begin
-      //Save position
+      //Save address
       sAdr := curAdr;
       bytesToSkip := IsInlineLengthTest(curAdr);
       if bytesToSkip<>0 then
@@ -2321,7 +2448,7 @@ Begin
         //Skip conditional branch
         Inc(curAdr, instrLen);
 
-        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
         curPos := Adr2Pos(curAdr);
         continue;
       End
@@ -2382,7 +2509,7 @@ Begin
     End
     else if op = OP_SUB then
     Begin
-      //Save position
+      //Save address
       sAdr := curAdr;
       bytesToSkip := IsIntOver(curAdr + instrLen);
       endAdr := IsGeneralCase(curAdr, Env.StartAdr + Env.Size);
@@ -2446,7 +2573,7 @@ Begin
         //Skip conditional branch
         instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, Nil, Nil);
         Inc(curAdr, instrLen);
-        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
         curPos := Adr2Pos(curAdr);
         continue;
       End
@@ -2501,7 +2628,7 @@ Begin
         //Skip conditional branch
         instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, Nil, Nil);
         Inc(curAdr, instrLen);
-        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
         curPos := Adr2Pos(curAdr);
         continue;
       End
@@ -2541,7 +2668,7 @@ Begin
         //Skip conditional branch
         instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, Nil, Nil);
         Inc(curAdr, instrLen);
-        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
         curPos := Adr2Pos(curAdr);
         continue;
       End
@@ -2612,6 +2739,8 @@ Begin
     End
     else if (op = OP_INC) or (op = OP_DEC) then
     Begin
+      // save address
+      sAdr:= curAdr;
       endAdr := IsGeneralCase(curAdr, Env.StartAdr + Env.Size);
       if endAdr<>0 then
       Begin
@@ -2655,7 +2784,7 @@ Begin
         //Skip conditional branch
         instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, Nil, Nil);
         Inc(curAdr, instrLen);
-        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo);
+        curAdr := AnalyzeConditions(brType, curAdr, sAdr, jmpAdr, loopInfo, disInfo.Float);
         curPos := Adr2Pos(curAdr);
         continue;
       End
@@ -2768,7 +2897,7 @@ Begin
             Inc(r, elSize);
           End;
         End;
-        Env.AddToBody(Env.GetLvarName(item1.IntValue) + ' := ' + item2.Value + ';');
+        Env.AddToBody(Env.GetLvarName(item1.IntValue,typeName) + ' := ' + item2.Value + ';');
         Inc(curPos, instrLen); 
         Inc(curAdr, instrLen);
         continue;
@@ -2821,7 +2950,7 @@ Begin
             Inc(r, elSize);
           End;
         End;
-        Env.AddToBody(item1.Value + ' := ' + Env.GetLvarName(item2.IntValue) + ';');
+        Env.AddToBody(item1.Value + ' := ' + Env.GetLvarName(item2.IntValue,typeName) + ';');
         Inc(curPos, instrLen); 
         Inc(curAdr, instrLen);
         continue;
@@ -2839,7 +2968,7 @@ Begin
     End;
     if DisaInfo.Float then
     Begin
-      SimulateFloatInstruction(curAdr, instrLen);
+      SimulateFloatInstruction(curAdr{, instrLen});
       Inc(curPos, instrLen);
       Inc(curAdr, instrLen);
       continue;
@@ -2857,14 +2986,14 @@ end;
 
 Function TDecompiler.SimulateCall (curAdr, callAdr:Integer; instrLen:Integer; mtd:PMethodRec; AClassAdr:Integer):Boolean;
 var
-  sep, fromKB, _vmt:Boolean;
+  sep, fromKB, _vmt,savedBpBase:Boolean;
   callKind:Byte;
   kind, retKind, methodKind:LKind;
   pp:PAnsiChar;
   savedIdx,savedStartAdr,savedLocBase,savedSize:Integer;
   argsNum, retBytes, retBytesCalc, len, _val, _esp:Integer;
   r,n,idx, rn, ndx, ss, _pos, _size, recsize:Integer;
-  classAdr, adr, dynAdr, vmtAdr:Integer;
+  classAdr, adr, dynAdr:Integer;
   item, item1:TItem;
   aInfo:PArgInfo;
   fInfo:FieldInfo;
@@ -2873,8 +3002,8 @@ var
   recN, recN1:InfoRec;
   pCode:PPICODE;
   de:TDecompiler;
-  _name, alias, line, retType, _value, iname, embAdr:AnsiString;
-  _typeName, comment, regName,propName:AnsiString;
+  _name, _type, alias, line, retType, _value, iname, embAdr:AnsiString;
+  _typeName, comment, regName,propName, varName:AnsiString;
 Begin
   idx:=-1;
   pp := Nil;
@@ -2940,23 +3069,23 @@ Begin
       retBytes := recN.procInfo.retBytes;
       //stdcall, pascal, cdecl - return bytes := 4 * ArgsNum
       if (callKind in [1..3]) and (retBytes=0) then retBytes := argsNum * 4;
-      (*
-      if (recN.procInfo.flags and PF_EMBED)<>0 then
+
+      if PF_EMBED in recN.procInfo.flags then
       Begin
-        _embAdr := Val2Str(callAdr,8);
-        if Env.EmbeddedList.IndexOf(_embAdr) = -1 then
+        embAdr := Val2Str(callAdr,8);
+        if Env.EmbeddedList.IndexOf(embAdr) = -1 then
         Begin
-          Env.EmbeddedList.Add(_embAdr);
-          _savedIdx := FMain.lbCode.ItemIndex;
+          Env.EmbeddedList.Add(embAdr);
+          savedIdx := FMain.lbCode.ItemIndex;
           FMain.lbCode.ItemIndex := -1;
-          if Application.MessageBox(PAnsiChar('Decompile embedded procedure at address ' + _embAdr + '?'), 'Confirmation', MB_YESNO) = IDYES then
+          if Application.MessageBox(PAnsiChar('Decompile embedded procedure at address ' + embAdr + '?'), 'Confirmation', MB_YESNO) = IDYES then
           Begin
-            Env.AddToBody('//BEGIN_EMBEDDED_' + _embAdr);
+            Env.AddToBody('//BEGIN_EMBEDDED_' + embAdr);
             Env.AddToBody(recN.MakePrototype(callAdr, true, false, false, true, false));
-            _savedStartAdr := Env.StartAdr;
-            _savedBpBased := Env.BpBased;
-            _savedLocBase := Env.LocBase;
-            _savedSize := Env.Size;
+            savedStartAdr := Env.StartAdr;
+            savedBpBase := Env.BpBased;
+            savedLocBase := Env.LocBase;
+            savedSize := Env.Size;
             Env.StartAdr := callAdr;
             _size := GetProcSize(callAdr);
             Env.Size := _size;
@@ -2966,9 +3095,9 @@ Begin
             de.SetStop(callAdr + _size);
             try
               Env.AddToBody('begin');
-              de.Decompile(callAdr, 0, Nil);
+              de.Decompile(callAdr, [], Nil);
               Env.AddToBody('end');
-              Env.AddToBody('//END_EMBEDDED_' + _embAdr);
+              Env.AddToBody('//END_EMBEDDED_' + embAdr);
             except
               on E:Exception do
               Begin
@@ -2978,15 +3107,14 @@ Begin
             end;
             Inc(_ESP_, 4);
             de.Free;
-            Env.StartAdr := _savedStartAdr;
-            Env.Size := _savedSize;
-            Env.BpBased := _savedBpBased;
-            Env.LocBase := _savedLocBase;
+            Env.StartAdr := savedStartAdr;
+            Env.Size := savedSize;
+            Env.BpBased := savedBpBase;
+            Env.LocBase := savedLocBase;
           End;
-          FMain.lbCode.ItemIndex := _savedIdx;
+          FMain.lbCode.ItemIndex := savedIdx;
         End;
       End;
-      *)
     End
     else
     Begin
@@ -3130,6 +3258,7 @@ Begin
           rn := -1; 
           regName := '';
           kind := GetTypeKind(aInfo.TypeDef, _size);
+          if kind=ikFloat then _size:=aInfo.Size else _size:=4;
           if aInfo.Tag = $22 then _size := 4;
           //else _size := _argInfo.Size;
           if callKind = 0 then //fastcall
@@ -3149,7 +3278,7 @@ Begin
                 continue;
               End;
             End;
-            if _size >= 8 then
+            if (kind=ikFloat)and(aInfo.Tag<>$22) then
             Begin
               Dec(_esp, _size);
               item := Env.Stack[_esp];
@@ -3225,20 +3354,23 @@ Begin
             item1 := Env.Stack[item.IntValue];
             if kind = ikInteger then
             Begin
-              line:=line + Env.GetLvarName(item.IntValue);
-              Env.Stack[item.IntValue].Value := Env.GetLvarName(item.IntValue);
+              varName:=Env.GetLvarName(item.IntValue,aInfo.TypeDef);
+              line:=line +varName;
+              Env.Stack[item.IntValue].Value := varName;
               continue;
             End
             else if kind = ikEnumeration then
             Begin
-              line:=line + Env.GetLvarName(item.IntValue);
-              Env.Stack[item.IntValue].Value := Env.GetLvarName(item.IntValue);
+              varName:=Env.GetLvarName(item.IntValue,aInfo.TypeDef);
+              line:=line +varName;
+              Env.Stack[item.IntValue].Value := varName;
               continue;
             End
             else if (kind = ikLString) or (kind = ikVariant) then
             Begin
-              line:=line + Env.GetLvarName(item.IntValue);
-              Env.Stack[item.IntValue].Value := Env.GetLvarName(item.IntValue);
+              varName:=Env.GetLvarName(item.IntValue,aInfo.TypeDef);
+              line:=line + varName;
+              Env.Stack[item.IntValue].Value := varName;
               Env.Stack[item.IntValue]._Type := aInfo.TypeDef;
               continue;
             End
@@ -3249,12 +3381,12 @@ Begin
             End
             else if kind = ikArray then
             Begin
-              line:=line + Env.GetLvarName(item.IntValue);
+              line:=line + Env.GetLvarName(item.IntValue,aInfo.TypeDef);
               continue;
             End
             else if kind = ikRecord then
             Begin
-              line:=line + Env.GetLvarName(item.IntValue);
+              line:=line + Env.GetLvarName(item.IntValue,aInfo.TypeDef);
               recsize := GetRecordSize(aInfo.TypeDef);
               for r := 0 to recsize-1 do
               Begin
@@ -3273,8 +3405,9 @@ Begin
               continue;
             End;
             //Type not found
-            line:=line + Env.GetLvarName(item.IntValue);
-            Env.Stack[item.IntValue].Value := Env.GetLvarName(item.IntValue);
+            varName:=Env.GetLvarName(item.IntValue,aInfo.TypeDef);
+            line:=line + varName;
+            Env.Stack[item.IntValue].Value := varName;
             Env.Stack[item.IntValue]._Type := aInfo.TypeDef;
             continue;
           End;
@@ -3350,7 +3483,8 @@ Begin
           End
           else if kind = ikRecord then
           Begin
-            line:=line + item.Value; //ExtractClassName(_item.Value);
+            if _size < 8 Then line:=line + item.Value //ExtractClassName(_item.Value);
+              Else line:=line + item1.Value;
             continue;
           End
           else if kind = ikFloat then
@@ -3464,7 +3598,7 @@ Begin
             else if item.Value <> '' then
               line := item.Value + ' := ' + line
             else
-              line := Env.GetLvarName(item.IntValue) + ' := ' + line;
+              line := Env.GetLvarName(item.IntValue,retType) + ' := ' + line;
             if retKind = ikRecord then
             Begin
               _size := GetRecordSize(retType);
@@ -3548,7 +3682,7 @@ Begin
     if DisaInfo.BaseReg = 20 then
     Begin
       item := Env.Stack[_ESP_ + DisaInfo.Offset];
-      line := Env.GetLvarName(_ESP_ + DisaInfo.Offset) + '(...);';
+      line := Env.GetLvarName(_ESP_ + DisaInfo.Offset,'') + '(...);';
       Env.AddToBody(line);
       _value := ManualInput(CurProcAdr, curAdr, 'Enter number of RET bytes (in hex) of procedure at ' + Val2Str(curAdr,8), 'Bytes:');
       if _value = '' then
@@ -3604,8 +3738,7 @@ Begin
         Exit;
       End;
       //Field
-      fInfo := FMain.GetField(item._Type, DisaInfo.Offset, _vmt, vmtAdr);
-      if fInfo=Nil then
+      if GetField(item._Type, DisaInfo.Offset, _name, _type)=0 then
       Begin
         while recM=Nil do
         Begin
@@ -3632,8 +3765,8 @@ Begin
       End
       else
       Begin
-        if fInfo.Name <> '' then
-          Env.AddToBody(fInfo.Name + '(...);')
+        if _name <> '' then
+          Env.AddToBody(_name + '(...);')
         else
           Env.AddToBody('f' + Val2Str(DisaInfo.Offset) + '(...);');
         _value := ManualInput(CurProcAdr, curAdr, 'Enter number of RET bytes (in hex) of procedure at ' + Val2Str(curAdr,8), 'Bytes:');
@@ -3670,18 +3803,41 @@ Begin
   Begin
     GetRegItem(DisaInfo.OpRegIdx[0], item);
     line := item.Value + ';';
-    Env.AddToBody(line);
-    _value := ManualInput(CurProcAdr, curAdr, 'Enter number of RET bytes (in hex) of procedure at ' + Val2Str(curAdr,8), 'Bytes:');
+    Env.AddToBody('call ...;');
+    _value := ManualInput(CurProcAdr, curAdr, 'Enter number of stack arguments for procedure at ' + Val2Str(curAdr,8), 'NumArgs:');
     if _value = '' then
     Begin
       Env.ErrAdr := curAdr;
       raise Exception.Create('Emptry input - See you later!');
     End;
-    sscanf(PAnsiChar(_value),'%lX',[@retBytes]);
-    Inc(_ESP_, retBytes);
+    sscanf(PAnsiChar(_value),'%d',[@argsNum]);
+    Inc(_ESP_, 4*argsNum);
     Result:=false;
     Exit;
   End;
+  //call [reg+N]
+  if (DisaInfo.OpNum = 1) and (DisaInfo.OpType[0] = otMEM) then
+  begin
+    Env.AddToBody('call(');
+    _value := ManualInput(CurProcAdr, curAdr, 'Enter number of stack arguments for procedure at ' + Val2Str(curAdr,8), 'NumArgs:');
+    if _value = '' then
+    begin
+      Env.ErrAdr := curAdr;
+      raise Exception.Create('Emptry input - See you later!');
+    end;
+    sscanf(PAnsiChar(_value),'%d',[@argsNum]);
+    while argsNum<>0 do
+    begin
+      item := Env.Stack[_ESP_];
+      if IF_INTVAL in item.Flags then Env.AddToBody(IntToStr(item.IntValue))
+        else Env.AddToBody(item.Value);
+      Inc(_ESP_, 4);
+      Dec(argsNum);
+    end;
+    Env.AddToBody(');');
+    result:=false;
+    Exit;
+  end;
   Env.ErrAdr := curAdr;
   raise Exception.Create('Under construction');
 end;
@@ -3829,7 +3985,7 @@ Begin
                   from := IntToStr(Env.Stack[varIdxInfo.IdxValue].IntValue)
                 else
                   from := Env.Stack[varIdxInfo.IdxValue].Value;
-                Env.Stack[varIdxInfo.IdxValue].Value := Env.GetLvarName(varIdxInfo.IdxValue);
+                Env.Stack[varIdxInfo.IdxValue].Value := Env.GetLvarName(varIdxInfo.IdxValue, 'Integer');
                 break;
               End;
             End;
@@ -3841,7 +3997,7 @@ Begin
                   from := IntToStr(Env.Stack[varIdxInfo.IdxValue].IntValue)
                 else
                   from := Env.Stack[varIdxInfo.IdxValue].Value;
-                Env.Stack[varIdxInfo.IdxValue].Value := Env.GetLvarName(varIdxInfo.IdxValue);
+                Env.Stack[varIdxInfo.IdxValue].Value := Env.GetLvarName(varIdxInfo.IdxValue, 'Integer');
                 break;
               End;
             End;
@@ -4263,7 +4419,7 @@ Begin
             Exclude(item.Flags, IF_INTVAL);
           End;
           //else _to := item.Value;
-          item.Value := Env.GetLvarName(cntIdxInfo.IdxValue);
+          item.Value := Env.GetLvarName(cntIdxInfo.IdxValue, 'Integer');
           Env.Stack[cntIdxInfo.IdxValue] := item;
         End;
       End
@@ -4286,7 +4442,7 @@ Begin
         Begin
           item := Env.Stack[varIdxInfo.IdxValue];
           from := item.Value1;
-          item.Value := Env.GetLvarName(varIdxInfo.IdxValue);
+          item.Value := Env.GetLvarName(varIdxInfo.IdxValue, 'Integer');
           Include(item.Flags, IF_CYCLE_VAR);
           Env.Stack[varIdxInfo.IdxValue] := item;
         End;
@@ -4305,7 +4461,7 @@ Begin
         else if cntIdxInfo.IdxType = itLVAR then
         Begin
           cnt := Env.Stack[cntIdxInfo.IdxValue].Value;
-          Env.Stack[cntIdxInfo.IdxValue].Value := Env.GetLvarName(cntIdxInfo.IdxValue);
+          Env.Stack[cntIdxInfo.IdxValue].Value := Env.GetLvarName(cntIdxInfo.IdxValue, 'Integer');
         End;
         if SameText(from, '1') then _to := cnt
         else if SameText(from, '0') then _to := cnt + ' - 1'
@@ -4319,15 +4475,16 @@ Begin
   Result:= TLoopInfo.Create('R', fromAdr, brkAdr, lastAdr); //repeat
 end;
 
-Procedure TDecompiler.SimulatePush (curAdr:Integer);
+procedure TDecompiler.SimulatePush(curAdr:Integer;bShowComment:Boolean);
 var
   _vmt:Boolean;
+  b:Byte;
   offset, idx:Integer;
-  _vmtAdr:Integer;
+  pdi:PAnsiChar;
   item, item1:TItem;
   recN:InfoRec;
   fInfo:FieldInfo;
-  _name, typeName, _value:AnsiString;
+  _name, _type, typeName, _value, regName:AnsiString;
 Begin
   //push imm
   if DisaInfo.OpType[0] = otIMM then
@@ -4364,8 +4521,8 @@ Begin
       Exit;
     End;
     GetRegItem(idx, item);
-    _value := GetDecompilerRegisterName(idx);
-    if item.Value <> '' then _value := item.Value + 'Begin' + _value + 'End;';
+    regName:= GetDecompilerRegisterName(idx);
+    if (item.Value <> '')and not SameText(regName,item.Value) then _value := item.Value + '{' + _value + '}';
     item.Value := _value;
 
     //push eax - clear flag IF_CALL_RESULT
@@ -4380,6 +4537,7 @@ Begin
     //  _item.Name := '';
     //End;
     Push(@item);
+    if bShowComment then Env.AddToBody('//push ' + regname);
     Exit;
   End
   //push mem
@@ -4406,7 +4564,7 @@ Begin
         //push [ebp-N]
         if IF_STACK_PTR in item1.Flags then
         Begin
-          _name := Env.GetLvarName(item1.IntValue + offset);
+          _name := Env.GetLvarName(item1.IntValue + offset,'');
           item := Env.Stack[item1.IntValue + offset];
           item.Value := _name;
           Push(@item);
@@ -4449,11 +4607,9 @@ Begin
             Exit;
           End;
           //push [reg+N]
-          fInfo := FMain.GetField(typeName, offset, _vmt, _vmtAdr);
-          if Assigned(fInfo) then
+          if GetField(typeName, offset, _name, _type)<>0 then
           Begin
             InitItem(@item);
-            _name := GetFieldName(fInfo);
             if SameText(item1.Value, 'Self') then
               item.Value := _name
             else
@@ -4493,7 +4649,7 @@ end;
 
 Procedure TDecompiler.SimulatePop (curAdr:Integer);
 Var
-  line:AnsiString;
+  regName:AnsiString;
   item:PItem;
 Begin
   //pop reg
@@ -4503,10 +4659,11 @@ Begin
     if IF_ARG in item.Flags then
       if not IsFlagSet([cfFrame], Adr2Pos(curAdr)) then
       begin
-        line := GetDecompilerRegisterName(DisaInfo.OpRegIdx[0]) + ' := ' + item.Name + ';';
-        Env.AddToBody(line);
+        regName := GetDecompilerRegisterName(DisaInfo.OpRegIdx[0]);
+        Env.AddToBody('//pop '+regName);
       end;
     item.Precedence := PRECEDENCE_NONE;
+    item.Value:=regName;
     SetRegItem(DisaInfo.OpRegIdx[0], item^);
     Exit;
   End
@@ -4654,7 +4811,7 @@ Begin
             item._Type := 'Integer';
             SetRegItem(16, item);
             SetRegItem(18, item);
-            line := 'EDX_EAX := EAX * ' + Env.GetLvarName(_ESP_ + offset) + '; //' + item1.Value;
+            line := 'EDX_EAX := EAX * ' + Env.GetLvarName(_ESP_ + offset, 'Integer') + '; //' + item1.Value;
             Env.AddToBody(line);
             Exit;
           End;
@@ -4667,14 +4824,14 @@ Begin
             if item1.Value <> '' then
               _name := item1.Value
             else
-              _name := Env.GetLvarName(itemBase.IntValue + offset);
+              _name := Env.GetLvarName(itemBase.IntValue + offset, 'Integer');
             InitItem(@item);
             item.Precedence := PRECEDENCE_MULT;
             item.Value := _name + ' * ' + item2.Value;
             item._Type := 'Integer';
             SetRegItem(16, item);
             SetRegItem(18, item);
-            line := 'EDX_EAX := EAX * ' + Env.GetLvarName(_ESP_ + offset) + '; //' + item.Value;
+            line := 'EDX_EAX := EAX * ' + Env.GetLvarName(_ESP_ + offset, 'Integer') + '; //' + item.Value;
             Env.AddToBody(line);
             Exit;
           End;
@@ -4684,7 +4841,7 @@ Begin
             GetRegItem(16, item2);
             InitItem(@item);
             item.Precedence := PRECEDENCE_MULT;
-            item.Value := GetString(@item2, PRECEDENCE_MULT) + ' * ' + GetString(@itemBase, PRECEDENCE_MULT);
+            item.Value := GetString(@item2, PRECEDENCE_MULT) + ' * ' + GetString(@itemBase, PRECEDENCE_MULT+1);
             item._Type := 'Integer';
             SetRegItem(16, item);
             SetRegItem(18, item);
@@ -4706,11 +4863,9 @@ var
   tmpBuf:PAnsiChar;
   reg1Idx, pow2, _size:Integer;
   n,idx, len, ap:Integer;
-  vmtAdr:Integer;
   item, item1:TItem;
   recN:InfoRec;
-  fInfo:FieldInfo;
-  _name, _value, typeName, line, comment, imm,  txt:AnsiString;
+  _name, _type, _value, typeName, line, comment, imm, iname,fname, txt:AnsiString;
   wStr:WideString;
 Begin
   reg1Idx := DisaInfo.OpRegIdx[0];
@@ -4889,48 +5044,55 @@ Begin
     End;
     if item1._Type <> '' then
     Begin
-      if item1._Type[1] = '^' then
+      typeName:=item1._Type;
+      if item1._Type[1] = '^' then typeName := GetTypeDeref(item1._Type);
+
+      kind := GetTypeKind(typeName, _size);
+      if kind = ikRecord then
       Begin
-        typeName := GetTypeDeref(item1._Type);
-        kind := GetTypeKind(typeName, _size);
-        if kind = ikRecord then
+        _value := item1.Value;
+        InitItem(@item);
+        item.Flags:=[IF_RECORD_FOFS];
+        item.Value:=_value;
+        item._Type:=typeName;
+        item.Offset:=DisaInfo.Immediate;
+        SetRegItem(reg1Idx,item);
+        {
+        txt := GetRecordFields(DisaInfo.Immediate, typeName);
+        if Pos(':',txt)<>0 then
         Begin
-          _value := item1.Value;
+          _value:=_value + '.' + ExtractName(txt);
+          typeName := ExtractType(txt);
+        End
+        else
+        Begin
+          _value:=_value + '.f' + Val2Str(DisaInfo.Immediate);
+          typeName := txt;
+        End;
+        item.Value := _value;
+        item._Type := typeName;
+        SetRegItem(reg1Idx, item);
+        line := GetDecompilerRegisterName(reg1Idx) + ' := ^' + item.Value;
+        Env.AddToBody(line);
+        }
+        Exit;
+      End;
+      if kind=ikVMT then
+      begin
+        if GetField(item1._Type, DisaInfo.Immediate, _name, _type)<>0 then
+        Begin
           InitItem(@item);
-          txt := GetRecordFields(DisaInfo.Immediate, typeName);
-          if Pos(':',txt)<>0 then
-          Begin
-            _value:=_value + '.' + ExtractName(txt);
-            typeName := ExtractType(txt);
-          End
+          if SameText(item1.Value, 'Self') then
+            item.Value := _name
           else
-          Begin
-            _value:=_value + '.f' + Val2Str(DisaInfo.Immediate);
-            typeName := txt;
-          End;
-          item.Value := _value;
-          item._Type := typeName;
+            item.Value := item1.Value + '.' + _name;
+          item._Type := _Type;
           SetRegItem(reg1Idx, item);
-          line := GetDecompilerRegisterName(reg1Idx) + ' := ^' + item.Value;
+          line := GetDecompilerRegisterName(reg1Idx) + ' := ' + item.Value;
           Env.AddToBody(line);
           Exit;
         End;
-      End;
-      fInfo := FMain.GetField(item1._Type, DisaInfo.Immediate, _vmt, vmtAdr);
-      if Assigned(fInfo) then
-      Begin
-        InitItem(@item);
-        _name := GetFieldName(fInfo);
-        if SameText(item1.Value, 'Self') then
-          item.Value := _name
-        else
-          item.Value := item1.Value + '.' + _name;
-        item._Type := fInfo._Type;
-        SetRegItem(reg1Idx, item);
-        line := GetDecompilerRegisterName(reg1Idx) + ' := ' + item.Value;
-        Env.AddToBody(line);
-        Exit;
-      End;
+      end;
     End;
     if item1.Value <> '' then
       _value := GetString(@item1, PRECEDENCE_ADD) + ' + ' + imm
@@ -5019,7 +5181,7 @@ Begin
     else
     Begin
       item.Precedence := PRECEDENCE_ADD;
-      item.Value := GetString(@item1, PRECEDENCE_MULT) + ' Or ' + imm;
+      item.Value := GetString(@item1, PRECEDENCE_ADD) + ' Or ' + imm;
       item._Type := 'Cardinal';
     End;
     SetRegItem(reg1Idx, item);
@@ -5221,7 +5383,7 @@ Begin
     End;
     line := GetDecompilerRegisterName(reg1Idx) + ' := ' + GetDecompilerRegisterName(reg1Idx) 
       + _op + GetDecompilerRegisterName(reg2Idx);
-    comment := GetString(@item1, PRECEDENCE_ADD) + _op + GetString(@item2, PRECEDENCE_ADD);
+    comment := GetString(@item1, PRECEDENCE_ADD) + _op + GetString(@item2, PRECEDENCE_ADD+1);
     Env.AddToBody(line + '; //' + comment);
     InitItem(@item);
     item.Precedence := PRECEDENCE_ADD;
@@ -5238,7 +5400,7 @@ Begin
   else if Op in [OP_MUL, OP_IMUL, OP_AND, OP_SHR, OP_SHL] then
   Begin
     line:=line + GetDecompilerRegisterName(reg1Idx) + ' := ' + GetDecompilerRegisterName(reg1Idx) + _op + GetDecompilerRegisterName(reg2Idx);
-    comment := GetString(@item1, PRECEDENCE_MULT) + _op + GetString(@item2, PRECEDENCE_MULT);
+    comment := GetString(@item1, PRECEDENCE_MULT) + _op + GetString(@item2, PRECEDENCE_MULT+1);
     Env.AddToBody(line + '; //' + comment);
 
     InitItem(@item);
@@ -5251,7 +5413,7 @@ Begin
   else if (Op = OP_DIV) or (Op = OP_IDIV) then
   Begin
     line := 'EAX := ' + GetDecompilerRegisterName(reg1Idx) + ' Div ' + GetDecompilerRegisterName(reg2Idx);
-    comment := GetString(@item1, PRECEDENCE_MULT) + ' Div ' + GetString(@item2, PRECEDENCE_MULT);
+    comment := GetString(@item1, PRECEDENCE_MULT) + ' Div ' + GetString(@item2, PRECEDENCE_MULT+1);
     Env.AddToBody(line + '; //' + comment);
 
     InitItem(@item);
@@ -5259,7 +5421,7 @@ Begin
     item.Value := comment;
     item._Type := 'Integer';
     SetRegItem(16, item);
-    item.Value := GetString(@item1, PRECEDENCE_MULT) + ' Mod ' + GetString(@item2, PRECEDENCE_MULT);;
+    item.Value := GetString(@item1, PRECEDENCE_MULT) + ' Mod ' + GetString(@item2, PRECEDENCE_MULT+1);
     SetRegItem(18, item);
     Exit;
   End
@@ -5275,7 +5437,7 @@ end;
 
 Procedure TDecompiler.SimulateInstr2RegMem (curAdr:Integer; Op:Byte);
 var
-  _op,_fname,_name,_type,_value,line:AnsiString;
+  _op,fname,_name,_type,_value,line:AnsiString;
   reg1Idx,fOffset,offset,ap,adr,size:Integer;
   itemSrc,itemDst, item,item1,item2:TItem;
   recN,recN1:InfoRec;
@@ -5307,7 +5469,6 @@ Begin
       //Arg
       if IF_ARG in item.Flags then
       Begin
-        Exclude(item.Flags, IF_ARG);
         //_item.Flags := _item.Flags and not IF_VAR;
         item.Value := item.Name;
         SetRegItem(reg1Idx, item);
@@ -5325,15 +5486,16 @@ Begin
       else if IF_FIELD in item.Flags then
       Begin
         fOffset := item.Offset;
-        _fname := GetRecordFields(fOffset, Env.Stack[itemSrc.IntValue - fOffset]._Type);
+        fname := GetRecordFields(fOffset, Env.Stack[itemSrc.IntValue - fOffset]._Type);
         _name := Env.Stack[itemSrc.IntValue - fOffset].Value;
+        _type := ExtractType(fname);
         if _name = '' then
-          _name := Env.GetLvarName(itemSrc.IntValue - fOffset);
+          _name := Env.GetLvarName(itemSrc.IntValue - fOffset,_type);
         InitItem(@itemDst);
-        if Pos(':',_fname)<>0 then
+        if Pos(':',fname)<>0 then
         Begin
-          itemDst.Value := _name + '.' + ExtractName(_fname);
-          itemDst._Type := ExtractType(_fname);
+          itemDst.Value := _name + '.' + ExtractName(fname);
+          itemDst._Type := ExtractType(fname);
         End
         else itemDst.Value := _name + '.f' + Val2Str(fOffset);
         SetRegItem(reg1Idx, itemDst);
@@ -5343,7 +5505,7 @@ Begin
       if item.Name <> '' then _value := item.Name
       else
       Begin
-        _value := Env.GetLvarName(itemSrc.IntValue);
+        _value := Env.GetLvarName(itemSrc.IntValue,'');
         if item.Value <> '' then
           _value:=_value + 'Begin' + item.Value + 'End;';
       End;
@@ -5364,14 +5526,14 @@ Begin
       if IF_FIELD in item.Flags then
       Begin
         fOffset := item.Offset;
-        _fname := GetRecordFields(fOffset, Env.Stack[itemSrc.IntValue - fOffset]._Type);
+        fname := GetRecordFields(fOffset, Env.Stack[itemSrc.IntValue - fOffset]._Type);
         _name := Env.Stack[itemSrc.IntValue - fOffset].Value;
         itemDst.Flags := [];
         itemDst.Precedence := PRECEDENCE_ADD;
-        if Pos(':',_fname)<>0 then
+        if Pos(':',fname)<>0 then
         Begin
-          itemDst.Value := itemDst.Value + _op + _name + '.' + ExtractName(_fname);
-          itemDst._Type := ExtractType(_fname);
+          itemDst.Value := itemDst.Value + _op + _name + '.' + ExtractName(fname);
+          itemDst._Type := ExtractType(fname);
         End
         else itemDst.Value := itemDst.Value + _op + _name + '.f' + Val2Str(fOffset);
         SetRegItem(reg1Idx, itemDst);
@@ -5430,7 +5592,7 @@ Begin
       if Assigned(recN) then
       Begin
         //VMT
-        if recN.kind = ikVMT then
+        if (recN.kind = ikVMT)or(recN.kind = ikDynArray) then
         Begin
           InitItem(@item);
           item.Flags := [IF_INTVAL];
@@ -5457,8 +5619,8 @@ Begin
               item.Value := recN1.Name;
               item._Type := '^' + recN1._type;
               SetRegItem(reg1Idx, item);
+              Exit;
             End;
-            Exit;
           End;
         End;
       End
@@ -5516,13 +5678,11 @@ Begin
   End;
   if (Op = OP_MOV) or (Op = OP_LEA) then
   Begin
-    InitItem(@item);
-    item.Flags := itemSrc.Flags;
-    item.Value := itemSrc.Value;
-    item._Type := itemSrc._Type;
-    //if Op = OP_LEA then _item.Type := '^' + _item.Type;
-    SetRegItem(reg1Idx, item);
-    line := GetDecompilerRegisterName(reg1Idx) + ' := ' + item.Value + ';';
+    SetRegItem(reg1Idx, itemSrc);
+    line := GetDecompilerRegisterName(reg1Idx) + ' := ' + itemSrc.Value + ';';
+    if IF_RECORD_FOFS in itemSrc.Flags then
+      line:=line + '.' + GetRecordFields(itemSrc.Offset, itemSrc._Type);
+    line:=line + ';';
     Env.AddToBody(line);
     Exit;
   End
@@ -5539,7 +5699,7 @@ Begin
   Begin
     InitItem(@item);
     item.Precedence := PRECEDENCE_ADD;
-    item.Value := GetString(@itemDst, PRECEDENCE_ADD) + _op + GetString(@itemSrc, PRECEDENCE_ADD);
+    item.Value := GetString(@itemDst, PRECEDENCE_ADD) + _op + GetString(@itemSrc, PRECEDENCE_ADD+1);
     item._Type := itemSrc._Type;
     SetRegItem(reg1Idx, item);
     line := GetDecompilerRegisterName(reg1Idx) + ' := ' + GetDecompilerRegisterName(reg1Idx)
@@ -5551,7 +5711,7 @@ Begin
   Begin
     InitItem(@item);
     item.Precedence := PRECEDENCE_MULT;
-    item.Value := GetString(@itemDst, PRECEDENCE_MULT) + _op + GetString(@itemSrc, PRECEDENCE_MULT);
+    item.Value := GetString(@itemDst, PRECEDENCE_MULT) + _op + GetString(@itemSrc, PRECEDENCE_MULT+1);
     item._Type := itemSrc._Type;
     SetRegItem(reg1Idx, item);
     line := GetDecompilerRegisterName(reg1Idx) + ' := ' + GetDecompilerRegisterName(reg1Idx) 
@@ -5563,13 +5723,13 @@ Begin
   Begin
     InitItem(@item);
     item.Precedence := PRECEDENCE_MULT;
-    item.Value := GetString(@itemDst, PRECEDENCE_MULT) + ' Div ' + GetString(@itemSrc, PRECEDENCE_MULT);
+    item.Value := GetString(@itemDst, PRECEDENCE_MULT) + ' Div ' + GetString(@itemSrc, PRECEDENCE_MULT+1);
     item._Type := itemSrc._Type;
     SetRegItem(16, item);
 
     InitItem(@item);
     item.Precedence := PRECEDENCE_MULT;
-    item.Value := GetString(@itemDst, PRECEDENCE_MULT) + ' Mod ' + GetString(@itemSrc, PRECEDENCE_MULT);
+    item.Value := GetString(@itemDst, PRECEDENCE_MULT) + ' Mod ' + GetString(@itemSrc, PRECEDENCE_MULT+1);
     itemDst._Type := itemSrc._Type;
     SetRegItem(18, item);
 
@@ -5888,6 +6048,9 @@ Begin
       CompInfo.R := _name;
       Exit;
     End;
+    line:=_name + ' AND ' + GetImmString(typeName, DisaInfo.Immediate) + ';';
+    Env.AddToBody(line);
+    Exit;
   End;
   Env.ErrAdr := curAdr;
   raise Exception.Create('Under construction');
@@ -5922,13 +6085,15 @@ Begin
       if IF_CALL_RESULT in itemSrc.Flags then
       Begin
         Exclude(itemSrc.Flags, IF_CALL_RESULT);
-        itemSrc.Value := Env.GetLvarName(itemDst.IntValue);
+        itemSrc.Value := Env.GetLvarName(itemDst.IntValue,'');
         SetRegItem(reg2Idx, itemSrc);
       End
       else
       Begin
         if not(IF_ARG in itemSrc.Flags) then
-          itemSrc.Name := Env.GetLvarName(itemDst.IntValue);
+          itemSrc.Name := Env.GetLvarName(itemDst.IntValue,'');
+        If itemSrc.Value<>'' Then
+          itemSrc.Value:=Env.GetLvarName(itemDst.IntValue,'');
       End;
       Env.Stack[itemDst.IntValue] := itemSrc;
       line := _name + ' := ' + _value + ';';
@@ -5974,6 +6139,29 @@ Begin
   if IF_INTVAL in itemDst.Flags then
   Begin
     _offset := itemDst.IntValue;
+    ap := Adr2Pos(_offset);
+    recN := GetInfoRec(_offset);
+    if Assigned(recN) then MakeGvar(recN, _offset, curAdr);
+    if ap >= 0 then
+    begin
+      adr := PInteger(Code + ap)^;
+      //May be pointer to var
+      if IsValidImageAdr(adr) then
+      Begin
+        recN := GetInfoRec(adr);
+        if Assigned(recN) then
+        Begin
+          MakeGvar(recN, _offset, curAdr);
+          line := '^';
+        end;
+      end;
+    end;
+    if Assigned(recN) then
+    begin
+      if (itemSrc._Type <> '') then recN._type := itemSrc._Type;
+      _name := recN.Name;
+    end;
+    {
     if Op = OP_MOV then
     Begin
       ap := Adr2Pos(_offset);
@@ -6006,6 +6194,7 @@ Begin
       Env.ErrAdr := curAdr;
       raise Exception.Create('Under construction');
     End;
+    }
   End;
   if Op = OP_MOV then
   Begin
@@ -6044,6 +6233,12 @@ Begin
     Env.AddToBody(line);
     Exit;
   End
+  Else if Op = OP_XOR Then
+  Begin
+    line := _name + ' := ' + _name + ' Xor ' + _value + ';';
+    Env.AddToBody(line);
+    Exit;
+  end
   else if Op = OP_TEST then
   Begin
     CompInfo.L := _name + ' And ' + _value;
@@ -6055,11 +6250,9 @@ Begin
   End
   else if Op = OP_BT then
   Begin
-    CompInfo.L := _name + '[' + _value + ']';
-    CompInfo.O := CmpOp;
-    CompInfo.R := 'True';
-    line := _name + ' := ' + _name + '[' + _value + '];';
-    Env.AddToBody(line);
+    CompInfo.L := _value;
+    CompInfo.O := 'Q';
+    CompInfo.R := _name;
     Exit;
   End;
   Env.ErrAdr := curAdr;
@@ -6555,10 +6748,12 @@ Begin
   else if SameText(AName, '@BlockWrite') then Result:= 'Write'
   else if SameText(AName, '@ChDir') then Result:= 'ChDir'
   else if SameText(AName, '@Close') then Result:= 'CloseFile'
+  else if SameText(AName, '@DynArrayHigh') then Result:= 'High'
   else if SameText(AName, '@EofText') then Result:= 'Eof'
   else if SameText(AName, '@FillChar')then Result:= 'FillChar'
   else if SameText(AName, '@Flush')then Result:= 'Flush'
-  else if SameText(AName, '@LStrCopy') or
+  else if SameText(AName, '@Copy') or
+    SameText(AName, '@LStrCopy') or
     SameText(AName, '@WStrCopy') or
     SameText(AName, '@UStrCopy') then Result:= 'Copy'
   else if SameText(AName, '@LStrDelete') or
@@ -6570,7 +6765,10 @@ Begin
     SameText(AName, '@WStrLen') or
     SameText(AName, '@UStrLen') then Result:= 'Length'
   else if SameText(AName, '@LStrOfChar') then Result:= 'StringOfChar'
-  else if SameText(AName, '@LStrPos') then Result:= 'Pos'
+  else if SameText(AName,'@Pos') or
+    SameText(AName, '@LStrPos') or
+    SameText(AName, '@WStrPos') or
+    SameText(AName, '@UStrPos') then Result:= 'Pos'
   else if SameText(AName, '@LStrSetLength') or
     SameText(AName, '@UStrSetLength') then Result:= 'SetLength'
   else if SameText(AName, '@MkDir') then Result:= 'MkDir'
@@ -6628,17 +6826,18 @@ Begin
   Begin
     //dest:Pointer
     GetRegItem(16, item1);
-    if IF_STACK_PTR in item1.Flags then
-    Begin
-      Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
-      item1 := Env.Stack[item1.IntValue];
-    End;
     //source:Pointer
     GetRegItem(18, item2);
     //typeInfo:Pointer
     GetRegItem(17, item3);
     recN := GetInfoRec(item3.IntValue);
-    Env.Stack[item1.IntValue]._Type := recN.Name;
+    _typeName:=recN.Name;
+    if IF_STACK_PTR in item1.Flags then
+    Begin
+      Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,_typeName);
+      item1 := Env.Stack[item1.IntValue];
+    End;
+    Env.Stack[item1.IntValue]._Type := _typeName;
     line := item1.Value + ' := ' + item2.Value + ';';
     Env.AddToBody(line);
     Exit;
@@ -6650,15 +6849,15 @@ Begin
     if IF_STACK_PTR in item1.Flags then
     Begin
       if Env.Stack[item1.IntValue].Value = '' then 
-        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
+        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,'array of');
       item1 := Env.Stack[item1.IntValue];
     End;
     //edx - src
     GetRegItem(18, item2);
     if IF_STACK_PTR in item2.Flags then
     Begin
-      if Env.Stack[item2.IntValue].Value = '' then 
-        Env.Stack[item2.IntValue].Value := Env.GetLvarName(item2.IntValue);
+      if Env.Stack[item2.IntValue].Value = '' then
+        Env.Stack[item2.IntValue].Value := Env.GetLvarName(item2.IntValue,'array of');
       item2 := Env.Stack[item2.IntValue];
     End;
     line := item1.Value + ' := ' + item2.Value + ';';
@@ -6672,7 +6871,7 @@ Begin
     if IF_STACK_PTR in item1.Flags then
     Begin
       if Env.Stack[item1.IntValue].Value = '' then 
-        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
+        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,'array of');
       item1 := Env.Stack[item1.IntValue];
     End;
     line := item1.Value + ' := Nil;';
@@ -6685,8 +6884,8 @@ Begin
     GetRegItem(16, item1);
     if IF_STACK_PTR in item1.Flags then
     Begin
-      if Env.Stack[item1.IntValue].Value = '' then 
-        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
+      if Env.Stack[item1.IntValue].Value = '' then
+        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,'array of');
       item1 := Env.Stack[item1.IntValue];
     End;
     _value := 'Length(' + item1.Value + ')';
@@ -6704,16 +6903,19 @@ Begin
     //eax - dst
     GetRegItem(16, item1);
     item := item1;
-    if IF_STACK_PTR in item1.Flags then
-    Begin
-      if Env.Stack[item1.IntValue].Value = '' then 
-        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
-      item := Env.Stack[item1.IntValue];
-    End;
-    line := 'SetLength(' + item.Value;
     //edx - type of DynArray
     GetRegItem(18, item2);
-    Env.Stack[item1.IntValue]._Type := GetTypeName(item2.IntValue);
+    _typeName:=GetTypeName(item2.IntValue);
+    if IF_STACK_PTR in item1.Flags then
+    Begin
+      if Env.Stack[item1.IntValue].Value = '' then
+        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,_typeName);
+      item := Env.Stack[item1.IntValue];
+      Env.Stack[item1.IntValue]._Type := _typeName;
+      line := 'SetLength(' + item.Value;
+    End
+    else if IF_INTVAL in item1.Flags then
+      line := 'SetLength(' + MakeGvarName(item1.IntValue);
     //ecx - dims cnt
     GetRegItem(17, item3);
     cnt := item3.IntValue;
@@ -6802,7 +7004,7 @@ Begin
         Env.Stack[item1.IntValue + r] := item;
       End;
       if Env.Stack[item1.IntValue].Value = '' then 
-        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
+        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,_typeName);
       Env.Stack[item1.IntValue]._Type := _typeName;
     End;
     Exit;
@@ -6813,18 +7015,26 @@ Begin
     //eax - dst
     GetRegItem(16, item1);
     item := item1;
-    if IF_STACK_PTR in item1.Flags then
-    Begin
-      if Env.Stack[item1.IntValue].Value = '' then
-        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue);
-      item := Env.Stack[item1.IntValue];
-    End;
     //edx - type of DynArray
     GetRegItem(18, item2);
     //ecx - dims cnt
     GetRegItem(17, item3);
-    cnt := item3.IntValue;
-    Env.Stack[item1.IntValue]._Type := 'array [1..' + IntToStr(cnt) + '] of ' + GetTypeName(item2.IntValue);;
+    _typeName:='array [1..'+IntToStr(cnt)+'] of '+GetTypeName(item2.IntValue);
+    if IF_STACK_PTR in item1.Flags then
+    Begin
+      if Env.Stack[item1.IntValue].Value = '' then
+        Env.Stack[item1.IntValue].Value := Env.GetLvarName(item1.IntValue,_typeName);
+      item := Env.Stack[item1.IntValue];
+    End;
+    Env.Stack[item1.IntValue]._Type := _typeName;
+    Exit;
+  End
+  else if SameText(name, '@IntfCast') then
+  Begin
+    GetRegItem(16, item1);
+    GetRegItem(18, item2);
+    line := '('+item1.Value + ' as ' + item2.Value1+')';
+    Env.AddToBody(line);
     Exit;
   End
   else if SameText(name, '@IntfClear') then
@@ -6898,7 +7108,7 @@ Begin
     if IF_STACK_PTR in item.Flags then
     Begin
       Env.Stack[item.IntValue].Flags := [];
-      Env.Stack[item.IntValue].Value := Env.GetLvarName(item.IntValue);
+      Env.Stack[item.IntValue].Value := Env.GetLvarName(item.IntValue,'String');
       if name[2] = 'L' then
         Env.Stack[item.IntValue]._Type := 'AnsiString'
       else if name[2] = 'W' then
@@ -7010,13 +7220,18 @@ Begin
   Begin
     //eax - dst
     GetRegItem(16, item1);
-    if IF_STACK_PTR in item1.Flags then
+    if IF_INTVAL in item1.Flags then
+      line:= MakeGvarName(item1.IntValue)
+    else if IF_STACK_PTR in item1.Flags then
+    begin
+      line:=item1.Value;
       Env.Stack[item1.IntValue]._Type := 'ShortString';
+    End;
     //edx - src
     GetRegItem(18, item2);
     if IF_STACK_PTR in item2.Flags then
       Env.Stack[item2.IntValue]._Type := 'String';
-    line := item1.Value + ' := ' + item2.Value + ';';
+    line := line + ' := ' + item2.Value + ';';
     Env.AddToBody(line);
     Exit;
   End
@@ -7059,6 +7274,7 @@ Begin
   End
   else if SameText(name, '@Sin') or
     SameText(name, '@Cos') or
+    SameText(name, '@Exp') or
     SameText(name, '@Int') then
   Begin
     _value := Copy(name,2, 5);
@@ -7102,7 +7318,8 @@ Begin
     Env.AddToBody(line);
     Exit;
   End
-  else if SameText(name, '@UStrFromWChar') then
+  else if SameText(name, '@UStrFromChar') or
+    SameText(name, '@UStrFromWChar') then
   Begin
     //eax-Dst
     GetRegItem(16, item1);
@@ -7111,7 +7328,10 @@ Begin
     //edx-Src
     GetRegItem(18, item2);
     if IF_STACK_PTR in item2.Flags then
-      Env.Stack[item2.IntValue]._Type := 'WideChar';
+    begin
+      if name[11]='C' then Env.Stack[item2.IntValue]._Type := 'Char'
+        else Env.Stack[item2.IntValue]._Type := 'WideChar';
+    end;
     line := item1.Value + ' := ' + item2.Value;
     Env.AddToBody(line);
     Exit;
@@ -7337,7 +7557,7 @@ Begin
   begin
     GetRegItem(16, item1);
     if IF_STACK_PTR in item1.Flags then
-      line := Env.GetLvarName(item1.IntValue);
+      line := Env.GetLvarName(item1.IntValue,'Variant');
     line:=line + ' := Variant(' + FPop.Value + ')';
     Env.AddToBody(line);
     Exit;
@@ -7349,7 +7569,7 @@ Begin
     if IF_STACK_PTR in item1.Flags then
       Env.Stack[item1.IntValue]._Type := 'Variant';
     InitItem(@item);
-    item.Value := 'Integer(' + Env.GetLvarName(item1.IntValue) + ')';
+    item.Value := 'Integer(' + Env.GetLvarName(item1.IntValue,'Variant') + ')';
     SetRegItem(16, item);
     line := 'EAX := ' + item.Value + ';';
     Env.AddToBody(line);
@@ -7365,7 +7585,7 @@ Begin
     InitItem(@item);
     item.Value := 'Integer(' + item1.Value + ')';
     SetRegItem(16, item);
-    line := Env.GetLvarName(item2.IntValue) + ' := ' + item.Value + ';';
+    line := Env.GetLvarName(item2.IntValue,'Variant') + ' := ' + item.Value + ';';
     Env.AddToBody(line);
     Exit;
   End
@@ -7374,13 +7594,33 @@ Begin
     //edx=Variant, eax=String
     GetRegItem(18, item1);
     GetRegItem(16, item2);
+    if IF_INTVAL in item2.Flags then // !!!Use it for other cases!!!
+      line := MakeGvarName(item2.IntValue)
+    else if IF_STACK_PTR in item2.Flags then
+    begin
+      line := Env.GetLvarName(item2.IntValue, 'String');
+      Env.Stack[item2.IntValue]._Type := 'String';
+    end
+    else line := item2.Value;
     if IF_STACK_PTR in item1.Flags then
       Env.Stack[item1.IntValue]._Type := 'Variant';
     InitItem(@item);
     item.Value := 'String(' + item1.Value + ')';
     SetRegItem(16, item);
-    line := Env.GetLvarName(item2.IntValue) + ' := ' + item.Value + ';';
+    line := line + ' := ' + item.Value + ';';
     Env.AddToBody(line);
+    Exit;
+  end
+  else if SameText(name, '@VarToReal') then
+  begin
+    //eax=Variant
+    GetRegItem(16, item1);
+    if IF_STACK_PTR in item1.Flags then
+      Env.Stack[item1.IntValue]._Type := 'Variant';
+    InitItem(@item);
+    item.Value := 'Real(' + item1.Value + ')';
+    item._Type := 'Extended';
+    FSet(0, @item);
     Exit;
   end
   else if SameText(name, '@Write0Ext') then
@@ -7395,10 +7635,34 @@ Begin
     Env.AddToBody(line);
     Exit;
   End
+  else if SameText(name, '@Str0Ext') then
+  begin
+    //Value (Extended)
+    GetFloatItemFromStack(_ESP_, @item1, FT_EXTENDED);
+    Inc(_ESP_, 12);
+    //Destination - eax
+    GetRegItem(16, item2);
+    line := 'Str(' + item1.Value + ', ' + item2.Value + ');';
+    Env.AddToBody(line);
+    Exit;
+  end
+  else if SameText(name, '@Str1Ext') then
+  begin
+    //Value (Extended)
+    GetFloatItemFromStack(_ESP_, @item1, FT_EXTENDED);
+    Inc(_ESP_, 12);
+    //Width - eax
+    GetRegItem(16, item2);
+    //Destination - edx
+    GetRegItem(18, item3);
+    line := 'Str(' + item1.Value + ':' + IntToStr(item2.IntValue) + ', ' + item3.Value + ');';
+    Env.AddToBody(line);
+    Exit;
+  end
   else if SameText(name, '@Str2Ext') then
   Begin
     //Value (Extended)
-    GetFloatItemFromStack(_ESP_, @item1, FT_EXTENDED); 
+    GetFloatItemFromStack(_ESP_, @item1, FT_EXTENDED);
     Inc(_ESP_, 12);
     //Width - eax
     GetRegItem(16, item2);
@@ -7406,7 +7670,7 @@ Begin
     GetRegItem(18, item3);
     //Destination - ecx
     GetRegItem(17, item4);
-    line:=line + 'Str(' + item1.Value + ':' + IntToStr(item2.IntValue) 
+    line:= 'Str(' + item1.Value + ':' + IntToStr(item2.IntValue)
       + ':' + IntToStr(item3.IntValue) + ', ' + item4.Value + ');';
     Env.AddToBody(line);
     Exit;
@@ -7423,7 +7687,7 @@ Begin
     GetRegItem(18, item3);
     //ecx
     GetRegItem(17, item4);
-    line:=line + 'Write(' + ExtractClassName(item1.Value) + ', ' + item2.Value 
+    line:= 'Write(' + ExtractClassName(item1.Value) + ', ' + item2.Value
       + ':' + IntToStr(item3.IntValue) + ':' + IntToStr(item4.IntValue) + ');';
     Env.AddToBody(line);
     Exit;
@@ -7468,7 +7732,7 @@ Begin
     if IF_STACK_PTR in item1.Flags then
     Begin
       item := Env.Stack[item1.IntValue];
-      item.Value := Env.GetLvarName(item1.IntValue);
+      item.Value := Env.GetLvarName(item1.IntValue,'String');
       item._Type := 'WideString';
       Env.Stack[item1.IntValue] := item;
       item1 := item;
@@ -7627,7 +7891,9 @@ Begin
     SameText(name, '@_IOTest') or
     SameText(name, '@CheckAutoResult') or
     SameText(name, '@InitExe') or
-    SameText(name, '@InitLib') then Exit;
+    SameText(name, '@InitLib') or
+    SameText(name, '@IntfAddRef') or
+    SameText(name, '@TryFinallyExit') then Exit;
   Env.ErrAdr := procAdr;
   raise Exception.Create('Under construction');
 end;
@@ -7664,13 +7930,13 @@ Begin
   Env.LastResString := '';
 end;
 
-Procedure TDecompiler.SimulateFloatInstruction (curAdr:Integer; instrLen:Integer);
+Procedure TDecompiler.SimulateFloatInstruction (curAdr:Integer);
 var
   reverse, pop1, pop2:Boolean;
   _pos,reg1Idx, reg2Idx, sz, _ofs:Integer;
   _item, itemSrc:TItem;
   recN:InfoRec;
-  _val, line:AnsiString;
+  _name,_val, line, varName:AnsiString;
 Begin
   reverse := false; 
   pop1 := false; 
@@ -7726,24 +7992,45 @@ Begin
     //op Mem
     if DisaInfo.OpType[0] = otMEM then
     Begin
+      //fst(p) [esp]
+      if (DisaInfo.BaseReg = 20) and (DisaInfo.Offset=0) then
+      begin
+        _item := Env.FStack[_TOP_];
+        if pop1 then FPop;
+        _ofs := _ESP_;
+        sz := DisaInfo.OpSize;
+        Env.Stack[_ofs] := _item;
+        Inc(_ofs, 4);
+        Dec(sz, 4);
+        InitItem(@_item);
+        while sz > 0 do
+        begin
+          Env.Stack[_ofs] := _item;
+          Inc(_ofs, 4);
+          Dec(sz, 4);
+        end;
+        Exit;
+      end;
       GetMemItem(curAdr, @itemSrc, 0);
       if IF_STACK_PTR in itemSrc.Flags then
       Begin
         _item := Env.FStack[_TOP_];
         if pop1 then FPop;
-        line := Env.GetLvarName(itemSrc.IntValue) + ' := ' + _item.Value + ';';
+        varName:=Env.GetLvarName(itemSrc.IntValue,'Double');
+        line := varName + ' := ' + _item.Value + ';';
         Env.AddToBody(line);
-        _item.Value := Env.GetLvarName(itemSrc.IntValue);
-        _ofs := itemSrc.IntValue; 
-        sz := DisaInfo.MemSize;
-        Env.Stack[_ofs] := _item; 
+        _item.Precedence := PRECEDENCE_NONE;
+        _item.Value:=varName;
+        _ofs := itemSrc.IntValue;
+        sz := DisaInfo.OpSize;
+        Env.Stack[_ofs] := _item;
         Inc(_ofs, 4);
         Dec(sz, 4);
         InitItem(@_item);
         while sz > 0 do
         Begin
-          Env.Stack[_ofs] := _item; 
-          Inc(_ofs, 4); 
+          Env.Stack[_ofs] := _item;
+          Inc(_ofs, 4);
           Dec(sz, 4);
         End;
         Exit;
@@ -7805,7 +8092,7 @@ Begin
           if _item.Value <> '' then
             CompInfo.R := _item.Value
           else
-            CompInfo.R := Env.GetLvarName(itemSrc.IntValue);
+            CompInfo.R := Env.GetLvarName(itemSrc.IntValue,'Double');
           if pop1 then
           Begin
             FPop;
@@ -7853,8 +8140,8 @@ Begin
     if DisaInfo.OpNum = 0 then
     Begin
       InitItem(@_item);
+      _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + GetString(FGet(1), PRECEDENCE_ADD+1);
       _item.Precedence := PRECEDENCE_ADD;
-      _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + GetString(FGet(1), PRECEDENCE_ADD);
       _item._Type := 'Extended';
       FSet(1, @_item);
       FPop;
@@ -7869,34 +8156,35 @@ Begin
         if IF_STACK_PTR in itemSrc.Flags then
         Begin
           _item := Env.Stack[itemSrc.IntValue];
+          _name:=_item.Name;
           if _item.Value <> '' then
-            _val := GetString(@_item, PRECEDENCE_ADD)
+            _val := GetString(@_item, PRECEDENCE_ADD+1)
           else
-            _val := Env.GetLvarName(itemSrc.IntValue);
+            _val := Env.GetLvarName(itemSrc.IntValue,'Extended');
           InitItem(@_item);
+          _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + _name + '{' + _val + '}';
           _item.Precedence := PRECEDENCE_ADD;
-          _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + _val;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
-        End;
-        if  IF_INTVAL in itemSrc.Flags then
+        End
+        Else if IF_INTVAL in itemSrc.Flags then
         Begin
           recN := GetInfoRec(itemSrc.IntValue);
           if Assigned(recN) and recN.HasName then
-            _val := recN.Name
+            _name := recN.Name
           else
-            _val := GetGvarName(itemSrc.IntValue);
+            _name := GetGvarName(itemSrc.IntValue);
           InitItem(@_item);
+          _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + _name;
           _item.Precedence := PRECEDENCE_ADD;
-          _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + recN.Name;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
         End;
         InitItem(@_item);
-        _item.Precedence := PRECEDENCE_ADD;
         _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' + ' + itemSrc.Value;
+        _item.Precedence := PRECEDENCE_ADD;
         _item._Type := 'Extended';
         FSet(0, @_item);
         Exit;
@@ -7908,8 +8196,8 @@ Begin
       reg1Idx := DisaInfo.OpRegIdx[0] - 30;
       reg2Idx := DisaInfo.OpRegIdx[1] - 30;
       InitItem(@_item);
+      _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_ADD) + ' + ' + GetString(FGet(reg2Idx), PRECEDENCE_ADD+1);
       _item.Precedence := PRECEDENCE_ADD;
-      _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_ADD) + ' + ' + GetString(FGet(reg2Idx), PRECEDENCE_ADD);
       _item._Type := 'Extended';
       FSet(reg1Idx, @_item);
       //faddp
@@ -7931,11 +8219,11 @@ Begin
     if DisaInfo.OpNum = 0 then
     Begin
       InitItem(@_item);
-      _item.Precedence := PRECEDENCE_ADD;
       if reverse then
-        _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + GetString(FGet(1), PRECEDENCE_ADD)
+        _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + GetString(FGet(1), PRECEDENCE_ADD+1)
       else
-        _item.Value := GetString(FGet(1), PRECEDENCE_ADD) + ' - ' + GetString(FGet(0), PRECEDENCE_ADD);
+        _item.Value := GetString(FGet(1), PRECEDENCE_ADD) + ' - ' + GetString(FGet(0), PRECEDENCE_ADD+1);
+      _item.Precedence := PRECEDENCE_ADD;
       _item._Type := 'Extended';
       FSet(1, @_item);
       FPop;
@@ -7950,16 +8238,17 @@ Begin
         if IF_STACK_PTR in itemSrc.Flags then
         Begin
           _item := Env.Stack[itemSrc.IntValue];
+          _name:=_item.Name;
           if _item.Value <> '' then
             _val := GetString(@_item, PRECEDENCE_ADD)
           else
-            _val := Env.GetLvarName(itemSrc.IntValue);
+            _val := Env.GetLvarName(itemSrc.IntValue,'Extended');
           InitItem(@_item);
-          _item.Precedence := PRECEDENCE_ADD;
           if reverse then
-            _item.Value := _val + ' - ' + GetString(FGet(0), PRECEDENCE_ADD)
+            _item.Value := _name + '{' + _val + '} - ' + GetString(FGet(0), PRECEDENCE_ADD+1)
           else
-            _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + _val;
+            _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + _name + '{' + _val + '}';
+          _item.Precedence := PRECEDENCE_ADD;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
@@ -7968,25 +8257,25 @@ Begin
         Begin
           recN := GetInfoRec(itemSrc.IntValue);
           if Assigned(recN) and recN.HasName then
-            _val := recN.Name
+            _name := recN.Name
           else
-            _val := GetGvarName(itemSrc.IntValue);
+            _name := GetGvarName(itemSrc.IntValue);
           InitItem(@_item);
-          _item.Precedence := PRECEDENCE_ADD;
           if reverse then
-            _item.Value := _val + ' - ' + GetString(FGet(0), PRECEDENCE_ADD)
+            _item.Value := _name + ' - ' + GetString(FGet(0), PRECEDENCE_ADD+1)
           else
-            _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + _val;
+            _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + _name;
+          _item.Precedence := PRECEDENCE_ADD;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
         End;
         InitItem(@_item);
-        _item.Precedence := PRECEDENCE_ADD;
         if reverse then
-          _item.Value := itemSrc.Value + ' - ' + GetString(FGet(0), PRECEDENCE_ADD)
+          _item.Value := itemSrc.Value + ' - ' + GetString(FGet(0), PRECEDENCE_ADD+1)
         else
           _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' - ' + itemSrc.Value;
+        _item.Precedence := PRECEDENCE_ADD;
         _item._Type := 'Extended';
         FSet(0, @_item);
         Exit;
@@ -7998,11 +8287,11 @@ Begin
       reg1Idx := DisaInfo.OpRegIdx[0] - 30;
       reg2Idx := DisaInfo.OpRegIdx[1] - 30;
       InitItem(@_item);
-      _item.Precedence := PRECEDENCE_ADD;
       if reverse then
-        _item.Value := GetString(FGet(reg2Idx), PRECEDENCE_ADD) + ' - ' + GetString(FGet(reg1Idx), PRECEDENCE_ADD)
+        _item.Value := GetString(FGet(reg2Idx), PRECEDENCE_ADD) + ' - ' + GetString(FGet(reg1Idx), PRECEDENCE_ADD+1)
       else
-        _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_ADD) + ' - ' + GetString(FGet(reg2Idx), PRECEDENCE_ADD);
+        _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_ADD) + ' - ' + GetString(FGet(reg2Idx), PRECEDENCE_ADD+1);
+      _item.Precedence := PRECEDENCE_ADD;
       _item._Type := 'Extended';
       FSet(reg1Idx, @_item);
       //fsubp
@@ -8019,8 +8308,8 @@ Begin
     if DisaInfo.OpNum = 0 then
     Begin
       InitItem(@_item);
+      _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' * ' + GetString(FGet(1), PRECEDENCE_MULT+1);
       _item.Precedence := PRECEDENCE_MULT;
-      _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' * ' + GetString(FGet(1), PRECEDENCE_MULT);
       _item._Type := 'Extended';
       FSet(1, @_item);
       FPop;
@@ -8035,13 +8324,14 @@ Begin
         if IF_STACK_PTR in itemSrc.Flags then
         Begin
           _item := Env.Stack[itemSrc.IntValue];
+          _name:=_item.Name;
           if _item.Value <> '' then
             _val := GetString(@_item, PRECEDENCE_MULT)
           else
-            _val := Env.GetLvarName(itemSrc.IntValue);
+            _val := Env.GetLvarName(itemSrc.IntValue,'Extended');
           InitItem(@_item);
+          _item.Value := GetString(FGet(0), PRECEDENCE_MULT+1) + ' * ' + _name + '{' + _val + '}';
           _item.Precedence := PRECEDENCE_MULT;
-          _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' * ' + _val;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
@@ -8050,19 +8340,19 @@ Begin
         Begin
           recN := GetInfoRec(itemSrc.IntValue);
           if Assigned(recN) and recN.HasName then
-            _val := recN.Name
+            _name := recN.Name
           else
-            _val := GetGvarName(itemSrc.IntValue);
+            _name := GetGvarName(itemSrc.IntValue);
           InitItem(@_item);
+          _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' * ' + _name;
           _item.Precedence := PRECEDENCE_MULT;
-          _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' * ' + _val;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
         End;
         InitItem(@_item);
-        _item.Precedence := PRECEDENCE_ADD;
         _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' * ' + itemSrc.Value;
+        _item.Precedence := PRECEDENCE_ADD;
         _item._Type := 'Extended';
         FSet(0, @_item);
         Exit;
@@ -8074,8 +8364,8 @@ Begin
       reg1Idx := DisaInfo.OpRegIdx[0] - 30;
       reg2Idx := DisaInfo.OpRegIdx[1] - 30;
       InitItem(@_item);
+      _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_MULT) + ' * ' + GetString(FGet(reg2Idx), PRECEDENCE_MULT+1);
       _item.Precedence := PRECEDENCE_MULT;
-      _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_MULT) + ' * ' + GetString(FGet(reg2Idx), PRECEDENCE_MULT);
       _item._Type := 'Extended';
       FSet(reg1Idx, @_item);
       //fmulp
@@ -8099,11 +8389,11 @@ Begin
     if DisaInfo.OpNum = 0 then
     Begin
       InitItem(@_item);
-      _item.Precedence := PRECEDENCE_MULT;
       if reverse then
-        _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' / ' + GetString(FGet(1), PRECEDENCE_MULT)
+        _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' / ' + GetString(FGet(1), PRECEDENCE_MULT+1)
       else
-        _item.Value := GetString(FGet(1), PRECEDENCE_MULT) + ' / ' + GetString(FGet(0), PRECEDENCE_MULT);
+        _item.Value := GetString(FGet(1), PRECEDENCE_MULT) + ' / ' + GetString(FGet(0), PRECEDENCE_MULT+1);
+      _item.Precedence := PRECEDENCE_MULT;
       _item._Type := 'Extended';
       FSet(1, @_item);
       FPop;
@@ -8119,16 +8409,17 @@ Begin
         if IF_STACK_PTR in itemSrc.Flags then
         Begin
           _item := Env.Stack[itemSrc.IntValue];
+          _name:=_item.Name;
           if _item.Value <> '' then
             _val := GetString(@_item, PRECEDENCE_MULT)
           else
-            _val := Env.GetLvarName(itemSrc.IntValue);
+            _val := Env.GetLvarName(itemSrc.IntValue,'Extended');
           InitItem(@_item);
-          _item.Precedence := PRECEDENCE_MULT;
           if reverse then
-            _item.Value := _val + ' / ' + GetString(FGet(0), PRECEDENCE_ADD)
+            _item.Value := _name + '{' + _val + '} / ' + GetString(FGet(0), PRECEDENCE_MULT+1)
           else
-            _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' / ' + _val;
+            _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' / ' + _name + '{' + _val + '}';
+          _item.Precedence := PRECEDENCE_MULT;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
@@ -8137,25 +8428,25 @@ Begin
         Begin
           recN := GetInfoRec(itemSrc.IntValue);
           if Assigned(recN) and recN.HasName then
-            _val := recN.Name
+            _name := recN.Name
           else
-            _val := GetGvarName(itemSrc.IntValue);
+            _name := GetGvarName(itemSrc.IntValue);
           InitItem(@_item);
-          _item.Precedence := PRECEDENCE_MULT;
           if reverse then
-            _item.Value := _val + ' / ' + GetString(FGet(0), PRECEDENCE_ADD)
+            _item.Value := _name + ' / ' + GetString(FGet(0), PRECEDENCE_MULT+1)
           else
-            _item.Value := GetString(FGet(0), PRECEDENCE_ADD) + ' / ' + _val;
+            _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' / ' + _name;
+          _item.Precedence := PRECEDENCE_MULT;
           _item._Type := 'Extended';
           FSet(0, @_item);
           Exit;
         End;
         InitItem(@_item);
-        _item.Precedence := PRECEDENCE_MULT;
         if reverse then
-          _item.Value := itemSrc.Value + ' / ' + GetString(FGet(0), PRECEDENCE_MULT)
+          _item.Value := itemSrc.Value + ' / ' + GetString(FGet(0), PRECEDENCE_MULT+1)
         else
           _item.Value := GetString(FGet(0), PRECEDENCE_MULT) + ' / ' + itemSrc.Value;
+        _item.Precedence := PRECEDENCE_MULT;
         _item._Type := 'Extended';
         FSet(0, @_item);
         Exit;
@@ -8168,11 +8459,11 @@ Begin
       reg1Idx := DisaInfo.OpRegIdx[0] - 30;
       reg2Idx := DisaInfo.OpRegIdx[1] - 30;
       InitItem(@_item);
-      _item.Precedence := PRECEDENCE_MULT;
       if reverse then
-        _item.Value := GetString(FGet(reg2Idx), PRECEDENCE_MULT) + ' / ' + GetString(FGet(reg1Idx), PRECEDENCE_MULT)
+        _item.Value := GetString(FGet(reg2Idx), PRECEDENCE_MULT) + ' / ' + GetString(FGet(reg1Idx), PRECEDENCE_MULT+1)
       else
-        _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_MULT) + ' / ' + GetString(FGet(reg2Idx), PRECEDENCE_MULT);
+        _item.Value := GetString(FGet(reg1Idx), PRECEDENCE_MULT) + ' / ' + GetString(FGet(reg2Idx), PRECEDENCE_MULT+1);
+      _item.Precedence := PRECEDENCE_MULT;
       _item._Type := 'Extended';
       FSet(reg1Idx, @_item);
       //fdivp
@@ -8194,7 +8485,8 @@ Begin
   else if DisaInfo.Mnem = 'fchs' then
   Begin
     _item := Env.FStack[_TOP_];
-    _item.Value := '-' + _item.Value;
+    _item.Value := '-' + GetString(@_item,PRECEDENCE_ATOM);
+    _item.Precedence:=PRECEDENCE_UNARY;
     FSet(0, @_item);
     Exit;
   End
@@ -8208,6 +8500,16 @@ Begin
     FPush(@_item);
     Exit;
   End
+  //fldln2
+  else if DisaInfo.Mnem = 'fldln2' then
+  begin
+    InitItem(@_item);
+    _item.Precedence := PRECEDENCE_ATOM;
+    _item.Value := 'Ln(2)';
+    _item._Type := 'Extended';
+    FPush(@_item);
+    Exit;
+  end
   //fpatan
   else if DisaInfo.Mnem = 'fpatan' then
   Begin
@@ -8230,6 +8532,31 @@ Begin
     _item.Value := 'Sqrt(' + FGet(0).Value + ')';
     _item._Type := 'Extended';
     FSet(0, @_item);
+    Exit;
+  End
+  //fxch
+  else if DisaInfo.Mnem = 'fxch' then
+  begin
+    reg1Idx := 1;
+    //fxch st(i)
+    if DisaInfo.OpNum = 1 then
+    begin
+      reg1Idx := DisaInfo.OpRegIdx[0] - 30;
+      //fxch st(0) == fxcg
+      if reg1Idx=0 then reg1Idx := 1;
+    end;
+    FXch(0, reg1Idx);
+    Exit;
+  end
+  //fyl2x
+  else if DisaInfo.Mnem = 'fyl2x' then
+  begin
+    InitItem(@_item);
+    _item.Value := GetString(FGet(1), PRECEDENCE_MULT) + ' * Log2(' + GetString(FGet(0), PRECEDENCE_NONE) + ')';
+    _item._Type := 'Extended';
+    _item.Precedence := PRECEDENCE_MULT;
+    FSet(1, @_item);
+    FPop;
     Exit;
   End;
   Env.ErrAdr := curAdr;
@@ -8773,27 +9100,27 @@ Begin
   End;
 end;
 
-Function TDecompiler.GetArrayFieldOffset (ATypeName:AnsiString; AFromOfs, AScale:Integer):FieldInfo;
+function TDecompiler.GetArrayFieldOffset(ATypeName:AnsiString; AFromOfs, AScale:Integer;var _name,_type:AnsiString): Integer;
 var
   _vmt:Boolean;
-  _offset,classSize,_vmtAdr,_size,l_idx,h_idx,ofs:Integer;
+  _offset,classSize,_size,l_idx,h_idx,ofs,fofs:Integer;
   fInfo:FieldInfo;
 Begin
-  Result:=Nil;
+  Result:=-1;
   _offset:=AFromOfs;
   classSize := GetClassSize(GetClassAdr(ATypeName));
   while True do
   begin
     if _offset >= classSize then break;
-    fInfo := FMain.GetField(ATypeName, _offset, _vmt, _vmtAdr);
-    if Assigned(fInfo) and (GetTypeKind(fInfo._Type, _size) = ikArray)
-      and GetArrayIndexes(fInfo._Type, 1, l_Idx, h_Idx) then
+    fofs:=GetField(ATypeName, _offset, _name, _type);
+    if (fofs>=0) and (GetTypeKind(_Type, _size) = ikArray)
+      and GetArrayIndexes(_Type, 1, l_Idx, h_Idx) then
     begin
-      _size := GetArrayElementTypeSize(fInfo._Type);
+      _size := GetArrayElementTypeSize(_Type);
       ofs := AFromOfs + AScale * l_Idx;
-      if (ofs >= fInfo.Offset) and (ofs <= fInfo.Offset + (h_Idx - l_Idx) * _size) then
+      if (ofs >= fofs) and (ofs <= fofs + (h_Idx - l_Idx) * _size) then
       begin
-        Result:=fInfo;
+        Result:=fofs;
         Exit;
       end;
     End;
@@ -8810,6 +9137,7 @@ var
   extVal:Extended;
   realVal:Real;
   compVal:Comp;
+  curVal:Currency;
   item:TItem;
 Begin
   InitItem(Dst);
@@ -8855,6 +9183,14 @@ Begin
     Dst.Value := FloatToStr(compVal);
     Dst._Type := 'Comp';
     Exit;
+  end
+  Else if FloatType = FT_CURRENCY then
+  begin
+    curVal := 0;
+    MoveMemory(@curVal, @binData[0], 8);
+    Dst.Value := CurrToStr(curVal);
+    Dst._Type := 'Currency';
+    Exit;
   end;
   item := Env.Stack[Esp + 8];
   MoveMemory(@binData[8], @item.IntValue, 4);
@@ -8876,12 +9212,11 @@ Procedure TDecompiler.GetMemItem (CurAdr:Integer; Dst:PITEM; Op:Byte);
 var
   _vmt:Boolean;
   kind:LKind;
-  offset, foffset, size, idx, idx1, _mod, k:Integer;
+  offset, foffset, size, idx, idx1, _mod, fofs, k:Integer;
   adr, vmtAdr:Integer;
-  recN:InfoRec;
-  fInfo:FieldInfo;
+  recN,recN1:InfoRec;
   item, itemBase, itemIndx:TItem;
-  _fname, _name, typeName, iname, _value, txt:AnsiString;
+  _fname, _name, _type, typeName, iname, _value, txt, varName:AnsiString;
 Begin
   InitItem(Dst);
   offset := DisaInfo.Offset;
@@ -8929,21 +9264,29 @@ Begin
         foffset := item.Offset;
         Dec(offset, foffset);
         _fname := GetRecordFields(foffset, Env.Stack[_ESP_ + offset]._Type);
-        _name := Env.GetLvarName(_ESP_ + offset);
+        typeName:=ExtractType(_fname);
+        _name := Env.GetLvarName(_ESP_ + offset, typeName);
         if Pos(':',_fname)<>0 then
         Begin
           Dst.Value := _name + '.' + ExtractName(_fname);
-          Dst._Type := ExtractType(_fname);
+          Dst._Type := typeName;
         End
         else Dst.Value := _name + '.f' + Val2Str(foffset);
         Dst.Name := Dst.Value;
         Exit;
       End;
-      _value := Env.GetLvarName(_ESP_ + offset);
-      if item.Value <> '' then _value := _value + 'Begin' + item.Value + 'End;';
+      _value := Env.GetLvarName(_ESP_ + offset,'');
+      if item.Value <> '' then _value := _value + '{' + item.Value + '}';
       Dst.Value := _value;
       Exit;
     End;
+    //lea reg, [ebp + N], bpBased
+    if (Op = OP_LEA) and (DisaInfo.BaseReg = 21) and (DisaInfo.IndxReg = -1) and Env.BpBased then
+    begin
+      Dst.Flags := [IF_STACK_PTR];
+      Dst.IntValue := itemBase.IntValue + offset;
+      Exit;
+    end;
     //Embedded procedures
     if Env.Embedded then
     begin
@@ -9005,7 +9348,7 @@ Begin
         Exclude(item.Flags, IF_VAR);
         item._Type := '^' + item._Type;
         AssignItem(Dst^, item);
-        Dst.Name := Env.GetLvarName(itemBase.IntValue + offset);
+        Dst.Name := Env.GetLvarName(itemBase.IntValue + offset,'');
         Exit;
       End
       //Field
@@ -9014,7 +9357,8 @@ Begin
         foffset := item.Offset;
         Dec(offset, foffset);
         _fname := GetRecordFields(foffset, Env.Stack[itemBase.IntValue + offset]._Type);
-        _name := Env.GetLvarName(itemBase.IntValue + offset);
+        typeName:=ExtractType(_fname);
+        _name := Env.GetLvarName(itemBase.IntValue + offset, typeName);
         if Pos(':',_fname)<>0 then
         Begin
           Dst.Value := _name + '.' + ExtractName(_fname);
@@ -9027,19 +9371,14 @@ Begin
       //Not interface
       else if (item._Type = '') or (GetTypeKind(item._Type, size) <> ikInterface) then
       Begin
-        Env.Stack[itemBase.IntValue + offset].Name := Env.GetLvarName(itemBase.IntValue + offset);
+        varName:=Env.GetLvarName(itemBase.IntValue + offset,'');
+        Env.Stack[itemBase.IntValue + offset].Name := varName;
         Dst.Flags := [IF_STACK_PTR];
         Dst.IntValue := itemBase.IntValue + offset;
-        Dst.Value := Env.GetLvarName(itemBase.IntValue + offset);
+        Dst.Value := varName;
         Dst.Name := Dst.Value;
         Exit;
       End;
-    End
-    //lea
-    else if Op = OP_LEA then
-    Begin
-      //Dst.Value := GetDecompilerRegisterName(DisInfo.BaseReg) + ' + ' + String(_offset);
-      //return;
     End
     //[BaseReg]
     else if offset = 0 then
@@ -9052,6 +9391,26 @@ Begin
         Dst.Name := '';
         Exit;
       End
+      else if IF_RECORD_FOFS in itemBase.Flags then
+      begin
+        _value := itemBase.Value;
+        if IF_ARRAY_PTR in itemBase.Flags then _value:=_value + '[]';
+        txt := GetRecordFields(itemBase.Offset, itemBase._Type);
+        if Pos(':',txt)<>0 then
+        begin
+          _value:=_value + '.' + ExtractName(txt);
+          typeName := ExtractType(txt);
+        end
+        else
+        begin
+          _value:=_value + '.f' + Val2Str(itemBase.Offset);
+          typeName := txt;
+        end;
+        Dst.Value := _value;
+        Dst._Type := typeName;
+        Dst.Name := '';
+        Exit;
+      end
       else if IF_ARRAY_PTR in itemBase.Flags then with Dst^ do
       Begin
         Value := itemBase.Value + '[]';
@@ -9081,6 +9440,8 @@ Begin
       End
       else if typeName = '' then
       Begin
+        typeName:='Pointer';
+        {
         _name := GetDecompilerRegisterName(DisaInfo.BaseReg);
         typeName := ManualInput(CurProcAdr, CurAdr, 'Define type of base register (' + _name + ')', 'Type:');
         if typeName = '' then
@@ -9088,6 +9449,7 @@ Begin
           Env.ErrAdr := CurAdr;
           raise Exception.Create('Empty input - See you later!');
         End;
+        }
       End
       else if typeName[1] = '^' then //Pointer to var
       Begin
@@ -9166,6 +9528,26 @@ Begin
       Dst.Value := _name + '[' + GetDecompilerRegisterName(DisaInfo.BaseReg) + ']';
       Exit;
     End
+    else if IF_RECORD_FOFS in itemBase.Flags then
+    begin
+      _value := itemBase.Value;
+      if IF_ARRAY_PTR in itemBase.Flags then _value:=_value + '[]';
+      txt := GetRecordFields(itemBase.Offset + offset, itemBase._Type);
+      if Pos(':',txt)<>0 then
+      begin
+        _value:=_value + '.' + ExtractName(txt);
+        typeName := ExtractType(txt);
+      end
+      else
+      begin
+        _value:=_value + '.f' + Val2Str(itemBase.Offset + offset);
+        typeName := txt;
+      end;
+      Dst.Value := _value;
+      Dst._Type := typeName;
+      Dst.Name := '';
+      Exit;
+    end
     else if IF_ARRAY_PTR in itemBase.Flags then
     Begin
       if (IF_STACK_PTR in itemBase.Flags) and (Env.Stack[itemBase.IntValue].Value <> '') then
@@ -9182,6 +9564,8 @@ Begin
     typeName := itemBase._Type;
     if typeName = '' then
     Begin
+      typeName:='Pointer';
+      {
       _name := GetDecompilerRegisterName(DisaInfo.BaseReg);
       typeName := ManualInput(CurProcAdr, CurAdr, 'Define type of base register (' + _name + ')', 'Type:');
       if typeName = '' then
@@ -9189,6 +9573,7 @@ Begin
         Env.ErrAdr := CurAdr;
         raise Exception.Create('Empty input - See you later!');
       End;
+      }
     End
     else if (typeName[1] = '^') then typeName := GetTypeDeref(typeName);
 
@@ -9211,6 +9596,14 @@ Begin
         _value := itemBase.Value
       else
         _value := GetDecompilerRegisterName(DisaInfo.BaseReg);
+      if Op = OP_LEA then //address of field with ofs=_offset in structure _typeName
+      begin
+        Dst.Flags := [IF_RECORD_FOFS];
+        Dst.Value := _value;
+        Dst._Type := typeName;
+        Dst.Offset := offset;
+        Exit;
+      end;
       txt := GetRecordFields(offset, typeName);
       if Pos(':',txt)<>0 then
       Begin
@@ -9278,24 +9671,27 @@ Begin
     End
     else if (kind = ikVMT) or (kind = ikClass) then
     Begin
-      fInfo := FMain.GetField(typeName, offset, _vmt, vmtAdr);
-      if not Assigned(fInfo) then
+      fofs := GetField(typeName, offset, _name, _type);
+      if fofs < 0 then
       Begin
-        txt := ManualInput(CurProcAdr, CurAdr, 'Define correct type of field f' + Val2Str(offset), 'Type:');
+        txt := ManualInput(CurProcAdr, CurAdr, 'Define correct type of field ' + typeName + '.f' + Val2Str(offset), 'Type:');
         if txt = '' then
         Begin
           Env.ErrAdr := CurAdr;
           raise Exception.Create('Empty input - See you later!');
         End;
-        fInfo := FMain.GetField(txt, offset, _vmt, vmtAdr);
-        if not Assigned(fInfo) then
+        recN1 := GetInfoRec(GetClassAdr(typeName));
+        recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, offset, -1, '', txt);
+        fofs := GetField(typeName, offset, _name, _type);
+        if fofs < 0 then
         Begin
           Env.ErrAdr := CurAdr;
           raise Exception.Create('Field f' + Val2Str(offset) + ' not found in specified type');
         End;
       End;
-      _value := GetFieldName(fInfo);
-      typeName := fInfo._Type;
+      _value := _name;
+      typeName := _Type;
+      foffset := fofs;
       //if Op <> OP_LEA then
       Begin
         kind := GetTypeKind(typeName, size);
@@ -9311,11 +9707,11 @@ Begin
         //Record
         else if kind = ikRecord then
         Begin
-          txt := GetRecordFields(offset - fInfo.Offset, typeName);
+          txt := GetRecordFields(offset - fOffset, typeName);
           if txt = '' then
           Begin
             txt := ManualInput(CurProcAdr, CurAdr, 'Define [name:]type of field '
-              + typeName + '.f' + Val2Str(offset - fInfo.Offset), '[Name]:Type:');
+              + typeName + '.f' + Val2Str(offset - fOffset), '[Name]:Type:');
             if txt = '' then
             Begin
               Env.ErrAdr := CurAdr;
@@ -9335,7 +9731,7 @@ Begin
         End
         //Array
         else if kind = ikArray then
-          _value := _value + '[ofs:=' + IntToStr(offset - fInfo.Offset) + ']';
+          _value := _value + '[ofs:=' + IntToStr(offset - fOffset) + ']';
         if not SameText(iname, 'Self') then _value := iname + '.' + _value;
       End;
     End;
@@ -9364,13 +9760,13 @@ Begin
       //esp
       if DisaInfo.BaseReg = 20 then
       Begin
-        Dst.Value := Env.GetLvarName(_ESP_ + offset + DisaInfo.Scale) + '[' + itemIndx.Value + ']';
+        Dst.Value := Env.GetLvarName(_ESP_ + offset + DisaInfo.Scale,'') + '[' + itemIndx.Value + ']';
         Exit;
       End
       //ebp
       else if (DisaInfo.BaseReg = 21) and (IF_STACK_PTR in itemBase.Flags) then
       Begin
-        Dst.Value := Env.GetLvarName(itemBase.IntValue + offset + DisaInfo.Scale) + '[' + itemIndx.Value + ']';
+        Dst.Value := Env.GetLvarName(itemBase.IntValue + offset + DisaInfo.Scale,'') + '[' + itemIndx.Value + ']';
         Exit;
       End;
       kind := ikUnknown;
@@ -9391,12 +9787,15 @@ Begin
       End;
       while (kind = ikUnknown) or (kind = ikData) do
       Begin
+        txt:='Pointer';
+        {
         txt := ManualInput(CurProcAdr, CurAdr, 'Define type of base register', 'Type:');
         if txt = '' then
         Begin
           Env.ErrAdr := CurAdr;
           raise Exception.Create('Empty input - See you later!');
         End;
+        }
         typeName := txt;
         kind := GetTypeKind(typeName, size);
       End;
@@ -9405,22 +9804,25 @@ Begin
     Begin
       if typeName[1] = '^' then typeName := GetTypeDeref(typeName);
       kind := GetTypeKind(typeName, size);
-      while kind = ikUnknown do
+      while not (kind in [ikClass,ikVMT,ikLString,ikCString,ikPointer,ikRecord,ikArray,ikDynArray]) do
       Begin
+        txt:='Pointer';
+        {
         txt := ManualInput(CurProcAdr, CurAdr, 'Define type of base register', 'Type:');
         if txt = '' then
         Begin
           Env.ErrAdr := CurAdr;
           raise Exception.Create('Empty input - See you later!');
         End;
+        }
         typeName := txt;
         kind := GetTypeKind(typeName, size);
       End;
     End;
     if (kind = ikClass) or (kind = ikVMT) then
     Begin
-      fInfo := GetArrayFieldOffset(typeName, offset, DisaInfo.Scale);
-      while not Assigned(fInfo) do
+      fofs := GetArrayFieldOffset(typeName, offset, DisaInfo.Scale, _name,_type);
+      while fofs < 0 do
       Begin
         txt := ManualInput(CurProcAdr, CurAdr, 'Define actual offset of array field', 'Offset (in hex):');
         if txt = '' then
@@ -9429,16 +9831,16 @@ Begin
           raise Exception.Create('Empty input - See you later!');
         End;
         offset := StrToIntDef('$'+Trim(txt),0);
-        fInfo := GetArrayFieldOffset(typeName, offset, DisaInfo.Scale);
+        fofs := GetArrayFieldOffset(typeName, offset, DisaInfo.Scale,_name,_type);
       End;
       if not SameText(itemBase.Value, 'Self') then _value := itemBase.Value + '.';
-      if fInfo.Name <> '' then
-        _value := _value + fInfo.Name
+      if _Name <> '' then
+        _value := _value + _Name
       else
-        _value := _value + 'f' + Val2Str(fInfo.Offset);
+        _value := _value + 'f' + Val2Str(fofs);
       _value := _value + '[' + GetDecompilerRegisterName(DisaInfo.IndxReg) + ']';
       Dst.Value := _value;
-      Dst._Type := GetArrayElementType(fInfo._Type);
+      Dst._Type := GetArrayElementType(_Type);
       Exit;
     End;
     if (kind = ikLString) or (kind = ikCString) or (kind = ikPointer) then
@@ -9650,7 +10052,7 @@ Begin
   if IF_STACK_PTR in item.Flags then
   Begin
     Env.Stack[item.IntValue]._Type := 'String';
-    Result:= Env.GetLvarName(item.IntValue);
+    Result:= Env.GetLvarName(item.IntValue,'String');
     Exit;
   End
   else if IF_INTVAL in item.Flags then
@@ -9705,7 +10107,7 @@ Begin
   else Result:= item.Value;
 end;
 
-Function TDecompiler.AnalyzeConditions (brType:Integer; curAdr, sAdr, jAdr:Integer; loopInfo:TLoopInfo):Integer;
+function TDecompiler.AnalyzeConditions(brType:Integer; curAdr, sAdr, jAdr:Integer; loopInfo:TLoopInfo;bFloat:Boolean): Integer;
 var
   _begAdr, _bodyBegAdr, _bodyEndAdr, _jmpAdr,_curAdr:Integer;
   de:TDecompiler;
@@ -9716,6 +10118,7 @@ Begin
   //simple if
   if brType = 0 then
   Begin
+    if bFloat then SimulateFloatInstruction(sAdr);
     if CompInfo.O = 'R' then //not in
       _line := 'if (not (' + CompInfo.L + ' in ' + CompInfo.R + ')) then'
     else
@@ -9824,6 +10227,7 @@ Begin
   //cycle
   else if brType = 2 then
   Begin
+    if bFloat then SimulateFloatInstruction(sAdr);
     if CompInfo.O = 'R' then //not in
       _line := 'if (not (' + CompInfo.L + ' in ' + CompInfo.R + ')) then'
     else
@@ -9852,6 +10256,7 @@ Begin
   //simple if else
   else if brType = 3 then
   Begin
+    if bFloat then SimulateFloatInstruction(sAdr);
     if CompInfo.O = 'R' then //not in
       _line := 'if (not (' + CompInfo.L + ' in ' + CompInfo.R + ')) then'
     else
@@ -9899,6 +10304,7 @@ Begin
   End
   else
   Begin
+    if bFloat then SimulateFloatInstruction(sAdr);
     _line := 'if (' + CompInfo.L + ' ' + GetDirectCondition(CompInfo.O) + ' ' + CompInfo.R + ') then Break;';
     Env.AddToBody(_line);
   End;

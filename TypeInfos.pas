@@ -782,11 +782,11 @@ Begin
       begin
         Size := PInteger(Code + _pos)^;
         Inc(_pos,4);
+        result := RTTIName + ' = record // size=' + Val2Str(Size);
         elNum := PInteger(Code + _pos)^;
         Inc(_pos,4);  //FldCount
         if elNum<>0 then
         begin
-          result := RTTIName + ' = record // size=' + Val2Str(Size);
           for i:= 1 to elNum do
           begin
             typeAdr := PInteger(Code + _pos)^;
@@ -808,7 +808,6 @@ Begin
           Inc(_pos,4);  //RecFldCnt
           if elNum<>0 then
           begin
-            result := RTTIName + ' = record // size=' + Val2Str(Size);
             for i := 1 to elNum do
             begin
               //TypeRef

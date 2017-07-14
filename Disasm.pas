@@ -627,7 +627,7 @@ Begin
   if sptr<>'' then
   begin
     if Assigned(disLine) then disLine^:=disLine^ + sptr + ' ptr ';
-    DisInfo.MemSize := size;
+    DisInfo.OpSize := size;
     DisInfo.sSize:=sptr;
   End;
 end;

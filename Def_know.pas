@@ -144,11 +144,11 @@ Type
     //FIELDINFO():xrefs(0){}
     //~FIELDINFO();
     Scope:Byte;       //9-private, 10-protected, 11-public, 12-published
-    Offset:Integer;   //Offset in the object
+    Offset:Integer;   //Offset in class instance
     _Case:Integer;    //case for record types (0xFFFFFFFF for the rest)
     Name:AnsiString;  //Field name
     _Type:AnsiString; //Field type
-    xrefs:TList;		  //References to this field from the CODE section
+    xrefs:TList;		  //XRefs to this field from the CODE section
     Constructor Create;
     Destructor Destroy; Override;
   End;
@@ -220,14 +220,14 @@ Type
     Kind:Byte;       //drArrayDef,...,drVariantDef
     VMCnt:WORD;      //Number of elements in VMT (indexed from 0)
     Decl:AnsiString; //Declaration
-    DumpSz,    //Размер бинарного дампа
-    FixupNum:Integer;  //Количество фиксапов дампа
-    Dump:PAnsiChar;    //Бинарный дамп
-    FieldsNum:WORD;  //Количество полей (class, interface, record)
+    DumpSz,    //Binary dump size
+    FixupNum:Integer;  //Binary dump fixup number
+    Dump:PAnsiChar;    //Binary dump
+    FieldsNum:WORD;  //Number of fields (class, interface, record)
     Fields:PAnsiChar;
-    PropsNum:WORD;   //Количество свойств (class, interface)
+    PropsNum:WORD;   //Number of properties (class, interface)
     Props:PAnsiChar;
-    MethodsNum:WORD; //Количество методов (class, interface)
+    MethodsNum:WORD; //Number of methods (class, interface)
     Methods:PAnsiChar;
     //Constructor Create;
   end;
@@ -239,7 +239,7 @@ Type
     VarName:AnsiString;
     _Type:Byte; //'V'-Var;'A'-AbsVar;'S'-SpecVar;'T'-ThreadVar
     TypeDef:AnsiString;
-    AbsName:AnsiString; //Для ключевого слова absolute
+    AbsName:AnsiString; //for the "absolute" keyword
     //Constructor Create;
   end;
   PMVarInfo = ^MVarInfo;
@@ -276,6 +276,8 @@ Type
   PMProcInfo = ^MProcInfo;
 
 Const
+
+  SCOPE_TMP = 32; // Temp struct FIELDINFO, to be deleted 
 
   // Description of the Kind values
   drArrayDef         = $4C;    //'L'

@@ -216,7 +216,7 @@ begin
         recN := GetInfoRec(VmtAdr);
         if Op = FD_OP_ADD then
         begin
-          fInfo := FMain.GetField(recN.Name, offset, vmt, adr);
+          fInfo := FMain.GetField(recN.Name, offset, vmt, adr,'');
           if Not Assigned(fInfo) Then
             if Application.MessageBox('Field already exists', 'Replace?', MB_YESNO) = IDYES then
               recN.vmtInfo.AddField(0, 0, FIELD_PUBLIC, offset, -1, edtName.text, edtType.text);

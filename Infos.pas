@@ -35,9 +35,11 @@ Type
     Procedure DeleteArg(n:Integer);
     Procedure DeleteArgs;
     Function AddLocal(_Ofs, _Size:Integer; _Name, _TypeDef:AnsiString):PLocalInfo;
-    Function GetLocal(Ofs:Integer):PLocalInfo;
+    Function GetLocal(Ofs:Integer):PLocalInfo; Overload;
+    function GetLocal(Const AName:AnsiString): PLocalInfo; overload;
     Procedure DeleteLocal(n:Integer);
     Procedure DeleteLocals;
+    procedure SetLocalType(Offset:Integer;Const TypeDef:AnsiString);
   End;
 
   InfoRec = class
@@ -79,7 +81,7 @@ Type
 
 Implementation
 
-Uses SysUtils,StrUtils,Misc,Main,Def_disasm,Scanf,Dialogs;
+Uses Types,SysUtils,StrUtils,Misc,Main,Def_disasm,Scanf,Dialogs;
 
 Function FieldsCmpFunction(item1,item2:Pointer):Integer;
 Begin
@@ -367,6 +369,11 @@ Begin
                 aInfo.Tag:=$22;
                 _Name:=Trim(Copy(t,p+1,Length(t)));
               end
+              else if SameText(m,'const') Then
+              Begin
+                aInfo.Tag:=$23;
+                _Name:=Trim(Copy(t,p+1,Length(t)));
+              end
               else
               Begin
                 ShowMessage('Unknown argument modifier '+IntToStr(i+1));
@@ -518,6 +525,19 @@ Begin
   Result:=Nil;
 end;
 
+Function InfoProcInfo.GetLocal(Const AName:AnsiString):PLocalInfo;
+var
+  n:Integer;
+Begin
+  If Assigned(locals) Then
+    for n:=0 to locals.Count-1 do
+    Begin
+      Result:=locals[n];
+      if SameText(Result.Name,AName) then Exit;
+    end;
+  REsult:=Nil;
+end;
+
 Procedure InfoProcInfo.DeleteLocal (n:Integer);
 Begin
   if Assigned(locals) and (n >= 0) and (n < locals.Count) then locals.Delete(n); 
@@ -532,6 +552,94 @@ Begin
     for n := 0 to locals.Count-1 do
       Finalize(PLocalInfo(locals[n])^);
     locals.Clear;
+  end;
+end;
+
+procedure InfoProcInfo.SetLocalType(Offset:Integer;Const TypeDef:AnsiString);
+var
+  locInfo:PLocalInfo;
+  fname,recFilename,_name,_type,str:AnsiString;
+  p:PAnsiChar;
+  _pos,ofs,size,idx,k:Integer;
+  len:Word;
+  recFile:TextFile;
+  tInfo:MTypeInfo;
+  _uses:TWordDynArray;
+Begin
+  locInfo:=GetLocal(Offset);
+  if Assigned(locInfo) then
+  Begin
+    fname := locInfo.Name;
+    _pos := Pos('.',fname);
+    if _pos<>0 then fname := Copy(fname,1, _pos - 1);
+    locInfo.TypeDef := TypeDef;
+    if (TypeDef <>'') And (GetTypeKind(TypeDef, size) = ikRecord) then
+    begin
+      recFilename:=FMain.WrkDir + '\types.idr';
+      if FileExists(recFileName) then
+      begin
+        AssignFile(recFile,recFilename);
+        Reset(recFile);
+        try
+          while not eof(recFile) do
+          begin
+            ReadLn(recFile,str);
+            if Pos(TypeDef + '=',str) = 1 then
+              while Not eof(recFile) do
+              begin
+                ReadLn(recFile,str);
+                if Pos('end;',str)<>0 Then break;
+                if Pos('//',str)<>0 then
+                begin
+                  ofs := StrGetRecordFieldOffset(str);
+                  _name := StrGetRecordFieldName(str);
+                  _type := StrGetRecordFieldType(str);
+                  if ofs >= 0 then AddLocal(ofs + Offset, 1, fname + '.' + _name, _type);
+                end;
+              end;
+          end;
+        Finally
+          CloseFile(recFile);
+        end;
+      end;
+      while true do
+      begin
+        //KB
+        _uses := KBase.GetTypeUses(PAnsiChar(TypeDef));
+        idx := KBase.GetTypeIdxByModuleIds(_uses, PAnsiChar(TypeDef));
+        _uses:=Nil;
+        if idx = -1 then break;
+        idx := KBase.TypeOffsets[idx].NamId;
+        if KBase.GetTypeInfo(idx, [INFO_FIELDS], tInfo) then
+        begin
+          if tInfo.FieldsNum<>0 then
+          begin
+            p := tInfo.Fields;
+            for k := 1 to tInfo.FieldsNum do
+            begin
+              //Scope
+              Inc(p);
+              ofs := PInteger(p)^;
+              Inc(p, 4);
+              Inc(p, 4);//case
+              //Name
+              len := PWord(p)^;
+              Inc(p, 2);
+              _name := MakeString(p, len);
+              Inc(p, len + 1);
+              //Type
+              len := PWord(p)^;
+              Inc(p, 2);
+              _type := TrimTypeName(MakeString(p, len));
+              Inc(p, len + 1);
+              AddLocal(Offset + ofs, 1, fname + '.' + _name, _type);
+            end;
+            break;
+          end;
+          ///if tInfo.Decl <> '' then TypeDef := tInfo.Decl;
+        end;
+      end;
+    end;
   end;
 end;
 
@@ -1137,7 +1245,8 @@ Begin
           else result:=Result + ' ';
       End;
       aInfo := PArgInfo(procInfo.args[n]);
-      if aInfo.Tag = $22 then result:=Result + 'var ';
+      if aInfo.Tag = $22 then result:=Result + 'var '
+      Else if aInfo.Tag = $23 then result:=Result + 'const '; // Add by ZGL
       if aInfo.Name <> '' then result:=Result + aInfo.Name
         else result:=Result + '?';
       result:=Result + ':';
@@ -1237,7 +1346,8 @@ Begin
       Begin
         if n <> firstArg then Result:=Result + '; ';
         aInfo := PArgInfo(procInfo.args[n]);
-        if aInfo.Tag = $22 then Result:=Result + 'var ';
+        if aInfo.Tag = $22 then Result:=Result + 'var '
+        Else if aInfo.Tag = $23 then Result:=Result+'const '; // Add by ZGL
         if aInfo.Name <> '' then Result:=Result + aInfo.Name
           else Result:=Result + '?';
         Result:=Result + ':';
@@ -1319,7 +1429,8 @@ Begin
     if n <> firstArg then result:=result + ';'+#13;
     aInfo := PArgInfo(procInfo.args[n]);
     //var
-    if aInfo.Tag = $22 then result:=result + 'var ';
+    if aInfo.Tag = $22 then result:=result + 'var '
+    else if aInfo.Tag = $23 then result:=result + 'const '; // Add by ZGL
     //name
     if aInfo.Name <> '' then result:=result + aInfo.Name
       else result:=result + '?';
@@ -1361,7 +1472,7 @@ Begin
     _type := 'HRESULT';
     procInfo.call_kind := 3; //stdcall
     procInfo.AddArg($21, 8, 4, 'Self', '');
-    procInfo.AddArg($21, 12, 4, 'IID', 'TGUID');
+    procInfo.AddArg($23, 12, 4, 'IID', 'TGUID'); // Fixed by ZGL
     procInfo.AddArg($22, 16, 4, 'Obj', 'Pointer');
     Exit;
   End
@@ -1434,7 +1545,7 @@ Begin
     Begin
       kind := ikProc;
       procInfo.AddArg($22, 0, 4, 'Dest', sname);
-      procInfo.AddArg($21, 1, 4, 'Source', sname);
+      procInfo.AddArg($23, 1, 4, 'Source', sname); // Modified by ZGL
       Exit;
     End
     //@LStrFromPCharLen, @WStrFromPCharLen, @UStrFromPCharLen
@@ -1492,7 +1603,7 @@ Begin
     Begin
       kind := ikProc;
       procInfo.AddArg($22, 0, 4, 'Dest', sname);
-      procInfo.AddArg($21, 1, 4, 'Source', 'ShortString');
+      procInfo.AddArg($23, 1, 4, 'Source', 'ShortString'); // Modified by ZGL
       Exit;
     End
     //@LStrFromArray, @WStrFromArray, @UStrFromArray
@@ -1518,7 +1629,7 @@ Begin
     Begin
       kind := ikProc;
       procInfo.AddArg($22, 0, 4, 'Dest', sname);
-      procInfo.AddArg($21, 1, 4, 'Source', 'WideString');
+      procInfo.AddArg($23, 1, 4, 'Source', 'WideString'); // Modified by ZGL
       Exit;
     End
     //@LStrToString, @WStrToString, @UStrToString
@@ -1526,7 +1637,7 @@ Begin
     Begin
       kind := ikProc;
       procInfo.AddArg($22, 0, 4, 'Dest', 'ShortString');
-      procInfo.AddArg($21, 1, 4, 'Source', sname);
+      procInfo.AddArg($23, 1, 4, 'Source', sname); // Modified by ZGL
       procInfo.AddArg($21, 2, 4, 'MaxLen', 'Integer');
       Exit;
     End
@@ -1592,7 +1703,7 @@ Begin
     Begin
       kind := ikFunc;
       _type := sname;
-      procInfo.AddArg($21, 0, 4, 'S', sname);
+      procInfo.AddArg($23, 0, 4, 'S', sname); // Modified by ZGL
       procInfo.AddArg($21, 1, 4, 'Index', 'Integer');
       procInfo.AddArg($21, 2, 4, 'Count', 'Integer');
       Exit;
@@ -1610,7 +1721,7 @@ Begin
     else if SameText(tmp, 'StrInsert') then
     Begin
       kind := ikProc;
-      procInfo.AddArg($21, 0, 4, 'Source', sname);
+      procInfo.AddArg($23, 0, 4, 'Source', sname); // Modified by ZGL
       procInfo.AddArg($22, 1, 4, 'S', sname);
       procInfo.AddArg($21, 2, 4, 'Index', 'Integer');
       Exit;
@@ -1620,8 +1731,8 @@ Begin
     Begin
       kind := ikFunc;
       _type := 'Integer';
-      procInfo.AddArg($21, 0, 4, 'Substr', sname);
-      procInfo.AddArg($21, 1, 4, 'S', sname);
+      procInfo.AddArg($23, 0, 4, 'Substr', sname); // by ZGL
+      procInfo.AddArg($23, 1, 4, 'S', sname); // by ZGL
       Exit;
     End
     //@LStrSetLength, @WStrSetLength, @UStrSetLength
@@ -1654,7 +1765,7 @@ Begin
     Begin
       kind := ikProc;
       procInfo.AddArg($22, 0, 4, 'Dest', sname);
-      procInfo.AddArg($21, 1, 4, 'Source', 'AnsiString');
+      procInfo.AddArg($23, 1, 4, 'Source', 'AnsiString'); // by ZGL
       Exit;
     End
     //@WStrOfWChar

@@ -442,7 +442,7 @@ Begin
   Result := [];
   if not Inited Or (ItemName=Nil)or(ItemName^=#0) then Exit;
   if GetIdx(ConstCount,ConstOffsets,ModuleIDs,ItemName,False)<>-1 then Include(Result, KB_CONST_SECTION);
-  if GetIdx(TypeCount,TypeOffsets,ModuleIDs,ItemName,True)<>-1 then Include(Result, KB_TYPE_SECTION);
+  if GetIdx(TypeCount,TypeOffsets,ModuleIDs,ItemName,Version>=2{True})<>-1 then Include(Result, KB_TYPE_SECTION);
   If GetIdx(VarCount,VarOffsets,ModuleIDs,ItemName,False)<>-1 then Include(Result, KB_VAR_SECTION);
   if GetIdx(ResStrCount,ResStrOffsets,ModuleIDs,ItemName,False)<>-1 then Include(Result, KB_RESSTR_SECTION);
   if GetIdx(ProcCount,ProcOffsets,ModuleIDs,ItemName,False)<>-1 Then Include(Result, KB_PROC_SECTION);
@@ -467,14 +467,14 @@ Function MKnowledgeBase.GetTypeIdxByModuleIds (ModuleIDs:TWordDynArray; TypeName
 Begin
 	if not Inited or (ModuleIDs=Nil) or (TypeName=Nil)
     or (TypeName^=#0) or (TypeCount=0) then Result:=-1
-  Else Result:=GetIdx(TypeCount,TypeOffsets,ModuleIDs,TypeName,True);
+  Else Result:=GetIdx(TypeCount,TypeOffsets,ModuleIDs,TypeName,Version>=2{True});
 end;
 
 Function MKnowledgeBase.GetTypeIdxsByName (TypeName:PAnsiChar; Var TypeIdx:Integer):Integer;
 Begin
   TypeIdx := -1;
   if not Inited or (TypeName=Nil) Or (TypeName^=#0) or (TypeCount=0) then Result:=0
-    else Result:=GetIdxName(TypeCount,TypeOffsets,TypeName,TypeIdx,True);
+    else Result:=GetIdxName(TypeCount,TypeOffsets,TypeName,TypeIdx,Version>=2{True});
 end;
 
 Function MKnowledgeBase.GetTypeIdxByUID (UID:AnsiString):Integer;
@@ -1070,8 +1070,13 @@ Begin
   Result:=False;
 	if not Inited Or (ATypeIdx = -1) then Exit;
   p := GetKBCachePtr(TypeOffsets[ATypeIdx].Offset, TypeOffsets[ATypeIdx].Size);
-  tInfo.Size := PInteger(p)^;
-  Inc(p, 4);
+  //Modified by ZGL
+  if Version=1 then tInfo.Size:=TypeOffsets[ATypeIdx].Size
+  else
+  begin
+    tInfo.Size := PInteger(p)^;
+    Inc(p, 4);
+  end;
   tInfo.ModuleID := PWord(p)^;
   Inc(p, 2);
   Len := PWord(p)^;
@@ -1357,6 +1362,8 @@ Begin
     M := (L + R) div 2;
     ID := TypeOffsets[M].NamId;
     p := GetKBCachePtr(TypeOffsets[ID].Offset, TypeOffsets[ID].Size) + 4;
+    if Version >= 2 then Inc(p, 4); //Add by ZGL
+
     res := stricomp(TypeName, p + 4);
     if res < 0 then R := M - 1
     else if res > 0 then L := M + 1
@@ -1374,6 +1381,7 @@ Begin
       begin
         ID := TypeOffsets[N].NamId;
         p := GetKBCachePtr(TypeOffsets[ID].Offset, TypeOffsets[ID].Size) + 4;
+        if Version >= 2 then Inc(p, 4); //Add by ZGL
         if stricomp(TypeName, p + 4)<>0 Then Break;
         ModID := PWord(p)^;
         if (ModID <> $FFFF) and (Result[num - 1] <> ModID) then
@@ -1388,6 +1396,7 @@ Begin
       begin
         ID := TypeOffsets[N].NamId;
         p := GetKBCachePtr(TypeOffsets[ID].Offset, TypeOffsets[ID].Size) + 4;
+        if Version >= 2 then Inc(p, 4); //Add by ZGL
         if stricomp(TypeName, p + 4)<>0 then Break;
         ModID := PWord(p)^;
         if (ModID <> $FFFF) and (Result[num - 1] <> ModID) then

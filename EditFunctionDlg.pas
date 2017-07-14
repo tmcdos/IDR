@@ -12,7 +12,7 @@ type
     Panel1: TPanel;
     bEdit: TButton;
     bAdd: TButton;
-    bRemove: TButton;
+    bRemoveSelected: TButton;
     pc: TPageControl;
     tsArgs: TTabSheet;
     lbArgs: TListBox;
@@ -42,6 +42,7 @@ type
     lArgsBytes: TLabel;
     lEndAdr: TLabeledEdit;
     lStackSize: TLabeledEdit;
+    bRemoveAll: TButton;
     procedure FormKeyDown(Sender : TObject; var Key:Word; Shift: TShiftState);
     procedure bEditClick(Sender : TObject);
     procedure FormShow(Sender : TObject);
@@ -49,11 +50,12 @@ type
     procedure lbVarsClick(Sender : TObject);
     procedure bCancelVarClick(Sender : TObject);
     procedure bApplyVarClick(Sender : TObject);
-    procedure bRemoveClick(Sender : TObject);
+    procedure bRemoveSelectedClick(Sender : TObject);
     procedure bAddClick(Sender : TObject);
     procedure bApplyTypeClick(Sender : TObject);
     procedure bCancelTypeClick(Sender : TObject);
     procedure bOkClick(Sender : TObject);
+    procedure bRemoveAllClick(Sender: TObject);
     procedure FormClose(Sender : TObject; var Action:TCloseAction);
     procedure cbMethodClick(Sender : TObject);
   private
@@ -61,7 +63,7 @@ type
     TypModified:Boolean;
     VarModified:Boolean;
     //ArgEdited:Integer;
-    VarEdited:Integer;
+    //VarEdited:Integer;
     VmtCandidatesNum:Integer;
     StackSize:Integer;
     SFlags:TProcFlagSet;
@@ -83,7 +85,7 @@ implementation
 
 {$R *.DFM}
 
-Uses Infos,Misc,StrUtils,Def_main,Main,Def_know;
+Uses Types,Infos,Misc,StrUtils,Def_main,Main,Def_know;
 
 procedure TFEditFunctionDlg.bOkClick(Sender : TObject);
 begin
@@ -139,7 +141,8 @@ begin
   //Buttons
   bEdit.Enabled := true;
   bAdd.Enabled := false;
-  bRemove.Enabled := false;
+  bRemoveSelected.Enabled := false;
+  bRemoveAll.Enabled := false;
   bOk.Enabled := false;
 
   TypModified := false;
@@ -149,6 +152,8 @@ end;
 procedure TFEditFunctionDlg.bEditClick(Sender : TObject);
 var
   line,p:AnsiString;
+  recN:InfoRec;
+  locInfo:PLocalInfo;
 begin
   if pc.ActivePage = tsType then
   begin
@@ -168,6 +173,16 @@ begin
     edtVarOfs.Text := '';
     edtVarName.Text := '';
     edtVarType.Text := '';
+    recN:=GetInfoRec(Adr);
+    locInfo:=recN.procInfo.locals[lbVars.ItemIndex];
+    If Assigned(locInfo) Then
+    begin
+      edtVarOfs.Text:=IntToHex(locInfo.Ofs,0);
+      edtVarSize.Text:=IntToStr(locInfo.Size);
+      edtVarName.Text:=locInfo.Name;
+      edtVarType.Text:=locInfo.TypeDef;
+    end;
+    {
     line := lbVars.Items[lbVars.ItemIndex];
     p := StrTok(line,[' ']);
     if p='' then Exit;
@@ -187,6 +202,7 @@ begin
     if p<>'?' then edtVarType.Text := p;
     VarEdited := lbVars.ItemIndex;
     lbVars.Align := alNone;
+    }
     lbVars.Height := pc.Height - pnlVars.Height;
     pnlVars.Visible := true;
   end;
@@ -195,13 +211,15 @@ begin
   //Buttons
   bEdit.Enabled := false;
   bAdd.Enabled := false;
-  bRemove.Enabled := false;
+  bRemoveSelected.Enabled := false;
+  bRemoveAll.Enabled := false;
 end;
 
 procedure TFEditFunctionDlg.lbVarsClick(Sender : TObject);
 begin
-  bEdit.Enabled := (lbVars.Count > 0) and (lbVars.ItemIndex <> -1);
-  bRemove.Enabled := (lbVars.Count > 0) and (lbVars.ItemIndex <> -1);
+  bEdit.Enabled := lbVars.SelCount = 1;
+  bRemoveSelected.Enabled := (lbVars.SelCount > 0);
+  bRemoveAll.Enabled := lbVars.Count > 0
 end;
 
 procedure TFEditFunctionDlg.pcChange(Sender : TObject);
@@ -210,19 +228,22 @@ begin
   begin
     bEdit.Enabled := true;
     bAdd.Enabled := false;
-    bRemove.Enabled := false;
+    bRemoveSelected.Enabled := false;
+    bRemoveAll.Enabled := False;
   end
   else if pc.ActivePage = tsArgs then
   begin
     bEdit.Enabled := false;
     bAdd.Enabled := false;
-    bRemove.Enabled := false;
+    bRemoveSelected.Enabled := false;
+    bRemoveAll.Enabled := false;
   end
   else
   begin
-    bEdit.Enabled := (lbVars.Count > 0) and (lbVars.ItemIndex <> -1);
     bAdd.Enabled := false;
-    bRemove.Enabled := (lbVars.Count > 0) and (lbVars.ItemIndex <> -1);
+    bEdit.Enabled := (lbVars.SelCount = 1);
+    bRemoveSelected.Enabled := (lbVars.SelCount > 0);
+    bRemoveAll.Enabled := (lbVars.Count > 0);
   End;
 end;
 
@@ -353,7 +374,8 @@ begin
   //Buttons
   bEdit.Enabled:=true;
   bAdd.Enabled:=false;
-  bRemove.Enabled:=false;
+  bRemoveSelected.Enabled:=false;
+  bRemoveAll.Enabled:=false;
   bOk.Enabled:=true;
 
   TypModified:=true;
@@ -383,19 +405,25 @@ begin
   //Buttons
   bEdit.Enabled := true;
   bAdd.Enabled := false;
-  bRemove.Enabled := false;
+  bRemoveSelected.Enabled := false;
+  bRemoveAll.Enabled:=False;
   bOk.Enabled := false;
   TypModified := false;
 end;
 
 procedure TFEditFunctionDlg.bApplyVarClick(Sender : TObject);
 Var
-  line,item:AnsiString;
-  n:Integer;
+  recofs,size,pos1,pos2,elofs,len1:Integer;
+  recFile:TextFile;
+  p:PAnsiChar;
+  fname,ftype,_name,_type,recFileName,ofs,str:AnsiString;
+  recN:InfoRec;
+  locInfo:PLocalInfo;
+  tInfo:MTypeInfo;
+  _uses:TWordDynArray;
 begin
   try
-    n := StrToInt(Trim(edtVarOfs.Text));
-    line := ' ' + Val2Str(n,4) + ' '; // offset
+    recofs := StrToInt('$'+Trim(edtVarOfs.Text));
   Except
     on E:Exception do
     begin
@@ -405,8 +433,7 @@ begin
     End;
   End;
   try
-    n := StrToInt(Trim(edtVarSize.Text));
-    line :=line + Val2Str(n,2) + ' '; // size
+    size := StrToInt('$'+Trim(edtVarSize.Text));
   Except
     on E:Exception do
     begin
@@ -415,6 +442,7 @@ begin
       Exit;
     end;
   End;
+  {
   item := edtVarName.Text;
   if item <> '' then line:=line + item
     else line:=line + '?';
@@ -425,13 +453,103 @@ begin
 
   lbVars.Items[VarEdited] := line;
   lbVars.Update;
+  }
+
+  //Insert by ZGL
+  recN := GetInfoRec(Adr);
+  locInfo := recN.procInfo.locals[lbVars.ItemIndex];
+  ////////////
+
+  recofs := locInfo.Ofs;
+  fname := Trim(edtVarName.Text);
+  locInfo.Name := fname;  //ZGL add
+  ftype := Trim(edtVarType.Text);
+  locInfo.TypeDef := ftype;  //ZGL add
+  recN.procInfo.SetLocalType(recofs, ftype);
+
+  if (ftype <> '') and (GetTypeKind(ftype, size) = ikRecord) then
+  begin
+    recFileName := FMain.WrkDir + '\types.idr';
+    if FileExists(recFileName) then
+    begin
+      AssignFile(recFile,recFileName);
+      Reset(recFile);
+      while Not Eof(recFile) do
+      begin
+        ReadLn(recFile,str);
+        if Pos(ftype + '=',str) = 1 then
+        begin
+          while not eof(recFile) do
+          begin
+            ReadLn(recFile,str);
+            if Pos('end;',str)<>0 then break;
+            pos2 := Pos('//',str);
+            if pos2<>0 then
+            begin
+              ofs := Copy(str,pos2 + 2, Length(str));
+              pos1 := Pos(':',str);
+              if pos1<>0 then
+              begin
+                _name := Copy(str,1, pos1 - 1);
+                _type := Copy(str,pos1 + 1, pos2 - pos1 - 1);
+                recN.procInfo.AddLocal(StrToInt('$' + ofs) + recofs, 1, fname + '.' + _name, _type);
+              end;
+            End;
+          end;
+        end;
+      end;
+      CloseFile(recFile);
+    End;
+    while True do
+    begin
+      //KB
+      _uses := KBase.GetTypeUses(PAnsiChar(ftype));
+      pos1 := KBase.GetTypeIdxByModuleIds(_uses, PAnsiChar(ftype));
+      _uses:=Nil;
+      if pos1 = -1 then break;
+
+      pos1 := KBase.TypeOffsets[pos1].NamId;
+      if KBase.GetTypeInfo(pos1, [INFO_FIELDS], tInfo) then
+      begin
+        if tInfo.FieldsNum<>0 then
+        begin
+          p := tInfo.Fields;
+          for pos2:=0 to tInfo.FieldsNum-1 do
+          begin
+            //Scope
+            Inc(p);
+            elofs := PInteger(p)^;
+            Inc(p, 4);
+            Inc(p, 4);//case
+            //Name
+            len1 := PWord(p)^;
+            Inc(p, 2);
+            _name := MakeString(p, len1);
+            Inc(p, len1 + 1);
+            //Type
+            len1 := PWord(p)^;
+            Inc(p, 2);
+            _type := TrimTypeName(MakeString(p, len1));
+            Inc(p, len1 + 1);
+            recN.procInfo.AddLocal(recofs + elofs, 1, fname + '.' + _name, _type);
+          end;
+          break;
+        end;
+        if tInfo.Decl <> '' then ftype := tInfo.Decl;
+      end;
+    end;
+  end;
+
+  FillVars;
+
   pnlVars.Visible := false;
-  lbVars.Align := alClient;
   lbVars.Enabled := true;
   lbArgs.Enabled := true;
+
   bEdit.Enabled := true;
   bAdd.Enabled := false;
-  bRemove.Enabled := false;
+  bRemoveSelected.Enabled := false;
+  bRemoveAll.Enabled := false;
   bOk.Enabled := true;
   VarModified := true;
 end;
@@ -439,24 +557,31 @@ end;
 procedure TFEditFunctionDlg.bCancelVarClick(Sender : TObject);
 begin
   pnlVars.Visible := false;
-  lbVars.Align := alClient;
   lbVars.Enabled := true;
   lbArgs.Enabled := true;
   bOk.Enabled := false;
   VarModified := false;
 end;
 
-procedure TFEditFunctionDlg.bRemoveClick(Sender : TObject);
+procedure TFEditFunctionDlg.bRemoveSelectedClick(Sender : TObject);
 var
   recN:InfoRec;
+  locInfo:PLocalInfo;
+  n:Integer;
 begin
   if pc.ActivePage = tsVars then
   begin
     recN := GetInfoRec(Adr);
-    recN.procInfo.DeleteLocal(lbVars.ItemIndex);
+    for n:=lbVars.Count-1 downto 0 do
+      if lbVars.Selected[n] Then
+      begin
+        locInfo:=recN.procInfo.locals[n];
+        recN.procInfo.DeleteLocal(n);
+      end;
     FillVars;
-    bEdit.Enabled := (lbVars.Count > 0) and (lbVars.ItemIndex <> -1);
-    bRemove.Enabled := (lbVars.Count > 0) and (lbVars.ItemIndex <> -1);
+    bEdit.Enabled := false;
+    bRemoveSelected.Enabled := false;
+    bRemoveAll.Enabled:=(lbVars.Count > 0);
   end;
 end;
 
@@ -552,7 +677,6 @@ Begin
     canva := lbArgs.Canvas;
     maxwid := 0;
     cnt := recN.procInfo.args.Count;
-    //recN.procInfo.args.Sort(ArgsCmpFunction);
     callKind := recN.procInfo.call_kind;
     if (callKind = 1) or (callKind = 3) then //cdecl, stdcall
     begin
@@ -652,7 +776,7 @@ Begin
     for n := 0 to cnt-1 do
     begin
       locInfo := recN.procInfo.locals.Items[n];
-      line := Val2Str(-locInfo.Ofs,4) + ' ' + Val2Str(locInfo.Size,2) + ' ';
+      line := Val2Str(-locInfo.Ofs,8) + ' ' + Val2Str(locInfo.Size,2) + ' ';
       if locInfo.Name <> '' then line:=line + locInfo.Name
         else line:=line + '?';
       line:=line + ':';
@@ -698,6 +822,21 @@ begin
     FillType;
     cbVmtCandidates.Text := '';
   End;
+end;
+
+procedure TFEditFunctionDlg.bRemoveAllClick(Sender: TObject);
+var
+  recN:InfoRec;
+begin
+  recN:=GetInfoRec(Adr);
+  If Assigned(recN.procInfo.locals) Then
+  Begin
+    recN.procInfo.DeleteLocals;
+    FillVars;
+    bEdit.Enabled:=False;
+    bRemoveSelected.Enabled:=False;
+    bRemoveAll.Enabled:=false;
+  end;
 end;
 
 end.

@@ -26,7 +26,7 @@ Type
     Procedure UpdateBeforeClassViewer;
     Procedure StrapSysProcs;
     Procedure FindRTTIs;
-    Procedure FindVMTs2;                //Для версии Дельфи2 (другая структура!)
+    Procedure FindVMTs2;                //for Delphi2 (different structure!)
     Procedure FindVMTs;
     Procedure FindTypeFields;
     Function FindEvent(VmtAdr:Integer; Name:AnsiString):AnsiString;
@@ -49,7 +49,7 @@ Type
   public
     all:Boolean;    //if false, only ClassViewer
     ReturnValue:Integer;
-    Constructor Create(AForm:TFMain; AllValue:Boolean);
+    constructor Create(AForm:TFMain; AllValues:Boolean);
   end;
 
 Implementation
@@ -80,12 +80,12 @@ const
   );
 
 
-Constructor TAnalyzeThread.Create (AForm:TFMain; AllValue:Boolean);
+constructor TAnalyzeThread.Create(AForm:TFMain; AllValues:Boolean);
 Begin
   Inherited Create(True);
   Priority:=tpLower;
   mainForm:=AForm;
-  all:=AllValue;
+  all:=AllValues;
 end;
 
 //PopupMenu items!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -224,12 +224,12 @@ end;
 
 Procedure TAnalyzeThread.UpdateProgress;
 Begin
-  PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
+  if Not Terminated then PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
 end;
 
 Procedure TAnalyzeThread.StopProgress;
 Begin
-  PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taStopPrBar), 0);
+  PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
   //as the nice place to check if we are asked to Terminate
   if Terminated Then Raise Exception.Create('Termination request 1');
 end;
@@ -238,31 +238,38 @@ Procedure TAnalyzeThread.UpdateStatusBar (adr:Integer);
 var
   updStatBar:PThreadAnalysisData;
 Begin
-  if Terminated then Raise Exception.Create('Termination request 2');
-  New(updStatBar);
-  updStatBar.pbSteps:=0;
-  updStatBar.sbText:= Val2Str(adr,8);
-  SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdateStBar), Integer(updStatBar));
+  if not Terminated then
+  begin
+    New(updStatBar);
+    updStatBar.pbSteps:=0;
+    updStatBar.sbText:= Val2Str(adr,8);
+    SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdateStBar), Integer(updStatBar));
+  end;
 end;
 
 Procedure TAnalyzeThread.UpdateStatusBar(const sbText:AnsiString);
 var
   updStatBar:PThreadAnalysisData;
 Begin
-  if Terminated then Raise Exception.Create('Termination request 3');
-  New(updStatBar);
-  updStatBar.pbSteps:=0;
-  updStatBar.sbText:= sbText;
-  SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdateStBar), Integer(updStatBar));
+  if not Terminated then
+  begin
+    New(updStatBar);
+    updStatBar.pbSteps:=0;
+    updStatBar.sbText:= sbText;
+    SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdateStBar), Integer(updStatBar));
+  end;
 end;
 
 Procedure TAnalyzeThread.UpdateAddrInStatusBar (adr:Integer);
 Begin
-  Inc(adrCnt);
-  if adrCnt = SKIPADDR_COUNT then
+  if not Terminated then
   begin
-    UpdateStatusBar(adr);
-    adrCnt := 0;
+    Inc(adrCnt);
+    if adrCnt = SKIPADDR_COUNT then
+    begin
+      UpdateStatusBar(adr);
+      adrCnt := 0;
+    end;
   end;
 end;
 
@@ -2382,14 +2389,14 @@ Begin
               if not KBase.IsUsedProc(Idx) then
               Begin
                 matched := false;
-                if KBase.GetProcInfo(Idx, [INFO_DUMP], pInfo) and (pInfo.DumpSz >= 8) then
+                if KBase.GetProcInfo(Idx, [INFO_DUMP], pInfo) and (pInfo.DumpSz >= 8) and (m+pInfo.DumpSz < toPos) then
                 Begin
                   matched := MatchCode(Code + m, @pInfo) and mainForm.StrapCheck(m, @pInfo);
                   if matched then
                   Begin
-                    //If method of class, check that ClassName is found
-                    clasName := ExtractClassName(pInfo.ProcName);
-                    if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
+                    //If method of class, check that ClassName is found - removed by Crypto
+                    ///clasName := ExtractClassName(pInfo.ProcName);
+                    ///if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
                     Begin
                       recU.matchedPercent:=recU.matchedPercent + 100 * pInfo.DumpSz / (toPos - fromPos + 1);
                       break;
@@ -2485,13 +2492,13 @@ Begin
       if not KBase.GetProcIdxs(moduleID, FirstProcIdx, LastProcIdx, DumpSize) then continue;
       stepMask := StartProgress(toPos - fromPos + 1, 'Scan Unit ' + unitName + ': step 1');
       recU.kb := true;
-      lastMatchPos := 0;
+      ///lastMatchPos := 0;
       m:=fromPos;
       While m < toPos do
       Begin
         if Terminated then Break;
         if ((m-fromPos) and stepMask) = 0 then UpdateProgress;
-        if (lastMatchPos<>0) and (m > lastMatchPos + DumpSize) then break;
+        ///if (lastMatchPos<>0) and (m > lastMatchPos + DumpSize) then break;
         if Code[m]=#0 then
         Begin
           Inc(m);
@@ -2518,17 +2525,18 @@ Begin
             Idx := KBase.ProcOffsets[k].ModId;
             if not KBase.IsUsedProc(Idx) then
             Begin
-              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz >= 8) then
+              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz >= 8)
+                and (m + pInfo.DumpSz < toPos) then
               Begin
                 //Check code matching
                 matched := MatchCode(Code + m, @pInfo) and mainForm.StrapCheck(m, @pInfo);
                 if matched then
                 Begin
-                  //If method of class, check that ClassName is found
-                  clasName := ExtractClassName(pInfo.ProcName);
-                  if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
+                  //If method of class, check that ClassName is found - removed by Crypto
+                  ///clasName := ExtractClassName(pInfo.ProcName);
+                  ///if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
                   Begin
-                    if lastMatchPos=0 then lastMatchPos := m;
+                    ///if lastMatchPos=0 then lastMatchPos := m;
                     mainForm.StrapProc(m, Idx, @pInfo, true, pInfo.DumpSz);
                     Inc(m, pInfo.DumpSz - 1);
                     break;
@@ -2651,14 +2659,15 @@ Begin
             Idx := KBase.ProcOffsets[k].ModId;
             if not KBase.IsUsedProc(Idx) then
             Begin
-              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz > 1) then
+              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz >= 8)
+                and (m + pInfo.DumpSz < toPos) then
               Begin
                 matched := MatchCode(Code + m, @pInfo) and mainForm.StrapCheck(m, @pInfo);
                 if matched then
                 Begin
-                  //If method of class, check that ClassName is found
-                  clasName := ExtractClassName(pInfo.ProcName);
-                  if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
+                  //If method of class, check that ClassName is found - removed by Crypto
+                  ///clasName := ExtractClassName(pInfo.ProcName);
+                  ///if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
                   Begin
                     mainForm.StrapProc(m, Idx, @pInfo, true, pInfo.DumpSz);
                     break;
@@ -2712,14 +2721,15 @@ Begin
               if not KBase.IsUsedProc(Idx) then
               Begin
                 matched := false;
-                if KBase.GetProcInfo(Idx, [INFO_DUMP], pInfo) and (pInfo.DumpSz > 1) then
+                if KBase.GetProcInfo(Idx, [INFO_DUMP], pInfo) and (pInfo.DumpSz >= 8)
+                  and (m + pInfo.DumpSz < toPos) then
                 Begin
                   matched := MatchCode(Code + m, @pInfo) and mainForm.StrapCheck(m, @pInfo);
                   if matched then
                   Begin
-                    //If method of class, check that ClassName is found
-                    clasName := ExtractClassName(pInfo.ProcName);
-                    if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
+                    //If method of class, check that ClassName is found - removed by Crypto
+                    ///clasName := ExtractClassName(pInfo.ProcName);
+                    ///if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
                     Begin
                       recU.matchedPercent := recU.matchedPercent + 100 * pInfo.DumpSz / (toPos - fromPos + 1);
                       break;
@@ -2775,14 +2785,15 @@ Begin
             if not KBase.IsUsedProc(Idx) then
             Begin
               matched := false;
-              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz > 1) then
+              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz >= 8)
+                and (m + pInfo.DumpSz < toPos) then
               Begin
                 matched := MatchCode(Code + m, @pInfo) and mainForm.StrapCheck(m, @pInfo);
                 if matched then
                 Begin
-                  //If method of class, check that ClassName is found
-                  clasName := ExtractClassName(pInfo.ProcName);
-                  if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
+                  //If method of class, check that ClassName is found - removed by Crypto
+                  ///clasName := ExtractClassName(pInfo.ProcName);
+                  ///if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
                   Begin
                     mainForm.StrapProc(m, Idx, @pInfo, true, pInfo.DumpSz);
                     StdUnits[r].used := true;
@@ -3249,8 +3260,8 @@ Begin
         Inc(i,4);
         continue;
       end;
-      len := lstrlenW(PWideChar(Code + i + 12));
-      //len = *((int*)(Code + i + 8));
+      //len := lstrlenW(PWideChar(Code + i + 12));
+      len := PInteger(Code + i + 8)^;
       if (len <= 0) or (len > 10000) then
       begin
         Inc(i,4);
@@ -3504,7 +3515,8 @@ Begin
             Begin
               fieldOfs := getProc and $00FFFFFF;
               recN1 := GetInfoRec(classVMT + VmtSelfPtr);
-              recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
+              If Assigned(recN1) and Assigned(recN.vmtInfo) then
+                recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
             End
             else if (getProc and $FF000000) = $FE000000 then
             Begin
@@ -3542,7 +3554,8 @@ Begin
             Begin
               fieldOfs := setProc and $00FFFFFF;
               recN1 := GetInfoRec(classVMT + VmtSelfPtr);
-              recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
+              If Assigned(recN1) and Assigned(recN.vmtInfo) then
+                recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
             End
             else if (setProc and $FF000000) = $FE000000 then
             Begin
@@ -3581,7 +3594,8 @@ Begin
             Begin
               fieldOfs := storedProc and $00FFFFFF;
               recN1 := GetInfoRec(classVMT + VmtSelfPtr);
-              recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
+              If Assigned(recN1) and Assigned(recN.vmtInfo) then
+                recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
             End
             else if (storedProc and $FF000000) = $FE000000 then
             Begin

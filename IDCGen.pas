@@ -2,7 +2,7 @@ Unit IDCGen;
 
 Interface
 
-Uses Classes,Def_main,Infos;
+Uses Windows,Messages,Classes,Def_main,Infos,Dialogs;
 
 Type
   TIDCGen = class
@@ -12,8 +12,12 @@ Type
     itemName:AnsiString;
     names:TStringList;
     repeated:TList;
-    Constructor Create(f:TFileStream);
+    SplitSize:Integer; // Maximum output bytes if IDC splitted
+    CurrentPartNo:Integer; // current part number (filename looks like XXX_NN.idc)
+    CurrentBytes:Integer; // current part output bytes
+    constructor Create(f:TFileStream;AsplitSize:Integer);
     Destructor Destroy; Override;
+    procedure NewIDCPart(f:TFileStream);
     Procedure DeleteName(_pos:Integer);
     Function MakeByte(_pos:Integer):Integer;
     Function MakeWord(_pos:Integer):Integer;
@@ -29,7 +33,8 @@ Type
     Procedure MakeFunction(adr:Integer);
     Procedure MakeComment(_pos:Integer; text:AnsiString);
     Function OutputAttrData(_pos:Integer):Integer;
-    Procedure OutputHeader;
+    Procedure OutputHeaderFull;
+    Procedure OutputHeaderShort;
     Function OutputRTTIHeader(kind:LKind; _pos:Integer):Integer;
     Procedure OutputRTTIInteger(kind:LKind; _pos:Integer);
     Procedure OutputRTTIChar(kind:LKind; _pos:Integer);
@@ -71,15 +76,26 @@ Type
     Function GetNameInfo(idx:Integer):PRepNameInfo;
   end;
 
+  TSaveIDCDialog = class(TOpenDialog)
+    Constructor Create(AOwner:TComponent);
+    procedure WndProc(var Msg:TMessage); Override;
+  end;
+
 Implementation
 
 Uses Misc,SysUtils,Main,Def_disasm;
 
-Constructor TIDCGen.Create (f:TFileStream);
+Const
+  chkSplit_ID = 101;
+
+constructor TIDCGen.Create(f:TFileStream;AsplitSize:Integer);
 Begin
   idcF:=f;
   names:=TStringList.Create;
   repeated:=TList.Create;
+  splitSize:=AsplitSize;
+  CurrentPartNo:=1;
+  CurrentBytes:=0;
 end;
 
 Destructor TIDCGen.Destroy;
@@ -87,6 +103,13 @@ Begin
   names.Free;
   repeated.Free;
   inherited;
+end;
+
+procedure TIDCGen.NewIDCPart(f:TFileStream);
+Begin
+  idcF:=f;
+  CurrentBytes:=0;
+  Inc(CurrentPartNo);
 end;
 
 Procedure TIDCGen.DeleteName (_pos:Integer);
@@ -97,6 +120,7 @@ Begin
   adr := Pos2Adr(_pos);
   s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "", 0);'+#13,[adr,adr]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
 end;
 
 Function TIDCGen.MakeByte (_pos:Integer):Integer;
@@ -105,6 +129,7 @@ var
 Begin
   s:=Format('MakeByte(0x%x);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result:=_pos + 1;
 end;
 
@@ -114,6 +139,7 @@ var
 Begin
   s:=Format('MakeWord(0x%x);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result:=_pos + 2;
 end;
 
@@ -123,6 +149,7 @@ var
 Begin
   s:=Format('MakeDword(0x%x);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result:=_pos + 4;
 end;
 
@@ -132,6 +159,7 @@ var
 Begin
   s:=Format('MakeQword(0x%x);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result:=_pos + 8;
 end;
 
@@ -143,6 +171,7 @@ Begin
   adr:=Pos2Adr(_pos);
   s:=Format('MakeByte(0x%x);'+#13+'MakeArray(0x%x, %d);'+#13,[adr,adr,num]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result:=_pos + num;
 end;
 
@@ -161,6 +190,7 @@ Begin
     adr:=Pos2Adr(_pos);
     s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_PASCAL);'+#13+'MakeStr(0x%x, 0x%x);'+#13,[adr,adr+len+1]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     Result:=_pos + len + 1;
   End;
 end;
@@ -175,6 +205,7 @@ Begin
   len:=StrLen(Code + _pos);
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_TERMCHR);'+#13+'MakeStr(0x%x, 0x%x);'+#13,[adr,adr+len+1]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result:=_pos + len + 1;
 end;
 
@@ -184,6 +215,7 @@ var
 Begin
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_TERMCHR);'+#13+'MakeStr(0x%x, -1);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   //Length
   MakeDword(_pos - 4);
   //RefCount
@@ -196,6 +228,7 @@ var
 Begin
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_UNICODE);'+#13+'MakeStr(0x%x, -1);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   //Length
   MakeDword(_pos - 4);
 end;
@@ -206,6 +239,7 @@ var
 Begin
   s:=Format('SetLongPrm(INF_STRTYPE, ASCSTR_UNICODE);'+#13+'MakeStr(0x%x, -1);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   //Length
   MakeDword(_pos - 4);
   //RefCount
@@ -222,6 +256,7 @@ var
 Begin
   s:=Format('MakeCode(0x%x);'+#13,[Pos2Adr(_pos)]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   Result := frmDisasm.Disassemble(Code + _pos, Pos2Adr(_pos),Nil, Nil);
   if Result=0 then Result := 1;
 end;
@@ -234,6 +269,7 @@ Begin
   Begin
     s:=Format('MakeFunction(0x%x, -1);'+#13,[adr]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     MakeCode(Adr2Pos(adr));
   end;
 end;
@@ -244,6 +280,7 @@ Var
 Begin
   s:=Format('MakeComm(0x%x, "%s");'+#13,[Pos2Adr(_pos), text]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
 end;
 
 Function TIDCGen.OutputAttrData (_pos:Integer):Integer;
@@ -255,7 +292,7 @@ Begin
   Result:=_pos;
 end;
 
-Procedure TIDCGen.OutputHeader;
+Procedure TIDCGen.OutputHeaderFull;
 var
   s:AnsiString;
 Begin
@@ -278,6 +315,16 @@ Begin
     +'clear(0x%lX);'
     ,[CodeBase]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
+end;
+
+procedure TIDCGen.OutputHeaderShort;
+var
+  s:AnsiString;
+Begin
+  s:='#include <idc.idc>'+#13+'static main(){'+#13;
+  idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
 end;
 
 function TIDCGen.OutputRTTIHeader(kind:LKind; _pos:Integer): Integer;
@@ -293,6 +340,7 @@ Begin
   adr := Pos2Adr(_pos);
   s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "RTTI_%x_%s_%s", 0);',[adr,adr,adr,TypeKind2Name(kind),itemName]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   //Selfptr
   _pos := MakeDword(_pos);
   //Kind
@@ -955,6 +1003,7 @@ Begin
   adr := pos2Adr(_pos);
   s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "VMT_%x_%s", 0);'+#13,[adr,adr,adr,vmtName]);
   idcF.Write(s[1],Length(s));
+  Inc(CurrentBytes,Length(s));
   //VmtSelfPtr
   _pos := MakeDword(_pos);
   Result:= _pos - from;
@@ -971,6 +1020,7 @@ Begin
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_IntfTable", 0);'+#13,[intfTable,intfTable,itemName]);
     idcF.Write(s[1],LEngth(s));
+    Inc(CurrentBytes,Length(s));
     _pos := Adr2pos(intfTable);
     //EntryCount
     Count := PInteger(Code + _pos)^;
@@ -1030,6 +1080,7 @@ Begin
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_AutoTable", 0);'+#13,[autoTable,autoTable,itemName]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     _pos := Adr2pos(autoTable);
     //EntryCount
     Count := PInteger(Code + _pos)^;
@@ -1079,6 +1130,7 @@ Begin
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_InitTable", 0);'+#13,[initTable,initTable,itemName]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     _pos := Adr2pos(initTable);
     //0xE
     _pos := MakeByte(_pos);
@@ -1110,6 +1162,7 @@ Begin
   begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_FieldTable", 0);'+#13,[fieldTable,fieldTable,itemName]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     _pos := Adr2pos(fieldTable);
     //num
     num := PInteger(Code + _pos)^;
@@ -1178,6 +1231,7 @@ Begin
     s:=Format('MakeUnkn(0x%lX, 1);'+#13+'MakeNameEx(0x%lX, \"%s_MethodTable\", 0);'+#13,
       [methodTable,methodTable,itemName]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     _pos := Adr2pos(methodTable);
     //Count
     count := PWORD(Code + _pos)^;
@@ -1291,6 +1345,7 @@ Begin
     s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_DynamicTable", 0);'+#13,
       [dynamicTable,dynamicTable,itemName]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     _pos := Adr2pos(dynamicTable);
     //Num
     num := PWord(Code + _pos)^;
@@ -1335,6 +1390,7 @@ Begin
       names.Add(itemName);
       s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s", 0x20);'+#13,[fromAdr,fromAdr,itemName]);
       idcF.Write(s[1],Length(s));
+      Inc(CurrentBytes,Length(s));
     end
     else
     begin
@@ -1351,6 +1407,7 @@ Begin
       s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_%d", 0x20);'+#13,
         [fromAdr,fromAdr,itemName,cnt]);
       idcF.Write(s[1],Length(s));
+      Inc(CurrentBytes,Length(s));
     end;
     MakeComment(_pos, recN.MakePrototype(fromAdr, true, false, false, true, false));
   end;
@@ -1366,6 +1423,7 @@ Begin
   begin
     s:=Format('MakeFunction(0x%x, 0x%x);'+#13,[fromAdr,fromAdr + instrLen]);
     idcF.Write(s[1],Length(s));
+    Inc(CurrentBytes,Length(s));
     Result:= instrLen - 1;//:= procSize - 1
     Exit;
   end;
@@ -1375,6 +1433,7 @@ Begin
     begin
       s:=Format('MakeFunction(0x%x, 0x%x);'+#13,[fromAdr, pos2Adr(_pos) + 1]);
       idcF.Write(s[1],Length(s));
+      Inc(CurrentBytes,Length(s));
       break;
     end;
     recN1 := GetInfoRec(pos2Adr(_pos));
@@ -1432,6 +1491,7 @@ Begin
         names.Add(_name);
         s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s", 0);'+#13,[adr,adr,_name]);
         idcF.Write(s[1],Length(s));
+        Inc(CurrentBytes,Length(s));
       end
       else
       begin
@@ -1448,6 +1508,7 @@ Begin
         s:=Format('MakeUnkn(0x%x, 1);'+#13+'MakeNameEx(0x%x, "%s_%d", 0);'+#13,
           [adr,adr,_name,cnt]);
         idcF.Write(s[1],Length(s));
+        Inc(CurrentBytes,Length(s));
       end;
     end;
     if recN._type <> '' then MakeComment(_pos, recN._type);
@@ -1464,6 +1525,21 @@ Begin
     if Result.index = idx Then Exit;
   end;
   Result:=Nil;
+end;
+
+Constructor TSaveIDCDialog.Create(AOwner:TComponent);
+Begin
+  Inherited;
+  Options:=Options + [ofEnableSizing];
+  if SplitIDC then CheckDlgButton(Handle,chkSplit_ID,BST_CHECKED)
+    else CheckDlgButton(Handle,chkSplit_ID,BST_UNCHECKED);
+end;
+
+procedure TSaveIDCDialog.WndProc(var Msg:TMessage);
+Begin
+  if (Msg.Msg = WM_COMMAND)and(Msg.WParamLo = chkSplit_ID) then
+    SplitIDC:=IsDlgButtonChecked(Handle,chkSplit_ID) = BST_CHECKED;
+  Inherited;
 end;
 
 End.
