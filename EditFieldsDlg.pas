@@ -194,32 +194,47 @@ end;
 procedure TFEditFieldsDlg.bApplyClick(Sender : TObject);
 var
   vmt:Boolean;
-  adr:Integer;
-  offset:Integer;
+  adr,n,size,offset,fromOfs,toOfs:Integer;
   recN:InfoRec;
   fInfo:FieldInfo;
   txt:AnsiString;
   itemidx,topidx:Integer;
+  rtti:AnsiString;
 begin
+  recN:=GetInfoRec(VmtAdr);
+  edtName.Text:=Trim(edtName.Text);
+  edtType.Text:=Trim(edtType.Text);
+  edtOffset.Text:=Trim(edtOffset.Text);
   Case Op of
     FD_OP_EDIT:
       begin
         fInfo := fieldsList.Items[lbFields.ItemIndex];
         fInfo.Name := edtName.text;
         fInfo._Type := edtType.text;
+        //Delete all fields (if exists) that covered by new type
+        fromOfs := fInfo.Offset;
+        if GetTypeKind(edtType.Text, size) = ikRecord then
+        begin
+          toOfs := fromOfs + size;
+          for n := 0 to fieldsList.Count-1 do
+          begin
+            fInfo := fieldsList[n];
+            offset := fInfo.Offset;
+            if (offset > fromOfs) and (offset < toOfs) then
+              recN.vmtInfo.RemoveField(offset);
+          end;
+        end;
       End;
     FD_OP_ADD,
     FD_OP_DELETE:
       begin
-        txt := edtOffset.text;
-        sscanf(PAnsiChar(txt),'%lX',[@offset]);
-        recN := GetInfoRec(VmtAdr);
+        sscanf(PAnsiChar(edtOffset.Text),'%lX',[@offset]);
         if Op = FD_OP_ADD then
         begin
           fInfo := FMain.GetField(recN.Name, offset, vmt, adr,'');
-          if Not Assigned(fInfo) Then
-            if Application.MessageBox('Field already exists', 'Replace?', MB_YESNO) = IDYES then
-              recN.vmtInfo.AddField(0, 0, FIELD_PUBLIC, offset, -1, edtName.text, edtType.text);
+          if Not Assigned(fInfo) Or (Application.MessageBox('Field already exists', 'Replace?', MB_YESNO) = IDYES) then
+            recN.vmtInfo.AddField(0, 0, FIELD_PUBLIC, offset, -1, edtName.text, edtType.text);
+          if Assigned(fInfo) and (fInfo.Scope=SCOPE_TMP) then fInfo.Free;
         end
         else if Application.MessageBox('Delete field?', 'Confirmation', MB_YESNO) = IDYES then
           recN.vmtInfo.RemoveField(offset);

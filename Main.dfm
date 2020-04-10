@@ -26,7 +26,7 @@ object FMain: TFMain
   TextHeight = 13
   object SplitterH1: TSplitter
     Left = 0
-    Top = 598
+    Top = 600
     Width = 1121
     Height = 3
     Cursor = crVSplit
@@ -39,7 +39,7 @@ object FMain: TFMain
   object SplitterV1: TSplitter
     Left = 215
     Top = 0
-    Height = 583
+    Height = 585
     AutoSnap = False
     Color = clNavy
     MinSize = 3
@@ -49,8 +49,8 @@ object FMain: TFMain
     Left = 218
     Top = 0
     Width = 903
-    Height = 583
-    ActivePage = tsNames
+    Height = 585
+    ActivePage = tsMap
     Align = alClient
     TabOrder = 1
     OnChange = pcWorkAreaChange
@@ -60,7 +60,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 530
+        Height = 532
         Cursor = crIBeam
         Style = lbOwnerDrawFixed
         AutoComplete = False
@@ -183,7 +183,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 530
+        Height = 532
         Style = lbOwnerDrawFixed
         Align = alRight
         Color = clWhite
@@ -209,7 +209,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 515
+        Height = 517
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -254,7 +254,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 895
-        Height = 515
+        Height = 517
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -301,7 +301,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 530
+        Height = 532
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -321,7 +321,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 530
+        Height = 532
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -426,7 +426,7 @@ object FMain: TFMain
         Left = 785
         Top = 25
         Width = 110
-        Height = 530
+        Height = 532
         Style = lbOwnerDrawFixed
         Align = alRight
         Font.Charset = DEFAULT_CHARSET
@@ -446,7 +446,7 @@ object FMain: TFMain
         Left = 0
         Top = 25
         Width = 785
-        Height = 530
+        Height = 532
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -530,12 +530,72 @@ object FMain: TFMain
         OnMouseMove = lbSourceCodeMouseMove
       end
     end
+    object tsMap: TTabSheet
+      Caption = 'Map (F11)'
+      ImageIndex = 6
+      object vtMap: TVirtualStringTree
+        Left = 0
+        Top = 0
+        Width = 895
+        Height = 557
+        Align = alClient
+        DefaultText = 'Node'
+        Font.Charset = RUSSIAN_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -12
+        Font.Name = 'Fixedsys'
+        Font.Style = []
+        Header.AutoSizeIndex = 1
+        Header.Columns = <
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 0
+            Text = 'Address'
+            Width = 80
+          end
+          item
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus, coDisableAnimatedResize]
+            Position = 1
+            Text = 'Module'
+            Width = 200
+          end
+          item
+            Hint = 'Item typedef'
+            Options = [coAllowClick, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coAutoSpring, coAllowFocus, coDisableAnimatedResize]
+            Position = 2
+            Text = 'Procedure'
+            Width = 300
+          end>
+        Header.Font.Charset = DEFAULT_CHARSET
+        Header.Font.Color = clWindowText
+        Header.Font.Height = -11
+        Header.Font.Name = 'Tahoma'
+        Header.Font.Style = []
+        Header.Options = [hoColumnResize, hoShowHint, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize, hoHeaderClickAutoSort]
+        Header.SortColumn = 0
+        Margin = 0
+        ParentFont = False
+        ParentShowHint = False
+        PopupMenu = pmMap
+        ScrollBarOptions.AlwaysVisible = True
+        ShowHint = True
+        TabOrder = 0
+        TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
+        TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
+        TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
+        OnCompareNodes = vtNameCompareNodes
+        OnFreeNode = vtMapFreeNode
+        OnGetText = vtNameGetText
+        OnMouseMove = vtUnitMouseMove
+        OnNodeDblClick = vtMapNodeDblClick
+      end
+    end
   end
   object pcInfo: TPageControl
     Left = 0
     Top = 0
     Width = 215
-    Height = 583
+    Height = 585
     ActivePage = tsUnits
     Align = alLeft
     Constraints.MinWidth = 200
@@ -547,7 +607,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 555
+        Height = 557
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -609,7 +669,7 @@ object FMain: TFMain
         Left = 0
         Top = 0
         Width = 207
-        Height = 555
+        Height = 557
         Align = alClient
         DefaultText = 'Node'
         Font.Charset = RUSSIAN_CHARSET
@@ -670,7 +730,7 @@ object FMain: TFMain
       ImageIndex = 3
       object Splitter1: TSplitter
         Left = 0
-        Top = 381
+        Top = 383
         Width = 207
         Height = 4
         Cursor = crVSplit
@@ -706,7 +766,7 @@ object FMain: TFMain
         Left = 0
         Top = 40
         Width = 207
-        Height = 341
+        Height = 343
         AutoComplete = False
         Align = alClient
         Color = clWhite
@@ -727,7 +787,7 @@ object FMain: TFMain
       end
       object Panel4: TPanel
         Left = 0
-        Top = 385
+        Top = 387
         Width = 207
         Height = 170
         Align = alBottom
@@ -786,7 +846,7 @@ object FMain: TFMain
             Font.Height = -12
             Font.Name = 'Courier New'
             Font.Style = []
-            ItemHeight = 0
+            ItemHeight = 15
             ParentFont = False
             Sorted = True
             TabOrder = 0
@@ -817,7 +877,7 @@ object FMain: TFMain
   end
   object sb: TStatusBar
     Left = 0
-    Top = 761
+    Top = 763
     Width = 1121
     Height = 20
     Constraints.MaxHeight = 20
@@ -833,7 +893,7 @@ object FMain: TFMain
   end
   object pb: TProgressBar
     Left = 0
-    Top = 583
+    Top = 585
     Width = 1121
     Height = 15
     Align = alBottom
@@ -843,7 +903,7 @@ object FMain: TFMain
   end
   object vtProc: TVirtualStringTree
     Left = 0
-    Top = 601
+    Top = 603
     Width = 1121
     Height = 160
     Align = alBottom
@@ -901,7 +961,7 @@ object FMain: TFMain
     ScrollBarOptions.AlwaysVisible = True
     ScrollBarOptions.ScrollBars = ssVertical
     ShowHint = True
-    TabOrder = 4
+    TabOrder = 2
     TreeOptions.MiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toWheelPanning, toFullRowDrag]
     TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
     TreeOptions.SelectionOptions = [toFullRowSelect, toRightClickSelect, toSimpleDrawSelection, toAlwaysSelectNode]
@@ -916,7 +976,7 @@ object FMain: TFMain
   end
   object MainMenu: TMainMenu
     AutoHotkeys = maManual
-    Left = 916
+    Left = 920
     Top = 72
     object miFile: TMenuItem
       Caption = '&File'
@@ -1107,8 +1167,13 @@ object FMain: TFMain
         Caption = '&IDC Generator'
         OnClick = miIDCGeneratorClick
       end
+      object miHiewGenerator: TMenuItem
+        Caption = 'HIEW Generator'
+        OnClick = miHiewGeneratorClick
+      end
       object miLister: TMenuItem
-        Action = acDefCol
+        Caption = 'Lister'
+        OnClick = miListerClick
       end
       object miClassTreeBuilder: TMenuItem
         Caption = 'Class Tree &Builder'
@@ -1176,6 +1241,11 @@ object FMain: TFMain
         ShortCut = 121
         OnClick = SourceCode1Click
       end
+      object Map1: TMenuItem
+        Caption = 'Map'
+        ShortCut = 122
+        OnClick = Map1Click
+      end
     end
     object miPlugins: TMenuItem
       Caption = 'Plu&gins'
@@ -1203,6 +1273,10 @@ object FMain: TFMain
         object miacFontAll: TMenuItem
           Caption = 'Fonts'
           OnClick = acFontAllExecute
+        end
+        object mniShellintegration: TMenuItem
+          Caption = 'Shell integration'
+          OnClick = mniShellintegrationClick
         end
       end
     end
@@ -1245,14 +1319,17 @@ object FMain: TFMain
       Caption = 'Copy to Clipboard'
       OnClick = miCopyCodeClick
     end
+    object miCopyAddressCode: TMenuItem
+      Caption = 'Copy Address'
+      OnClick = miCopyAddressCodeClick
+    end
+    object N2: TMenuItem
+      Caption = '-'
+    end
     object miFuzzyScanKB: TMenuItem
       Caption = 'Fuzzy scan KB'
       Enabled = False
       OnClick = miFuzzyScanKBClick
-    end
-    object miCopyAddressCode: TMenuItem
-      Caption = 'Copy Address'
-      OnClick = miCopyAddressCodeClick
     end
     object miXRefs: TMenuItem
       Caption = 'XRefs'
@@ -1398,6 +1475,10 @@ object FMain: TFMain
       Caption = 'Search'
       OnClick = miSearchStringClick
     end
+    object Copy1: TMenuItem
+      Caption = 'Copy Lines'
+      OnClick = Copy1Click
+    end
     object miCopyStrings: TMenuItem
       Caption = 'Copy To Clipboard'
       OnClick = miCopyStringsClick
@@ -1406,7 +1487,7 @@ object FMain: TFMain
   object pmCodePanel: TPopupMenu
     AutoHotkeys = maManual
     OnPopup = pmCodePanelPopup
-    Left = 1056
+    Left = 1016
     Top = 72
     object miEmptyHistory: TMenuItem
       Caption = 'Empty History'
@@ -1461,6 +1542,18 @@ object FMain: TFMain
     object miCopytoClipboardNames: TMenuItem
       Caption = 'Copy to Clipboard'
       OnClick = miCopytoClipboardNamesClick
+    end
+  end
+  object pmMap: TPopupMenu
+    Left = 614
+    Top = 96
+    object CopyLines1: TMenuItem
+      Caption = 'Copy Lines'
+      OnClick = CopyLines1Click
+    end
+    object Copyalltoclipboard1: TMenuItem
+      Caption = 'Copy all to clipboard'
+      OnClick = Copyalltoclipboard1Click
     end
   end
 end

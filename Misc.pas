@@ -94,6 +94,7 @@ Function IsValidImageAdr(Adr:Integer):Boolean;
 function IsValidModuleName(len, p:Integer): Boolean;
 Function IsValidName(len, p:Integer):Boolean;
 Function IsValidString(len, p:Integer):Boolean;
+Function IsCopyDynArrayToStack(fromAdr:Integer):Integer;
 Procedure MakeGvar(recN:InfoRec; adr, xrefAdr:Integer);
 Function MakeGvarName(adr:Integer):AnsiString;
 Function MethodsCmpFunction(item1, item2:Pointer):Integer;
@@ -1259,11 +1260,11 @@ var
 Begin
   Result:=0;
   if not IsValidImageAdr(Adr) then Exit;
-  vmtAdr := Adr - VmtSelfPtr;
-  p := Adr2Pos(vmtAdr) + VmtParent;
+  vmtAdr := Adr - _VmtSelfPtr;
+  p := Adr2Pos(vmtAdr) + _VmtParent;
   adres := PInteger(Code + p)^;
   if IsValidImageAdr(adres) and IsFlagSet([cfImport], Adr2Pos(adres)) then Exit;
-  if (DelphiVersion = 2) And (adres<>0) then Inc(adres, VmtSelfPtr);
+  if (DelphiVersion = 2) And (adres<>0) then Inc(adres, _VmtSelfPtr);
   Result:=adres;
 end;
 
@@ -1291,8 +1292,8 @@ var
 Begin
   Result:=0;
   if not IsValidImageAdr(adr) then Exit;
-  vmtAdr := adr - VmtSelfPtr;
-  p := Adr2Pos(vmtAdr) + VmtInstanceSize;
+  vmtAdr := adr - _VmtSelfPtr;
+  p := Adr2Pos(vmtAdr) + _VmtInstanceSize;
   size := PInteger(Code + p)^;
   if DelphiVersion >= 2009 then Result:=size - 4
     else Result:=size;
@@ -1306,11 +1307,11 @@ var
 Begin
   Result:='';
   if not IsValidImageAdr(adr) then Exit;
-  vmtAdr := adr - VmtSelfPtr;
-  p := Adr2Pos(vmtAdr) + VmtClassName;
+  vmtAdr := adr - _VmtSelfPtr;
+  p := Adr2Pos(vmtAdr) + _VmtClassName;
   if IsFlagSet([cfImport], p) then
   begin
-    recN := GetInfoRec(vmtAdr + VmtClassName);
+    recN := GetInfoRec(vmtAdr + _VmtClassName);
     Result:=recN.Name;
     Exit;
   End;
@@ -1454,6 +1455,7 @@ Var
   tmpBuf:PAnsiChar;
 Begin
   Result:='';
+  if (data=Nil)or(len=0) then Exit;
   if not IsValidCodePage(codePage) then codePage := CP_ACP;
   nChars := WideCharToMultiByte(codePage, 0, data, -1, Nil, 0, Nil, Nil);
   if nChars=0 then Exit;
@@ -1473,9 +1475,9 @@ Begin
   Result := Integer(CodeBase) + TotalSize;
   if DelphiVersion <> 2 then
   begin
-    p := Adr2Pos(VmtAdr) + VmtIntfTable;
-    m := VmtIntfTable;
-    While m <> VmtInstanceSize do
+    p := Adr2Pos(VmtAdr) + _VmtIntfTable;
+    m := _VmtIntfTable;
+    While m <> _VmtInstanceSize do
     begin
       ptr := PInteger(Code + p)^;
       if (ptr >= VmtAdr) and (ptr < Result) then Result:= ptr;
@@ -1485,9 +1487,9 @@ Begin
   end
   else
   begin
-    p := Adr2Pos(VmtAdr) + VmtInitTable;
-    m := VmtInitTable;
-    while m <> VmtInstanceSize do
+    p := Adr2Pos(VmtAdr) + _VmtInitTable;
+    m := _VmtInitTable;
+    while m <> _VmtInstanceSize do
     begin
       if Adr2Pos(VmtAdr) < 0 then
       begin
@@ -1721,6 +1723,11 @@ Begin
     if (p > 1) and (AName[p + 1] <> ':') then
       name := Copy(AName,p + 1, Length(AName))
     else name := AName;
+    if (name[1]='^') Or SameText(name,'Pointer') then
+    Begin
+      Result:=ikPointer;
+      Exit;
+    end;
     if SameText(name, 'Boolean') or
       SameText(name, 'ByteBool') or
       SameText(name, 'WordBool') or
@@ -1815,11 +1822,6 @@ Begin
     else if SameText(name, 'Variant') Then
     Begin
       Result:=ikVariant;
-      Exit;
-    end
-    else if SameText(name, 'Pointer') Then
-    Begin
-      Result:=ikPointer;
       Exit;
     end;
 
@@ -2618,6 +2620,80 @@ begin
     End;
   End;
 End;
+
+//test reg1, reg1
+//js @1
+//@2:mov reg2, [reg3+reg1...]
+//dec reg1
+//push reg2
+//jns @2
+//@1:mov reg4, esp
+Function IsCopyDynArrayToStack(fromAdr:Integer):Integer;
+var
+  op:BYTE;
+  curPos,instrLen, reg1Idx, reg2Idx:Integer;
+  adr1, adr2, _imm,curAdr:Integer;
+  disaInfo:TDisInfo;
+begin
+  curPos:=Adr2Pos(fromAdr);
+  curAdr:=fromAdr;
+  instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+  op := frmDisasm.GetOp(disaInfo.Mnem);
+  if (op = OP_TEST) and
+    (disaInfo.OpType[0] = otREG) and
+    (disaInfo.OpType[1] = otREG) and
+    (disaInfo.OpRegIdx[0] = disaInfo.OpRegIdx[1]) then
+  begin
+    reg1Idx := disaInfo.OpRegIdx[0];
+    Inc(curPos, instrLen);
+    Inc(curAdr, instrLen);
+    instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+    if disaInfo.Mnem = 'js' then
+    begin
+      adr1 := disaInfo.Immediate;
+      Inc(curPos,instrLen);
+      Inc(curAdr,instrLen);
+      adr2 := curAdr;
+      instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+      op := frmDisasm.GetOp(disaInfo.Mnem);
+      if (op = OP_MOV) and (disaInfo.OpType[0] = otREG) and (disaInfo.OpType[1] = otMEM) then
+      begin
+        reg2Idx := disaInfo.OpRegIdx[0];
+        Inc(curPos,instrLen);
+        Inc(curAdr,instrLen);
+        instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+        op := frmDisasm.GetOp(disaInfo.Mnem);
+        if (op = OP_DEC) and (disaInfo.OpType[0] = otREG) and (disaInfo.OpRegIdx[0] = reg1Idx) then
+        begin
+          Inc(curPos,instrLen);
+          Inc(curAdr,instrLen);
+          instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+          op := frmDisasm.GetOp(disaInfo.Mnem);
+          if (op = OP_PUSH) And (disaInfo.OpType[0] = otREG) and (disaInfo.OpRegIdx[0] = reg2Idx) then
+          begin
+            Inc(curPos,instrLen);
+            Inc(curAdr,instrLen);
+            instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+            if (disaInfo.Mnem = 'jns') and (disaInfo.Immediate = adr2) then
+            begin
+              Inc(curPos,instrLen);
+              Inc(curAdr,instrLen);
+              instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disaInfo, Nil);
+              op := frmDisasm.GetOp(disaInfo.Mnem);
+              if (adr1 = curAdr) and (op = OP_MOV) And (disaInfo.OpType[0] = otREG) and
+                (disaInfo.OpType[1] = otREG) And (disaInfo.OpRegIdx[1] = 20) then //ESP
+              begin
+                result:=curAdr + instrLen - fromAdr;
+                Exit;
+              end;
+            end;
+          end;
+        end;
+      end;
+    end;
+  end;
+  Result:=0;
+end;
 
 Function GetLastLocPos (fromAdr:Integer):Integer;
 Begin

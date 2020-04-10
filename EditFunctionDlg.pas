@@ -466,7 +466,7 @@ begin
   ftype := Trim(edtVarType.Text);
   locInfo.TypeDef := ftype;  //ZGL add
   recN.procInfo.SetLocalType(recofs, ftype);
-
+  { ===== replaced by SetLocalType() ======
   if (ftype <> '') and (GetTypeKind(ftype, size) = ikRecord) then
   begin
     recFileName := FMain.WrkDir + '\types.idr';
@@ -539,7 +539,7 @@ begin
       end;
     end;
   end;
-
+  }
   FillVars;
 
   pnlVars.Visible := false;

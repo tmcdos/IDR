@@ -6,7 +6,7 @@ uses
   Windows, Messages, SysUtils, Classes, Graphics,Types,
   Controls, Forms, Dialogs, StdCtrls,Menus, ActnList, ComCtrls, Grids,
   ExtCtrls, Disasm, KnowledgeBase, Resources, Infos, UFileDropper,
-  Def_main,Def_info,Def_know,SyncObjs, VirtualTrees;
+  Def_main,Def_info,Def_know,SyncObjs, VirtualTrees, Registry;
 
 Type
   TFMain=class(TForm)
@@ -183,6 +183,16 @@ Type
     pmNames: TPopupMenu;
     miSetLvartype: TMenuItem;
     miCopytoClipboardNames: TMenuItem;
+    tsMap: TTabSheet;
+    vtMap: TVirtualStringTree;
+    pmMap: TPopupMenu;
+    miHiewGenerator: TMenuItem;
+    Map1: TMenuItem;
+    mniShellintegration: TMenuItem;
+    N2: TMenuItem;
+    Copy1: TMenuItem;
+    CopyLines1: TMenuItem;
+    Copyalltoclipboard1: TMenuItem;
     procedure miExitClick(Sender : TObject);
     procedure miAutodetectVersionClick(Sender : TObject);
     procedure FormCreate(Sender : TObject);
@@ -314,7 +324,12 @@ Type
     procedure miSwitchSkipFlagClick(Sender : TObject);
     procedure miSwitchFrameFlagClick(Sender : TObject);
     procedure cfTry1Click(Sender : TObject);
+    procedure Copy1Click(Sender: TObject);
+    procedure Copyalltoclipboard1Click(Sender: TObject);
+    procedure CopyLines1Click(Sender: TObject);
+    procedure miHiewGeneratorClick(Sender: TObject);
     procedure lbSourceCodeClick(Sender: TObject);
+    procedure Map1Click(Sender: TObject);
     procedure miCopytoClipboardNamesClick(Sender: TObject);
     procedure miDelphiXE3Click(Sender : TObject);
     procedure miDelphiXE4Click(Sender : TObject);
@@ -322,6 +337,9 @@ Type
     procedure miDelphiXE2Click(Sender: TObject);
     procedure pmSourceCodePopup(Sender: TObject);
     procedure SetLvartypeClick(Sender: TObject);
+    procedure mniShellintegrationClick(Sender: TObject);
+    procedure vtMapFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure vtMapNodeDblClick(Sender: TBaseVirtualTree; const HitInfo: THitInfo);
     procedure vtProcClick(Sender: TObject);
     procedure vtNameClick(Sender: TObject);
     procedure vtNameCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
@@ -371,7 +389,7 @@ Type
     Procedure ReadNode(stream:TStream; node:TTreeNode; buf:PAnsiChar);
     Procedure OpenProject(FileName:AnsiString);
     Function ImportsValid(ImpRVA,ImpSize:Integer):Boolean;
-    Function LoadImage(f:TFileStream; loadExp, loadImp:Boolean):Integer;
+    function LoadImage(f:TFileStream; version:Integer; loadExp, loadImp:Boolean): Integer;
     Procedure FindExports;
     Procedure FindImports;
     Function GetDelphiVersion:Integer;
@@ -524,6 +542,12 @@ Type
     Procedure GoToXRef(Sender:TObject);
     //Procedure ChangeDelphiHighlightTheme(Sender:TObject);
 
+    // Map
+    procedure MapGenerator;
+    procedure GoToAddressMap(cmdAdr:AnsiString);
+    procedure ExploreAdrMap(cmdAdr:AnsiString);
+    procedure ExpGotoAddressMap(FlagGo:Boolean);
+
     //Treenode booster for analysis
     procedure AddTreeNodeWithName(node:TTreeNode; Const Aname:AnsiString);
     function FindTreeNodeByName(Const Aname:AnsiString): TTreeNode;
@@ -551,6 +575,7 @@ Var
     (name:'@InitLib'; impAdr:0)
   );
 
+  cmdAdr:string;
   dummy:Integer;          //for debugging purposes!!!
   FMain: TFMain;
   ProjectModified:Boolean;
@@ -583,6 +608,7 @@ Var
   LastResStrNo:Integer;   //Last ResourceStringNo
   ClassTreeDone:Boolean;
   SplitIDC:Boolean;
+  BCB:Boolean;
   SplitSize:Integer;
 
 implementation
@@ -631,29 +657,6 @@ Var
   LastTls:Integer;            //ѕоследний зан€тый индекс Tls, показывает, сколько ThreadVars в программе
   Reserved:Integer;
   CtdRegAdr:Integer;			//јдрес процедуры CtdRegAdr
-
-  VmtSelfPtr:Integer;
-  VmtIntfTable:Integer;
-  VmtAutoTable:Integer;
-  VmtInitTable:Integer;
-  VmtTypeInfo:Integer;
-  VmtFieldTable:Integer;
-  VmtMethodTable:Integer;
-  VmtDynamicTable:Integer;
-  VmtClassName:Integer;
-  VmtInstanceSize:Integer;
-  VmtParent:Integer;
-  VmtEquals:Integer;
-  VmtGetHashCode:Integer;
-  VmtToString:Integer;
-  VmtSafeCallException:Integer;
-  VmtAfterConstruction:Integer;
-  VmtBeforeDestruction:Integer;
-  VmtDispatch:Integer;
-  VmtDefaultHandler:Integer;
-  VmtNewInstance:Integer;
-  VmtFreeInstance:Integer;
-  VmtDestroy:Integer;
 
   //class addresses cache
   //typedef std::map<const String, DWORD> TClassAdrMap;
@@ -839,6 +842,7 @@ Begin
   miMapGenerator.Enabled := false;
   miCommentsGenerator.Enabled := false;
   miIDCGenerator.Enabled := false;
+  miHiewGenerator.Enabled := false;
   miLister.Enabled := false;
   miClassTreeBuilder.Enabled := false;
   miKBTypeInfo.Enabled := false;
@@ -889,6 +893,11 @@ Begin
   vtString.Clear;
   miSearchString.Enabled := false;
   tsStrings.Enabled := false;
+
+  //Init Map
+  vtMap.Clear;
+  tsMap.Enabled := false;
+
   //Init Names
   vtName.Clear;
   tsNames.Enabled := false;
@@ -913,13 +922,13 @@ Begin
 
   ClearTreeNodeMap;
   ClearClassAdrMap;
-
+  {
   pb.Position := 0;
   pb.Visible := false;
   sb.Panels[0].Width := Width div 2;
   sb.Panels[0].Text := '';
   sb.Panels[1].Text := '';
-
+  }
   Update;
   Sleep(0);
 
@@ -1084,8 +1093,8 @@ Begin
     if (fixup.Name[0] = '_') and (fixup.Name[1] = 'D') then continue;
     //In VMT all fixups has type 'A'
     Adr := PInteger(Code + _pos + fixup.Ofs)^;
-    VMTOffset := VmtSelfPtr + 4 + fixup.Ofs;
-    if VMTOffset = VmtIntfTable then
+    VMTOffset := _VmtSelfPtr + 4 + fixup.Ofs;
+    if VMTOffset = _VmtIntfTable then
     Begin
       if IsValidCodeAdr(Adr) and not Assigned(InfoList[Adr2Pos(Adr)]) then
       Begin
@@ -1101,48 +1110,48 @@ Begin
       End;
       continue;
     End
-    else if VMTOffset = VmtAutoTable then
+    else if VMTOffset = _VmtAutoTable then
     Begin
       //Strap AutoTable
       //Unknown - no examples
       continue;
     End
-    else if VMTOffset = VmtInitTable then
+    else if VMTOffset = _VmtInitTable then
     Begin
       //InitTable представл€ет собой ссылки на типы, которые встрет€тс€ позже
       continue;
     End
-    else if VMTOffset = VmtTypeInfo then
+    else if VMTOffset = _VmtTypeInfo then
     Begin
       //»нформаци€ о типе уже обработана, пропускаем
       continue;
     End
-    else if VMTOffset = VmtFieldTable then
+    else if VMTOffset = _VmtFieldTable then
     Begin
       //ѕропускаем, поскольку будем обрабатывать информацию о пол€х позднее
       continue;
     End
-    else if VMTOffset = VmtMethodTable then
+    else if VMTOffset = _VmtMethodTable then
     Begin
       //ѕропускаем, поскольку методы будут обработаны среди прочих фиксапов
       continue;
     End
-    else if VMTOffset = VmtDynamicTable then
+    else if VMTOffset = _VmtDynamicTable then
     Begin
       //ѕропускаем, поскольку динамические вызовы будут обработаны среди прочих фиксапов
       continue;
     End
-    else if VMTOffset = VmtClassName then
+    else if VMTOffset = _VmtClassName then
     Begin
       //ClassName не обрабатываем
       continue;
     End
-    else if VMTOffset = VmtParent then
+    else if VMTOffset = _VmtParent then
     Begin
       //”казывает на родительский класс, не обрабатываем, поскольку он все-равно встретитс€ отдельно
       continue;
     End
-    else if (VMTOffset >= VmtParent + 4) and (VMTOffset <= VmtDestroy) then
+    else if (VMTOffset >= _VmtParent + 4) and (VMTOffset <= _VmtDestroy) then
     Begin
       if IsValidCodeAdr(Adr) and not Assigned(InfoList[Adr2Pos(Adr)]) then
       Begin
@@ -2520,110 +2529,110 @@ Begin
   case version of
     2:
       begin
-        VmtSelfPtr			 := -$34;     //??? (:=0???)
-        VmtInitTable		 := -$30;
-        VmtTypeInfo			 := -$2C;
-        VmtFieldTable		 := -$28;
-        VmtMethodTable	 := -$24;
-        VmtDynamicTable	 := -$20;
-        VmtClassName		 := -$1C;
-        VmtInstanceSize	 := -$18;
-        VmtParent		     := -$14;
-        VmtDefaultHandler:= -$10;
-        VmtNewInstance	 := -$C;
-        VmtFreeInstance	 := -8;
-        VmtDestroy			 := -4;
+        _VmtSelfPtr			 := -$34;     //??? (:=0???)
+        _VmtInitTable		 := -$30;
+        _VmtTypeInfo			 := -$2C;
+        _VmtFieldTable		 := -$28;
+        _VmtMethodTable	 := -$24;
+        _VmtDynamicTable	 := -$20;
+        _VmtClassName		 := -$1C;
+        _VmtInstanceSize	 := -$18;
+        _VmtParent		     := -$14;
+        _VmtDefaultHandler:= -$10;
+        _VmtNewInstance	 := -$C;
+        _VmtFreeInstance	 := -8;
+        _VmtDestroy			 := -4;
       end;
     3:
       begin
-        VmtSelfPtr			 := -$40;
-        VmtIntfTable		 := -$3C;
-        VmtAutoTable		 := -$38;
-        VmtInitTable		 := -$34;
-        VmtTypeInfo			 := -$30;
-        VmtFieldTable		 := -$2C;
-        VmtMethodTable	 := -$28;
-        VmtDynamicTable	 := -$24;
-        VmtClassName		 := -$20;
-        VmtInstanceSize	 := -$1C;
-        VmtParent			   := -$18;
-        VmtSafeCallException := -$14;
-        VmtDefaultHandler:= -$10;
-        VmtNewInstance	 := -$C;
-        VmtFreeInstance	 := -8;
-        VmtDestroy			 := -4;
+        _VmtSelfPtr			 := -$40;
+        _VmtIntfTable		 := -$3C;
+        _VmtAutoTable		 := -$38;
+        _VmtInitTable		 := -$34;
+        _VmtTypeInfo			 := -$30;
+        _VmtFieldTable		 := -$2C;
+        _VmtMethodTable	 := -$28;
+        _VmtDynamicTable	 := -$24;
+        _VmtClassName		 := -$20;
+        _VmtInstanceSize	 := -$1C;
+        _VmtParent			   := -$18;
+        _VmtSafeCallException := -$14;
+        _VmtDefaultHandler:= -$10;
+        _VmtNewInstance	 := -$C;
+        _VmtFreeInstance	 := -8;
+        _VmtDestroy			 := -4;
       end;
     4..7,2005..2007:
       begin
-        VmtSelfPtr			     := -$4C;
-        VmtIntfTable 		     := -$48;
-        VmtAutoTable 		     := -$44;
-        VmtInitTable 		     := -$40;
-        VmtTypeInfo 		     := -$3C;
-        VmtFieldTable 		   := -$38;
-        VmtMethodTable 		   := -$34;
-        VmtDynamicTable 	   := -$30;
-        VmtClassName 		     := -$2C;
-        VmtInstanceSize 	   := -$28;
-        VmtParent 			     := -$24;
-        VmtSafeCallException := -$20;
-        VmtAfterConstruction := -$1C;
-        VmtBeforeDestruction := -$18;
-        VmtDispatch 		     := -$14;
-        VmtDefaultHandler 	 := -$10;
-        VmtNewInstance 		   := -$C;
-        VmtFreeInstance 	   := -8;
-        VmtDestroy 			     := -4;
+        _VmtSelfPtr			     := -$4C;
+        _VmtIntfTable 		     := -$48;
+        _VmtAutoTable 		     := -$44;
+        _VmtInitTable 		     := -$40;
+        _VmtTypeInfo 		     := -$3C;
+        _VmtFieldTable 		   := -$38;
+        _VmtMethodTable 		   := -$34;
+        _VmtDynamicTable 	   := -$30;
+        _VmtClassName 		     := -$2C;
+        _VmtInstanceSize 	   := -$28;
+        _VmtParent 			     := -$24;
+        _VmtSafeCallException := -$20;
+        _VmtAfterConstruction := -$1C;
+        _VmtBeforeDestruction := -$18;
+        _VmtDispatch 		     := -$14;
+        _VmtDefaultHandler 	 := -$10;
+        _VmtNewInstance 		   := -$C;
+        _VmtFreeInstance 	   := -8;
+        _VmtDestroy 			     := -4;
       end;
     2009,2010:
       begin
-        VmtSelfPtr           := -$58;
-        VmtIntfTable         := -$54;
-        VmtAutoTable         := -$50;
-        VmtInitTable         := -$4C;
-        VmtTypeInfo          := -$48;
-        VmtFieldTable        := -$44;
-        VmtMethodTable       := -$40;
-        VmtDynamicTable      := -$3C;
-        VmtClassName         := -$38;
-        VmtInstanceSize      := -$34;
-        VmtParent            := -$30;
-        VmtEquals            := -$2C;
-        VmtGetHashCode       := -$28;
-        VmtToString          := -$24;
-        VmtSafeCallException := -$20;
-        VmtAfterConstruction := -$1C;
-        VmtBeforeDestruction := -$18;
-        VmtDispatch          := -$14;
-        VmtDefaultHandler    := -$10;
-        VmtNewInstance       := -$C;
-        VmtFreeInstance      := -8;
-        VmtDestroy           := -4;
+        _VmtSelfPtr           := -$58;
+        _VmtIntfTable         := -$54;
+        _VmtAutoTable         := -$50;
+        _VmtInitTable         := -$4C;
+        _VmtTypeInfo          := -$48;
+        _VmtFieldTable        := -$44;
+        _VmtMethodTable       := -$40;
+        _VmtDynamicTable      := -$3C;
+        _VmtClassName         := -$38;
+        _VmtInstanceSize      := -$34;
+        _VmtParent            := -$30;
+        _VmtEquals            := -$2C;
+        _VmtGetHashCode       := -$28;
+        _VmtToString          := -$24;
+        _VmtSafeCallException := -$20;
+        _VmtAfterConstruction := -$1C;
+        _VmtBeforeDestruction := -$18;
+        _VmtDispatch          := -$14;
+        _VmtDefaultHandler    := -$10;
+        _VmtNewInstance       := -$C;
+        _VmtFreeInstance      := -8;
+        _VmtDestroy           := -4;
       end;
     2011..2014:
       begin
-        VmtSelfPtr           := -$58;
-        VmtIntfTable         := -$54;
-        VmtAutoTable         := -$50;
-        VmtInitTable         := -$4C;
-        VmtTypeInfo          := -$48;
-        VmtFieldTable        := -$44;
-        VmtMethodTable       := -$40;
-        VmtDynamicTable      := -$3C;
-        VmtClassName         := -$38;
-        VmtInstanceSize      := -$34;
-        VmtParent            := -$30;
-        VmtEquals            := -$2C;
-        VmtGetHashCode       := -$28;
-        VmtToString          := -$24;
-        VmtSafeCallException := -$20;
-        VmtAfterConstruction := -$1C;
-        VmtBeforeDestruction := -$18;
-        VmtDispatch          := -$14;
-        VmtDefaultHandler    := -$10;
-        VmtNewInstance       := -$C;
-        VmtFreeInstance      := -8;
-        VmtDestroy           := -4;
+        _VmtSelfPtr           := -$58;
+        _VmtIntfTable         := -$54;
+        _VmtAutoTable         := -$50;
+        _VmtInitTable         := -$4C;
+        _VmtTypeInfo          := -$48;
+        _VmtFieldTable        := -$44;
+        _VmtMethodTable       := -$40;
+        _VmtDynamicTable      := -$3C;
+        _VmtClassName         := -$38;
+        _VmtInstanceSize      := -$34;
+        _VmtParent            := -$30;
+        _VmtEquals            := -$2C;
+        _VmtGetHashCode       := -$28;
+        _VmtToString          := -$24;
+        _VmtSafeCallException := -$20;
+        _VmtAfterConstruction := -$1C;
+        _VmtBeforeDestruction := -$18;
+        _VmtDispatch          := -$14;
+        _VmtDefaultHandler    := -$10;
+        _VmtNewInstance       := -$C;
+        _VmtFreeInstance      := -8;
+        _VmtDestroy           := -4;
         //VmtQueryInterface    := 0;
         //VmtAddRef            := 4;
         //VmtRelease           := 8;
@@ -2844,7 +2853,7 @@ Begin
     End;
     if op = OP_MOV then lastMovAdr := DisInfo.Offset;
 
-    if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM) 
+    if (b1 = 255) and ((b2 and $38) = $20) and (DisInfo.OpType[0] = otMEM)
       and IsValidImageAdr(DisInfo.Offset) then //near absolute indirect jmp (Case)
     Begin
       if not IsValidCodeAdr(DisInfo.Offset) then
@@ -3216,6 +3225,9 @@ Function TFMain.EvaluateInitTable (Data:PAnsiChar; Size, Base:Integer):Integer;
 var
   i, num, _pos, unitsPos, n:Integer;
   initTable, iniAdr, finAdr, maxAdr,res:Integer;
+  curPos, instrLen, modTable:Integer;
+  endAdr, curAdr: Int64;
+  disInfo: TDisInfo;
 Begin
   unitsPos:=0;
   maxAdr:=0;
@@ -3319,8 +3331,55 @@ Begin
     Inc(i, 4);
   End;
   //if maxAdr > res then res := (maxAdr + 3) and (-4);
-  if unitsPos<>0 then Result:= initTable - 24
-    else Result:=0;
+  if unitsPos<>0 then
+  Begin
+    Result:= initTable - 24;
+    Exit;
+  end;
+
+  //May be BCB
+  curAdr := EP;
+  curPos := Adr2Pos(curAdr);
+  instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disInfo, Nil);
+  if disInfo.Mnem = 'jmp' then
+  begin
+    curAdr := disInfo.Immediate;
+    curPos := Adr2Pos(curAdr);
+    while true do
+    begin
+      instrLen := frmDisasm.Disassemble(Code + curPos, curAdr, @disInfo, Nil);
+      if disInfo.Mnem = 'jmp' then break;
+      if (disInfo.Mnem = 'push') And (disInfo.OpType[0] = otIMM) And (disInfo.Immediate<>0) then
+      begin
+        modTable := disInfo.Immediate;
+        if IsValidImageAdr(modTable) then
+        begin
+          unitsPos := Adr2Pos(modTable);
+          _pos := unitsPos;
+          initTable := PInteger(Image + _pos)^;
+          iniAdr := initTable;
+          if (iniAdr < Base) or (iniAdr >= Base + Size) then unitsPos := 0;
+          endAdr := PInteger(Image + _pos + 4)^; //init table and
+          if (endAdr < Base) or (endAdr >= Base + Size) then unitsPos := 0;
+          finAdr := PInteger(Image + _pos + 8)^;
+          if (finAdr < Base) or (finAdr >= Base + Size) then unitsPos := 0;
+          endAdr := PInteger(Image + _pos + 12)^; //fin table end
+          if (endAdr < Base) or (endAdr >= Base + Size) then unitsPos := 0;
+          break;
+        end;
+      end;
+      Inc(curAdr, instrLen);
+      Inc(curPos, instrLen);
+    end;
+    if unitsPos > 0 then
+    begin
+      BCB := true;
+      Result:=initTable;
+      Exit;
+    end;
+  end;
+
+  Result:=0;
 end;
 
 Function TFMain.GetUnits (dprName:AnsiString):Integer;
@@ -3370,8 +3429,8 @@ Begin
         End;
         if unitsPos<>0 then break;
       End;
+      Inc(i, 4);
     End;
-    Inc(i, 4);
   end
   else
   Begin
@@ -4176,8 +4235,8 @@ Begin
   if not IsValidImageAdr(adr) then Exit;
   clasName := GetClsName(adr);
   recN := GetInfoRec(adr);
-  vmtAdr := adr - VmtSelfPtr;
-  pos1 := Adr2Pos(vmtAdr) + VmtIntfTable;
+  vmtAdr := adr - _VmtSelfPtr;
+  pos1 := Adr2Pos(vmtAdr) + _VmtIntfTable;
   intfAdr := PInteger(Code + pos1)^;
   if intfAdr=0 then Exit;
   pos1 := Adr2Pos(intfAdr);
@@ -4349,8 +4408,8 @@ var
   len,typeCode,paramsNum,argType:Byte;
 Begin
   if not IsValidImageAdr(Adr) then Exit;
-  vmtAdr := Adr - VmtSelfPtr;
-  _pos := Adr2Pos(vmtAdr) + VmtAutoTable;
+  vmtAdr := Adr - _VmtSelfPtr;
+  _pos := Adr2Pos(vmtAdr) + _VmtAutoTable;
   autoAdr := PInteger(Code + _pos)^;
   if autoAdr=0 then Exit;
   clasName := GetClsName(Adr);
@@ -4471,8 +4530,8 @@ var
 Begin
   if not IsValidImageAdr(Adr) then Exit;
   recN := GetInfoRec(Adr);
-  vmtAdr := Adr - VmtSelfPtr;
-  pos1 := Adr2Pos(vmtAdr) + VmtInitTable;
+  vmtAdr := Adr - _VmtSelfPtr;
+  pos1 := Adr2Pos(vmtAdr) + _VmtInitTable;
   initAdr := PInteger(Code + pos1)^;
   if initAdr=0 then Exit;
 
@@ -4527,8 +4586,8 @@ Begin
   if not IsValidImageAdr(Adr) then Exit;
 
   recN := GetInfoRec(Adr);
-  vmtAdr := Adr - VmtSelfPtr;
-  _pos := Adr2Pos(vmtAdr) + VmtFieldTable;
+  vmtAdr := Adr - _VmtSelfPtr;
+  _pos := Adr2Pos(vmtAdr) + _VmtFieldTable;
   fieldAdr := PInteger(Code + _pos)^;
   if fieldAdr=0 then Exit;
   _pos := Adr2Pos(fieldAdr);
@@ -4556,7 +4615,7 @@ Begin
     End
     else
     Begin
-      if DelphiVersion = 2 then Inc(classAdr, VmtSelfPtr);
+      if DelphiVersion = 2 then Inc(classAdr, _VmtSelfPtr);
       recN.vmtInfo.AddField(0, 0, FIELD_PUBLISHED, fieldOfs, -1, _name, GetClsName(classAdr));
     End;
   End;
@@ -4592,8 +4651,8 @@ var
   recN1:InfoRec;
 Begin
   if not IsValidImageAdr(adr) then Exit;
-  vmtAdr := adr - VmtSelfPtr;
-  methodAdr := PInteger(Code + Adr2Pos(vmtAdr) + VmtMethodTable)^;
+  vmtAdr := adr - _VmtSelfPtr;
+  methodAdr := PInteger(Code + Adr2Pos(vmtAdr) + _VmtMethodTable)^;
   if methodAdr=0 then Exit;
 
   tpos := Adr2Pos(methodAdr);
@@ -4691,8 +4750,8 @@ Begin
   recN := GetInfoRec(adr);
   if not Assigned(recN) then Exit;
 
-  vmtAdr := adr - VmtSelfPtr;
-  pos1 := Adr2Pos(vmtAdr) + VmtDynamicTable;
+  vmtAdr := adr - _VmtSelfPtr;
+  pos1 := Adr2Pos(vmtAdr) + _VmtDynamicTable;
   dynAdr := PInteger(Code + pos1)^;
   if dynAdr=0 then Exit;
   clasName := GetClsName(adr);
@@ -4737,8 +4796,8 @@ Begin
           recN2 := GetInfoRec(parentAdr);
           if Assigned(recN2) then
           Begin
-            vmtAdr1 := parentAdr - VmtSelfPtr;
-            pos3 := Adr2Pos(vmtAdr1) + VmtDynamicTable;
+            vmtAdr1 := parentAdr - _VmtSelfPtr;
+            pos3 := Adr2Pos(vmtAdr1) + _VmtDynamicTable;
             dynAdr := PInteger(Code + pos3)^;
             if dynAdr<>0 then
             Begin
@@ -4789,14 +4848,14 @@ Begin
   Result:=True;
   parentAdr := GetParentAdr(vmtAdr);
   if parentAdr=0 then Exit;
-  stopAt := GetStopAt(parentAdr - VmtSelfPtr);
+  stopAt := GetStopAt(parentAdr - _VmtSelfPtr);
   if vmtAdr = stopAt Then
   Begin
     Result:=false;
     Exit;
   end;
-  pos1 := Adr2Pos(parentAdr) + VmtParent + 4;
-  m := VmtParent + 4;
+  pos1 := Adr2Pos(parentAdr) + _VmtParent + 4;
+  m := _VmtParent + 4;
   while True Do
   begin
     if Pos2Adr(pos1) = stopAt then break;
@@ -4822,14 +4881,14 @@ var
 Begin
   if not IsValidImageAdr(adr) then Exit;
   clsName := GetClsName(adr);
-  vmtAdr := adr - VmtSelfPtr;
+  vmtAdr := adr - _VmtSelfPtr;
   stopAt := GetStopAt(vmtAdr);
   if vmtAdr = stopAt then Exit;
 
-  pos1 := Adr2Pos(vmtAdr) + VmtParent + 4;
-  recN := GetInfoRec(vmtAdr + VmtSelfPtr);
+  pos1 := Adr2Pos(vmtAdr) + _VmtParent + 4;
+  recN := GetInfoRec(vmtAdr + _VmtSelfPtr);
 
-  m := VmtParent + 4;
+  m := _VmtParent + 4;
   while true do
   Begin
     if Pos2Adr(pos1) = stopAt then break;
@@ -4850,32 +4909,32 @@ Begin
     else
     Begin
       recM.name := '';
-      if m = VmtFreeInstance then
+      if m = _VmtFreeInstance then
         recM.name := clsName + '.' + 'FreeInstance'
-      else if m = VmtNewInstance then
+      else if m = _VmtNewInstance then
         recM.name := clsName + '.' + 'NewInstance'
-      else if m = VmtDefaultHandler then
+      else if m = _VmtDefaultHandler then
         recM.name := clsName + '.' + 'DefaultHandler';
-      if (DelphiVersion = 3) and (m = VmtSafeCallException) then
+      if (DelphiVersion = 3) and (m = _VmtSafeCallException) then
         recM.name := clsName + '.' + 'SafeCallException';
       if DelphiVersion >= 4 then
       Begin
-        if m = VmtSafeCallException then
+        if m = _VmtSafeCallException then
           recM.name := clsName + '.' + 'SafeCallException'
-        else if m = VmtAfterConstruction then
+        else if m = _VmtAfterConstruction then
           recM.name := clsName + '.' + 'AfterConstruction'
-        else if m = VmtBeforeDestruction then
+        else if m = _VmtBeforeDestruction then
           recM.name := clsName + '.' + 'BeforeDestruction'
-        else if m = VmtDispatch then
+        else if m = _VmtDispatch then
           recM.name := clsName + '.' + 'Dispatch';
       End;
       if DelphiVersion >= 2009 then
       Begin
-        if m = VmtEquals then
+        if m = _VmtEquals then
           recM.name := clsName + '.' + 'Equals'
-        else if m = VmtGetHashCode then
+        else if m = _VmtGetHashCode then
           recM.name := clsName + '.' + 'GetHashCode'
-        else if m = VmtToString then
+        else if m = _VmtToString then
           recM.name := clsName + '.' + 'ToString';
       End;
       if (recM.name <> '') and KBase.GetKBProcInfo(PAnsiChar(recM.name), pInfo, idx) then
@@ -4910,11 +4969,11 @@ var
 Begin
   clasName := GetClsName(adr);
   recN := GetInfoRec(adr);
-  vmtAdr := adr - VmtSelfPtr;
+  vmtAdr := adr - _VmtSelfPtr;
   stopAt := GetStopAt(vmtAdr);
   if vmtAdr = stopAt then Exit;
-  pos1 := Adr2Pos(vmtAdr) + VmtParent + 4;
-  m := VmtParent + 4;
+  pos1 := Adr2Pos(vmtAdr) + _VmtParent + 4;
+  m := _VmtParent + 4;
   while true do
   Begin
     if Pos2Adr(pos1) = stopAt then break;
@@ -5163,6 +5222,7 @@ begin
   vtName.NodeDataSize:=SizeOf(vtNameNode);
   vtString.NodeDataSize:=SizeOf(vtStringNode);
   vtProc.NodeDataSize:=SizeOf(vtProcNode);
+  vtMap.NodeDataSize:=SizeOf(vtMapNode);
   {
   //----Highlighting------
 	if InitHighlight then
@@ -5258,6 +5318,8 @@ end;
 procedure TFMain.FormShow(Sender : TObject);
 Var
   fName,fExtension:AnsiString;
+  exefile, dllfile:Boolean;
+  reg:TRegistry;
 begin
   if ParamCount > 0 then
   begin
@@ -5273,6 +5335,22 @@ begin
     else
       ShowMessage('File ' + fName + ' is not executable or IDR project file');
   end;
+  //Added by TerminatorX 31.12.2018
+  //TerminatorX code BEGIN
+  //Cheking registry record *.exe/*.dll
+  reg := TRegistry.Create(KEY_EXECUTE);
+  reg.RootKey := HKEY_CLASSES_ROOT;
+  reg.OpenKey('\exefile\shell\Open with IDR\command\', false);
+  exefile := reg.ValueExists('');
+  reg.CloseKey;
+
+  reg.OpenKey('\dllfile\shell\Open with IDR\command\', false);
+  dllfile := reg.ValueExists('');
+  reg.CloseKey();
+  reg.Free;
+
+  mniShellIntegration.Checked := exefile or dllfile;
+  //TerminatorX code END
 end;
 
 Function TFMain.MakeComment (code:PPICODE):AnsiString;
@@ -5798,7 +5876,7 @@ Begin
         //For Delphi2 pointers to VMT are distinct
         else if DelphiVersion = 2 then
         Begin
-          recN := GetInfoRec(targetAdr + VmtSelfPtr);
+          recN := GetInfoRec(targetAdr + _VmtSelfPtr);
           if Assigned(recN) and (recN.kind = ikVMT) and recN.HasName then
             _name := recN.Name;
         End;
@@ -5896,8 +5974,8 @@ var
   clasName,paramName, metodName:AnsiString;
   vmtAdr, methodAdr,_pos,n,m,methodEntry:Integer;
 Begin
-  vmtAdr:=Adr - VmtSelfPtr;
-  methodAdr := PInteger(Code + Adr2Pos(vmtAdr) + VmtMethodTable)^;
+  vmtAdr:=Adr - _VmtSelfPtr;
+  methodAdr := PInteger(Code + Adr2Pos(vmtAdr) + _VmtMethodTable)^;
   if methodAdr=0 then Exit;
 
   clasName := GetClsName(Adr);
@@ -6044,8 +6122,8 @@ var
   clsName:AnsiString;
   recN:InfoRec;
 Begin
-  vmtAdr:=Adr - VmtSelfPtr;
-  DynamicAdr := PInteger(Code + Adr2Pos(vmtAdr) + VmtDynamicTable)^;
+  vmtAdr:=Adr - _VmtSelfPtr;
+  DynamicAdr := PInteger(Code + Adr2Pos(vmtAdr) + _VmtDynamicTable)^;
   if DynamicAdr=0 then Exit;
   clsName := GetClsName(Adr);
   _pos := Adr2Pos(DynamicAdr);
@@ -6087,11 +6165,11 @@ var
   procName:AnsiString;
 Begin
   parentAdr := GetParentAdr(Adr);
-  vmtAdr := Adr - VmtSelfPtr;
+  vmtAdr := Adr - _VmtSelfPtr;
   stopAt := GetStopAt(vmtAdr);
   if vmtAdr = stopAt then Exit;
-  _pos := Adr2Pos(vmtAdr) + VmtParent + 4;
-  n := VmtParent + 4;
+  _pos := Adr2Pos(vmtAdr) + _VmtParent + 4;
+  n := _VmtParent + 4;
   while Not Terminated do
   begin
     if Pos2Adr(_pos) = stopAt then break;
@@ -6254,8 +6332,7 @@ Begin
         Begin
           if Adr > lastAdr then lastAdr := Adr;
           Pos2 := Adr2Pos(Adr);
-          delta := Pos2 - NPos;
-          if (delta >= 0) and (delta < MAX_DISASSEMBLE) then
+          if (Pos2 >= 0) and (Pos2-NPos < MAX_DISASSEMBLE) then
           Begin
             if Code[Pos2] = #$E9 then //jmp Handle...
             Begin
@@ -6998,7 +7075,7 @@ Begin
                     else
                     Begin
                       vmtProc := true;
-                      iAdr := PInteger(Code + Adr2Pos(VmtAdr - VmtSelfPtr + vmtOfs))^;
+                      iAdr := PInteger(Code + Adr2Pos(VmtAdr - _VmtSelfPtr + vmtOfs))^;
                       recM := GetMethodInfo(VmtAdr, 'V', vmtOfs);
                       if Assigned(recM) then _name := recM.name;
                     End;
@@ -7007,7 +7084,7 @@ Begin
                   else if disInfo.Ret then
                   Begin
                     vmtProc := true;
-                    iAdr := PInteger(Code + Adr2Pos(VmtAdr - VmtSelfPtr + vmtOfs))^;
+                    iAdr := PInteger(Code + Adr2Pos(VmtAdr - _VmtSelfPtr + vmtOfs))^;
                     recM := GetMethodInfo(VmtAdr, 'V', vmtOfs);
                     if Assigned(recM) then _name := recM.name;
                     break;
@@ -8049,13 +8126,14 @@ begin
   miMapGenerator.Enabled := false;
   miCommentsGenerator.Enabled := false;
   miIDCGenerator.Enabled := false;
+  miHiewGenerator.Enabled := false;
   miLister.Enabled := false;
   miClassTreeBuilder.Enabled := false;
   miKBTypeInfo.Enabled := false;
   miCtdPassword.Enabled := false;
   miHex2Double.Enabled := false;
 
-  pb.Visible := true;
+  pb.Visible:=True;
 
   AnalyzeThread := TAnalyzeThread.Create(FMain, false);
   AnalyzeThread.Resume;
@@ -8403,7 +8481,7 @@ Begin
   Try
     f:=TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
     Screen.Cursor := crHourGlass;
-    res := LoadImage(f, loadExp, loadImp);
+    res := LoadImage(f, version, loadExp, loadImp);
   Finally
     f.Free;
   End;
@@ -8489,15 +8567,9 @@ Begin
   dprName := ExtractFileName(FileName);
   ps := Pos('.',dprName);
   if ps<>0 then SetLength(dprName,ps - 1);
-  if DelphiVersion = 2 then
-    UnitsNum := GetUnits2(dprName)
-  else
-    UnitsNum := GetUnits(dprName);
 
-  if UnitsNum > 0 then ShowUnits(false)
-  else
+  if BCB Then
   Begin
-    //May be BCB file?
     UnitsNum := GetBCBUnits(dprName);
     if UnitsNum=0 then
     Begin
@@ -8506,7 +8578,16 @@ Begin
       CleanProject;
       Exit;
     End;
-  End;
+  end
+  else
+  Begin
+    if DelphiVersion = 2 then
+      UnitsNum := GetUnits2(dprName)
+    else
+      UnitsNum := GetUnits(dprName);
+    if UnitsNum > 0 then ShowUnits(false);
+  end;
+
   if DelphiVersion <= 2010 then
     Caption := 'Interactive Delphi Reconstructor by crypto: ' + SourceFile + ' (Delphi-' + IntToStr(DelphiVersion) + ')'
   else
@@ -8524,7 +8605,7 @@ Begin
   miSaveProject.Enabled := false;
   miSaveDelphiProject.Enabled := false;
   lbCXrefs.Enabled := false;
-  pb.Visible := true;
+  pb.Visible:=True;
 
   AnalyzeThread := TAnalyzeThread.Create(FMain, true);
   AnalyzeThread.Resume;
@@ -8570,12 +8651,15 @@ Begin
   miMapGenerator.Enabled := true;
   miCommentsGenerator.Enabled := true;
   miIDCGenerator.Enabled := true;
+  miHiewGenerator.Enabled := true;
   miLister.Enabled := true;
   miKBTypeInfo.Enabled := true;
   miCtdPassword.Enabled := IsValidCodeAdr(CtdRegAdr);
   miHex2Double.Enabled := true;
 
   FreeAndNil(AnalyzeThread);
+
+  MapGenerator;
 end;
 
 Function TFMain.ImportsValid(ImpRVA,ImpSize:Integer):Boolean;
@@ -8609,7 +8693,7 @@ Begin
   Result:=true;
 end;
 
-Function TFMain.LoadImage (f:TFileStream; loadExp, loadImp:Boolean):Integer;
+Function TFMain.LoadImage (f:TFileStream; version:Integer; loadExp, loadImp:Boolean):Integer;
 var
   i, n, m, bytes, ps, SectionsNum, ExpNum, NameLength:Integer;
   num,DataEnd, Items,rsrcVA,relocVA,evalInitTable,evalEP:Integer;
@@ -8746,43 +8830,56 @@ Begin
   Code := Image + CodeStart;
   Cardinal(CodeBase) := Cardinal(ImageBase) + SectionHeaders[0].VirtualAddress;
 
-  evalInitTable := EvaluateInitTable(Image, TotalSize, Integer(CodeBase));
-  if evalInitTable=0 Then
-  Begin
-    ShowMessage('Cannot find initialization table');
-    SectionHeaders:=Nil;
-    FreeMem(Image);
-    Image := Nil;
-    Exit;
-  end;
-  evalEP := 0;
-  //Find instruction mov eax,offset InitTable
-  for n := 0 to TotalSize - 6 do
-    if (Image[n] = #$B8) and (PInteger(Image + n + 1)^ = evalInitTable) then
+  EP := NTHeaders.OptionalHeader.AddressOfEntryPoint + ImageBase;//temporary assignment to evaluate BCB ini and fin tables
+  BCB := false;
+
+  if version <> 2 Then
+  begin
+    evalInitTable := EvaluateInitTable(Image, TotalSize, Integer(CodeBase));
+    if evalInitTable=0 Then
     Begin
-      evalEP := n;
-      break;
-    End;
-  //Scan up until bytes 0x55 (push ebp) and 0x8B,0xEC (mov ebp,esp)
-  if evalEP<>0 then
-    while evalEP <> 0 do
-    Begin
-      if (Image[evalEP] = #$55) and (Image[evalEP + 1] = #$8B) and (Image[evalEP + 2] = #$EC) then break;
-      Dec(evalEP);
-    End;
-  //Check evalEP
-  if Cardinal(evalEP) + Cardinal(CodeBase) <> NTHeaders.OptionalHeader.AddressOfEntryPoint + Cardinal(ImageBase) then
-  Begin
-    if Application.MessageBox(
-      PAnsiChar(Format('Possible invalid EP (NTHeader:%X, Evaluated:%X). Input valid EP?',
-        [NTHeaders.OptionalHeader.AddressOfEntryPoint + Cardinal(ImageBase), evalEP + Integer(CodeBase)])),
-      'Confirmation', MB_YESNO) = IDYES then
-    Begin
-      sEP := InputDialogExec('New EP', 'EP:', Val2Str(Integer(NTHeaders.OptionalHeader.AddressOfEntryPoint) + ImageBase));
-      if sEP <> '' then
+      ShowMessage('Cannot find initialization table');
+      SectionHeaders:=Nil;
+      FreeMem(Image);
+      Image := Nil;
+      Exit;
+    end;
+    evalEP := 0;
+    //Find instruction mov eax,offset InitTable
+    for n := 0 to TotalSize - 6 do
+      if (Image[n] = #$B8) and (PInteger(Image + n + 1)^ = evalInitTable) then
       Begin
-        EP:=StrToIntDef('$'+Trim(sEP),0);
-        if not IsValidImageAdr(EP) then
+        evalEP := n;
+        break;
+      End;
+    //Scan up until bytes 0x55 (push ebp) and 0x8B,0xEC (mov ebp,esp)
+    if evalEP<>0 then
+      while evalEP <> 0 do
+      Begin
+        if (Image[evalEP] = #$55) and (Image[evalEP + 1] = #$8B) and (Image[evalEP + 2] = #$EC) then break;
+        Dec(evalEP);
+      End;
+    //Check evalEP
+    if Cardinal(evalEP) + Cardinal(CodeBase) <> NTHeaders.OptionalHeader.AddressOfEntryPoint + Cardinal(ImageBase) then
+    Begin
+      if Application.MessageBox(
+        PAnsiChar(Format('Possible invalid EP (NTHeader:%X, Evaluated:%X). Input valid EP?',
+          [NTHeaders.OptionalHeader.AddressOfEntryPoint + Cardinal(ImageBase), evalEP + Integer(CodeBase)])),
+        'Confirmation', MB_YESNO) = IDYES then
+      Begin
+        sEP := InputDialogExec('New EP', 'EP:', Val2Str(Integer(NTHeaders.OptionalHeader.AddressOfEntryPoint) + ImageBase));
+        if sEP <> '' then
+        Begin
+          EP:=StrToIntDef('$'+Trim(sEP),0);
+          if not IsValidImageAdr(EP) then
+          Begin
+            SectionHeaders:=Nil;
+            FreeMem(Image);
+            Image := Nil;
+            Exit;
+          End;
+        End
+        else
         Begin
           SectionHeaders:=Nil;
           FreeMem(Image);
@@ -8798,15 +8895,8 @@ Begin
         Exit;
       End;
     End
-    else
-    Begin
-      SectionHeaders:=Nil;
-      FreeMem(Image);
-      Image := Nil;
-      Exit;
-    End;
-  End
-  else EP := Integer(NTHeaders.OptionalHeader.AddressOfEntryPoint) + ImageBase;
+    else EP := Integer(NTHeaders.OptionalHeader.AddressOfEntryPoint) + ImageBase;
+  End;
 
   //Find DataStart
   //DWORD _codeEnd := DataEnd;
@@ -9091,7 +9181,7 @@ Begin
     End;
   End;
   if not UserKnowledgeBase then KBFileName := AppDir + 'kb' + IntToStr(DelphiVersion) + '.bin';
-  
+
   MaxBufLen := 0;
   FileSeek(projectFile, -4, Ord(soEnd));
   FileRead(projectFile,MaxBufLen, sizeof(MaxBufLen));
@@ -9116,7 +9206,7 @@ Begin
   miSaveDelphiProject.Enabled := false;
   lbCXrefs.Enabled := false;
 
-  pb.Visible := true;
+  pb.Visible:=True;
   Update;
 
   GetMem(buf,MaxBufLen);
@@ -9502,12 +9592,14 @@ Begin
   miMapGenerator.Enabled := true;
   miCommentsGenerator.Enabled := true;
   miIDCGenerator.Enabled := true;
+  miHiewGenerator.Enabled := true;
   miLister.Enabled := true;
   miKBTypeInfo.Enabled := true;
   miCtdPassword.Enabled := IsValidCodeAdr(CtdRegAdr);
   miHex2Double.Enabled := true;
 
   WrkDir := ExtractFileDir(FileName);
+  MapGenerator;
   Screen.Cursor := crDefault;
 end;
 
@@ -9654,7 +9746,7 @@ Begin
   IDPFile := FileName;
   try
     outStream := TMemoryStream.Create;
-    pb.Visible := true;
+    pb.Visible:=True;
 
     outStream.Write(magic[1], 12);
     ver := DelphiVersion;
@@ -10241,16 +10333,18 @@ begin
 	EditFunction(CurProcAdr);
 end;
 
+//Modified by TerminatorX 30.12.2018
 procedure TFMain.miMapGeneratorClick(Sender : TObject);
 var
-  procName,mapName,moduleName:AnsiString;
+  procName,mapName,moduleName,SourceFileMap:AnsiString;
   fMap:TextFile;
-  n,adr:Integer;
+  n,adr,posMap:Integer;
   recN:InfoRec;
   recU:PUnitRec;
   exist:Boolean;
 begin
   mapName:='';
+  SourceFileMap:='';
   if SourceFile <> '' then mapName := ChangeFileExt(SourceFile, '.map');
   if IDPFile <> '' then mapName := ChangeFileExt(IDPFile, '.map');
 
@@ -10270,12 +10364,16 @@ begin
     if exist then Append(fMap)
       else Rewrite(fMap);
   except
-    ShowMessage('Cannot open map file');
+    MessageDlg('Cannot open map file',mtWarning,[mbOK],0);
     Exit;
   End;
+  SourceFileMap:=SourceFile;
+  posMap:=LastDelimiter('\',SourceFileMap);
+  if posMap<>0 then SourceFileMap:=Copy(SourceFileMap,posMap,Length(SourceFileMap));
+  WriteLn(fMap, #13#10+Format(' Name:  %s EP:  %.8XH  :  Size:  %.9XH', [SourceFileMap,PAnsiChar(EP) - CodeBase,CodeSize]));
   WriteLn(fMap, #13#10+' Start         Length     Name                   Class');
   WriteLn(fMap, Format(' 0001:00000000 %.9XH CODE                   CODE', [CodeSize]));
-  WriteLn(fMap, #13#10#13#10'  Address         Publics by Value');
+  WriteLn(fMap, #13#10#13#10'  Address         Publics by Value _ RVA+Base');
   WriteLn(fMap);
 
   for n := 0 to CodeSize-1 do
@@ -10309,7 +10407,7 @@ begin
             WriteLn(fMap, Format('%X',[adr]),' ', recN.MakePrototype(adr, true, true, false, true, false));
           End;
         End
-        else WriteLn(fMap, Format(' 0001:%8.8X       EntryPoint', [n]));
+        else WriteLn(fMap, Format(' 0001:%8.8X       EntryPoint_%.8X', [n,adr]));
       End;
     End;
   End;
@@ -11401,7 +11499,7 @@ Begin
         //For Delphi2 pointers to VMT are distinct
         else if DelphiVersion = 2 then
         Begin
-          recN := GetInfoRec(targetAdr + VmtSelfPtr);
+          recN := GetInfoRec(targetAdr + _VmtSelfPtr);
           if Assigned(recN) and (recN.kind = ikVMT) and recN.HasName then
             name := recN.Name;
         End;
@@ -11656,6 +11754,7 @@ begin
     recU.names.Add(sName);
     ProjectModified := true;
     ShowUnits(true);
+    RedrawCode;
     vtUnit.SetFocus;
   end;
 end;
@@ -12581,11 +12680,6 @@ Begin
   lastAdr := 0;
   fromPos := Adr2Pos(fromAdr);
   if (fromPos < 0) or IsFlagSet([cfEmbedded], fromPos) then Exit;
-  { == Crypto removed this check ==
-  b1 := Byte(Code[fromPos]);
-  b2 := Byte(Code[fromPos + 1]);
-  if (b1=0) and (b2=0) then Exit;
-  }
   recN := GetInfoRec(fromAdr);
 
   //Virtual constructor - don't analyze
@@ -14419,7 +14513,7 @@ Begin
                         if reset then
                         Begin
                           SetRegisterType(registers, reg1Idx, recN.Name);
-                          SetRegisterValue(registers, reg1Idx, Adr - VmtSelfPtr);
+                          SetRegisterValue(registers, reg1Idx, Adr - _VmtSelfPtr);
                         End;
                       End
                       else
@@ -14742,7 +14836,7 @@ Begin
                             if recN.kind = ikVMT then
                             Begin
                               SetRegisterType(registers, reg1Idx, recN.Name);
-                              SetRegisterValue(registers, reg1Idx, Adr - VmtSelfPtr);
+                              SetRegisterValue(registers, reg1Idx, Adr - _VmtSelfPtr);
                             End
                             else
                             Begin
@@ -14764,7 +14858,7 @@ Begin
                       Begin
                         SetRegisterSource(registers, reg1Idx, #0);
                         SetRegisterValue(registers, reg1Idx, -1);
-                        SetRegisterType(registers, reg1Idx, 'Integer'); 
+                        SetRegisterType(registers, reg1Idx, 'Integer');
                         sType := 'Integer';
                       End
                       else
@@ -15463,7 +15557,7 @@ Begin
     End;
     if recN.SameName('TApplication.CreateForm') then
     Begin
-      vmtAdr := registers[18].value + VmtSelfPtr; //edx
+      vmtAdr := registers[18].value + _VmtSelfPtr; //edx
       refAdr := registers[17].value;        //ecx
       if IsValidImageAdr(refAdr) then
       Begin
@@ -17863,13 +17957,16 @@ Begin
           Step := 1;
           Position := 0;
           Min := 0;
+          if Assigned(startOperation) then Max := startOperation.pbSteps
+            else Max := 0;
         end;
-        if Assigned(startOperation) then pb.Max := startOperation.pbSteps
-          else pb.Max := 0;
-        if Assigned(startOperation) then sb.Panels[0].Text := startOperation.sbText
-          else sb.Panels[0].Text:='?';
-        sb.Panels[1].Text := '';
-        sb.Refresh;
+        With sb Do
+        begin
+          if Assigned(startOperation) then Panels[0].Text := startOperation.sbText
+            else Panels[0].Text:='?';
+          Panels[1].Text := '';
+          Refresh;
+        end;
         If Assigned(startOperation) then Dispose(startOperation);
       End;
     taUpdatePrBar: pb.StepIt;
@@ -17886,9 +17983,12 @@ Begin
     taUpdateStBar:
       Begin
         updStatusBar := PThreadAnalysisData(msg.LParam);
-        if Assigned(updStatusBar) then sb.Panels[1].Text := updStatusBar.sbText
-          else sb.Panels[1].Text:='?';
-        sb.Invalidate;
+        with sb Do
+        begin
+          if Assigned(updStatusBar) then Panels[1].Text := updStatusBar.sbText
+            else Panels[1].Text:='?';
+          //Invalidate;
+        End;
         if Assigned(updStatusBar) then Dispose(updStatusBar);
         Application.ProcessMessages;
       End;
@@ -17989,7 +18089,7 @@ end;
 
 Procedure TFMain.wm_dfmClosed (Var msg:TMessage);
 Begin
-  if not Assigned(AnalyzeThread) then sb.Panels[0].Text := '';
+  //if not Assigned(AnalyzeThread) then sb.Panels[0].Text := '';
 end;
 
 //Fill ClassViewerTree for 1 class
@@ -18093,7 +18193,7 @@ Begin
                 else
                 Begin
                   vmtProc := true;
-                  iAdr := PInteger(Code + Adr2Pos(vmtAdr - VmtSelfPtr + vmtOfs))^;
+                  iAdr := PInteger(Code + Adr2Pos(vmtAdr - _VmtSelfPtr + vmtOfs))^;
                   recM := GetMethodInfo(vmtAdr, 'V', vmtOfs);
                   if Assigned(recM) then _name := recM.name;
                 End;
@@ -18102,7 +18202,7 @@ Begin
               else if disInfo.Ret then
               Begin
                 vmtProc := true;
-                iAdr := PInteger(Code + Adr2Pos(vmtAdr - VmtSelfPtr + vmtOfs))^;
+                iAdr := PInteger(Code + Adr2Pos(vmtAdr - _VmtSelfPtr + vmtOfs))^;
                 recM := GetMethodInfo(vmtAdr, 'V', vmtOfs);
                 if Assigned(recM) then _name := recM.name;
                 break;
@@ -18382,9 +18482,9 @@ begin
               recN := GetInfoRec(recM.address);
               procName := recN.MakePrototype(recM.address, true, false, false, false, false);
               if Pos(':?',procName)=0 then
-                publishedList.Add('    '+ procName)
+                publishedList.Add('    '+ procName+'//'+Val2Str(recM.address,8))
               else
-                publishedList.Add('    //' + procName);
+                publishedList.Add('    //' + procName+'//'+Val2Str(recM.address,8));
             End;
   
             num := LoadVirtualTable(adr, tmpList);
@@ -18417,9 +18517,9 @@ begin
                 procName := procname + ' dynamic;';
 
               if Pos(':?',procName)=0 then
-                publicList.Add('    '+ procName)
+                publicList.Add('    '+ procName+'//'+Val2Str(recM.address,8))
               else
-                publicList.Add('    //'+ procName);
+                publicList.Add('    //'+ procName+'//'+Val2Str(recM.address,8));
             End;
   
             if publishedList.Count<>0 then
@@ -18449,9 +18549,9 @@ begin
               Begin
                 procName := recN.MakePrototype(adr1, true, false, false, false, false);
                 if Pos(':?',procName)=0 then
-                  line := '    '+ procName
+                  line := '    '+ procName+'//'+Val2Str(adr1,8)
                 else
-                  line := '    //'+ procName;
+                  line := '    //'+ procName+'//'+Val2Str(adr1,8);
                 if intBodyLines.IndexOf(line) = -1 then
                   intBodyLines.Add(line);
               End;
@@ -18493,9 +18593,9 @@ begin
       if not Assigned(recN) or not Assigned(recN.procInfo) then continue;
       procName := recN.MakePrototype(adr, true, false, false, false, false);
       if Pos(':?',procName)=0 then
-        line := '    '+ procName
+        line := '    '+ procName+'//'+Val2Str(adr,8)
       else
-        line := '    //'+ procName;
+        line := '    //'+ procName+'//'+Val2Str(adr,8);
       if intBodyLines.IndexOf(line) <> -1 then continue;
       WriteLn(f, line);
     End;
@@ -18690,6 +18790,7 @@ Begin
   lbCXrefs.Font.Assign(font);
   lbSourceCode.Font.Assign(font);
   vtProc.Font.Assign(font);
+  vtMap.Font.Assign(font);
 
   tvClassesShort.Font.Assign(font);
   tvClassesFull.Font.Assign(font);
@@ -19018,6 +19119,55 @@ begin
   end;
 end;
 
+procedure TFMain.Copy1Click(Sender: TObject);
+var
+  s:TStringList;
+begin
+  s:=Nil;
+  if vtString.RootNodeCount<>0 Then
+  try
+    s:=TStringList.Create;
+    vtString.GetDataFromGrid(s,False);
+    Clipboard.Open;
+    Clipboard.AsText:=s.Text;
+    Clipboard.Close;
+  Finally
+    s.Free;
+  end;
+end;
+
+procedure TFMain.Copyalltoclipboard1Click(Sender: TObject);
+var
+  s:TStringList;
+begin
+  s:=Nil;
+  if vtMap.RootNodeCount<>0 Then
+  try
+    s:=TStringList.Create;
+    vtMap.GetDataFromGrid(s,False);
+    Copy2Clipboard(s, 0, false);
+  Finally
+    s.Free;
+  end;
+end;
+
+procedure TFMain.CopyLines1Click(Sender: TObject);
+var
+  s:TStringList;
+begin
+  s:=Nil;
+  if vtMap.RootNodeCount<>0 Then
+  try
+    s:=TStringList.Create;
+    vtMap.GetDataFromGrid(s,False);
+    Clipboard.Open;
+    Clipboard.AsText:=s.Text;
+    Clipboard.Close;
+  Finally
+    s.Free;
+  end;
+end;
+
 procedure TFMain.miProcessDumperClick(Sender : TObject);
 Begin
   FActiveProcesses.ShowProcesses;
@@ -19101,6 +19251,324 @@ end;
 procedure TFMain.miCopytoClipboardNamesClick(Sender: TObject);
 begin
   vtName.CopyToClipBoard;
+end;
+
+procedure TFMain.miHiewGeneratorClick(Sender: TObject);
+var
+  fNameT:TextFile;
+  SourceFileNamet,nametName,moduleName,procName:AnsiString;
+  _posNamet,n,adr:Integer;
+  recN:InfoRec;
+  recU:PUnitRec;
+begin
+  if SourceFile <> '' then nametName := ChangeFileExt(SourceFile, '.namet');
+  if IDPFile <> '' then nametName := ChangeFileExt(IDPFile, '.namet');
+
+  SaveDlg.InitialDir := WrkDir;
+  SaveDlg.Filter := 'NAMET|*.namet';
+  SaveDlg.FileName := nametName;
+
+  if Not SaveDlg.Execute then Exit;
+  nametName := SaveDlg.FileName;
+  if FileExists(nametName) then
+  begin
+    if Application.MessageBox('File already exists. Overwrite?', 'Warning', MB_YESNO+MB_ICONWARNING) = IDNO Then Exit;
+  end;
+  Screen.Cursor := crHourGlass;
+  Try
+    AssignFile(fNamet, nametName);
+    Rewrite(fNameT);
+  except
+    MessageDlg('Cannot open namet file', mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  SourceFileNamet := SourceFile;
+  _posNamet := LastDelimiter('',SourceFileNamet);
+  if _posNamet <> 0 then SourceFileNamet := Copy(SourceFileNamet,_posNamet, Length(SourceFileNamet));
+  for n := 0 to CodeSize do
+  begin
+    if IsFlagSet([cfProcStart], n) And not IsFlagSet([cfEmbedded], n) then
+    begin
+      adr := Pos2Adr(n);
+      recN := GetInfoRec(adr);
+      if Assigned(recN) then
+      begin
+        if adr = EP then WriteLn(fNamet, Format('.%.8X Entry Point_%.8X', [adr, adr]))
+        else
+        begin
+          recU := GetUnit(adr);
+          if Assigned(recU) then
+          begin
+            moduleName := GetUnitName(recU);
+            if adr = recU.iniadr then procName := 'Initialization'
+            else if adr = recU.finadr then procName := 'Finalization'
+            else procName := recN.MakeMapName(adr);
+          end
+          else
+          begin
+            moduleName := '';
+            procName := recN.MakeMapName(adr);
+          end;
+          if moduleName <> '' then
+            WriteLn(fNamet, Format('.%.8X %s.%s_%.8X', [adr, moduleName, procName, adr]))
+          else
+            WriteLn(fNamet, Format('.%.8X %s_%.8X', [adr, procName, adr]));
+        end;
+      end;
+    end;
+  end;
+  CloseFile(fNamet);
+  Screen.Cursor := crDefault;
+end;
+
+procedure TFMain.mniShellintegrationClick(Sender: TObject);
+var
+  reg:TRegistry;
+begin
+  reg:=TRegistry.Create(KEY_ALL_ACCESS);
+  try
+    if not mniShellIntegration.Checked then
+    begin
+      reg.RootKey := HKEY_CLASSES_ROOT;
+      reg.OpenKey('\exefile\shell\Open with IDR\command', true);
+      reg.WriteString('',ExtractFilePath(Application.ExeName) + 'Idr.exe %1');
+      reg.CloseKey;
+
+      reg.OpenKey('\dllfile\shell\Open with IDR\command', true);
+      reg.WriteString('',ExtractFilePath(Application.ExeName) + 'Idr.exe %1');
+      reg.CloseKey;
+      mniShellIntegration.Checked := true;
+    end
+    else
+    begin
+      reg.RootKey:=HKEY_CLASSES_ROOT;
+      reg.DeleteKey('\exefile\shell\Open with IDR');
+      reg.DeleteKey('\dllfile\shell\Open with IDR');
+      mniShellIntegration.Checked := false;
+    end;
+  Finally
+    reg.Free;
+  end;
+end;
+
+Procedure TFMain.GoToAddressMap(cmdAdr:AnsiString);
+var
+  _pos,gotoAdr:Integer;
+  sAdr:AnsiString;
+  rec:PROCHISTORYREC;
+Begin
+  if cmdAdr <> '' then sAdr := cmdAdr
+  else sAdr := InputDialogExec('Enter Address', 'Address:', '');
+  if sAdr <> '' then
+  begin
+    gotoAdr:=StrToIntDef('$'+Trim(sAdr),0);
+    if IsValidCodeAdr(gotoAdr) then
+    begin
+      _pos := Adr2Pos(gotoAdr);
+      //If immport- nothing to map
+      //Delete import check!!!
+      // if (IsFlagSet(cfImport, pos)) return;
+      //Search address
+      while _pos >= 0 do
+      begin
+        //Find procedure start
+        if IsFlagSet([cfProcStart], _pos) then
+        begin
+          rec.adr := CurProcAdr;
+          rec.itemIdx := lbCode.ItemIndex;
+          rec.xrefIdx := lbCXrefs.ItemIndex;
+          rec.topIdx := lbCode.TopIndex;
+          ShowCode(Pos2Adr(_pos), gotoAdr, -1, -1);
+          CodeHistoryPush(@rec);
+          break;
+        end;
+        //Find Type start
+        if IsFlagSet([cfRTTI], _pos) then
+        begin
+          FTypeInfo.ShowRTTI(Pos2Adr(_pos));
+          break;
+        end;
+        Dec(_pos);
+      end;
+    end;
+  end;
+end;
+
+Procedure TFMain.ExploreAdrMap(cmdAdr:AnsiString);
+var
+  size,_pos,viewAdr:Integer;
+  text, sAdr:AnsiString;
+  recN:InfoRec;
+  proc_data:PProcNode;
+Begin
+  text:='';
+  if cmdAdr <> '' then lbCode.ItemIndex := 1;
+  if lbCode.ItemIndex <= 0 then Exit;
+
+  size := CodeGetTargetAdr(lbCode.Items[lbCode.ItemIndex], @viewAdr);
+  if viewAdr <> 0 then text := Val2Str(viewAdr,8);
+  if cmdAdr <> '' then sAdr := cmdAdr
+  else sAdr := InputDialogExec('Enter Address', 'Address:', text);
+  if sAdr <> '' then
+  begin
+    viewAdr:=StrToIntDef('$'+Trim(sAdr),0);
+    if IsValidImageAdr(viewAdr) then
+    begin
+      _pos := Adr2Pos(viewAdr);
+      if _pos = -2 then Exit;
+      if _pos = -1 then
+      begin
+        MessageDlg('BSS', mtWarning, [mbOK], 0);
+        Exit;
+      end;
+      FExplorer.tsCode.TabVisible := true;
+      FExplorer.ShowCode(viewAdr, 1024);
+      FExplorer.tsData.TabVisible := true;
+      FExplorer.ShowData(viewAdr, 1024);
+      FExplorer.tsString.TabVisible := true;
+      FExplorer.ShowString(viewAdr, 1024);
+      FExplorer.tsText.TabVisible := false;
+      FExplorer.pc1.ActivePage := FExplorer.tsCode;
+      FExplorer.WAlign := -4;
+
+      FExplorer.btnDefCode.Enabled := true;
+      if IsFlagSet([cfCode], _pos) then FExplorer.btnDefCode.Enabled := false;
+      FExplorer.btnUndefCode.Enabled := false;
+      if IsFlagSet([cfCode,cfData], _pos) then FExplorer.btnUndefCode.Enabled := true;
+
+      if FExplorer.ShowModal = mrOk then
+      begin
+        if FExplorer.DefineAs = DEFINE_AS_CODE then
+        begin
+          //Delete any information at this address
+          recN := GetInfoRec(viewAdr);
+          if Assigned(recN) then recN.Free;
+          //Create new info about proc
+          recN := InfoRec.Create(_pos, ikRefine);
+
+          //AnalyzeProcInitial(viewAdr);
+          AnalyzeProc1(viewAdr, #0, 0, 0, false);
+          AnalyzeProc2(viewAdr, true, true);
+          AnalyzeArguments(viewAdr);
+          AnalyzeProc2(viewAdr, true, true);
+
+          if not ContainsUnexplored(GetUnit(viewAdr)) then ShowUnits(true);
+          _pos:=0;
+          if Assigned(vtProc.FocusedNode) Then
+          Begin
+            proc_data:=vtProc.GetNodeData(vtProc.FocusedNode);
+            _pos:=proc_data.adres;
+          end;
+          ShowUnitItems(GetUnit(viewAdr), 0{lbUnitItems.TopIndex}, _pos);
+          ShowCode(viewAdr, 0, -1, -1);
+        End;
+      end;
+    end;
+  end;
+end;
+
+procedure TFmain.MapGenerator;
+var
+  procName, moduleName:AnsiString;
+  n,adr:Integer;
+  recN:InfoRec;
+  recU:PUnitRec;
+  node:PVirtualNode;
+  map_data:PMapNode;
+begin
+  tsMap.Enabled := miMapGenerator.Enabled;
+  vtMap.Enabled := miMapGenerator.Enabled;
+  vtMap.Clear;
+  vtMap.BeginUpdate;
+  try
+    for n := 0 to CodeSize do
+    begin
+      if IsFlagSet([cfProcStart], n) and Not IsFlagSet([cfEmbedded], n) then
+      begin
+        adr := Pos2Adr(n);
+        recN := GetInfoRec(adr);
+        if Assigned(recN) then
+        begin
+          if adr = EP then
+          Begin
+            node:=vtMap.AddChild(Nil);
+            map_data:=vtMap.GetNodeData(node);
+            With map_data^ Do
+            Begin
+              adres:=adr;
+              module_name:='';
+              proc_name:='Entry Point';
+            end;
+          end
+          else
+          begin
+            recU := GetUnit(adr);
+            if Assigned(recU) then
+            begin
+              moduleName := GetUnitName(recU);
+              if adr = recU.iniadr then procName := 'Initialization'
+              else if adr = recU.finadr then procName := 'Finalization'
+              else procName := recN.MakeMapName(adr);
+            end
+            else
+            begin
+              moduleName := '';
+              procName := recN.MakeMapName(adr);
+            end;
+            if not IsFlagSet([cfImport], n) then
+              procName := recN.MakePrototype(adr, true, false, false, true, false);
+            node:=vtMap.AddChild(Nil);
+            map_data:=vtMap.GetNodeData(node);
+            With map_data^ Do
+            Begin
+              adres:=adr;
+              module_name:=moduleName;
+              proc_name:=procName;
+            end;
+          end;
+        end;
+      end;
+    end;
+  Finally
+    vtMap.EndUpdate;
+  end;  
+end;
+
+Procedure TFMain.ExpGotoAddressMap(FlagGo:Boolean);
+var
+  hexa:AnsiString;
+  map_data:PMapNode;
+begin
+  hexa:='';
+  if Assigned(vtMap.FocusedNode) then
+  Begin
+    map_data:=vtMap.GetNodeData(vtMap.FocusedNode);
+    if FlagGo then
+    Begin
+      GoToAddressMap(IntToHex(map_data^.adres,8)); // why not directly use the Integer ?
+      CodeViewer1Click(Self);
+    end
+    else ExploreAdrMap(IntToHex(map_data^.adres,8)); // why not directly use the Integer ?
+  end;
+end;
+
+procedure TFMain.Map1Click(Sender: TObject);
+begin
+  pcWorkArea.ActivePage := tsMap;
+  if vtMap.CanFocus then ActiveControl := vtMap;
+end;
+
+procedure TFMain.vtMapFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+var
+  Data:PMapNode;
+begin
+  Data:=Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+procedure TFMain.vtMapNodeDblClick(Sender: TBaseVirtualTree; const HitInfo: THitInfo);
+begin
+  ExpGotoAddressMap(True);
 end;
 
 procedure TFMain.vtProcClick(Sender: TObject);

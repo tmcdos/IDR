@@ -1,6 +1,7 @@
 Program Idr;
 
 {$R 'manifest.res' 'manifest.rc'}
+{$SetPEFlags $20} // IMAGE_FILE_LARGE_ADDRESS_AWARE
 
 uses
   ExceptionLog,

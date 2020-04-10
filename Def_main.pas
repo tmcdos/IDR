@@ -277,6 +277,12 @@ Type
   End;
   PStringNode = ^vtStringNode;
 
+  vtMapNode = Record
+    adres:Integer;
+    module_name,proc_name:AnsiString;
+  end;
+  PMapNode = ^vtMapNode;
+
   vtProcNode = Record
     adres,refs:Integer;
     type_name,prototype:AnsiString;
@@ -670,6 +676,29 @@ Const
 
 var
   IID_IPersistFile: TGUID = (D1:$0000010B;D2:$0000;D3:$0000;D4:($C0,$00,$00,$00,$00,$00,$00,$46));
+
+  _VmtSelfPtr:Integer;
+  _VmtIntfTable:Integer;
+  _VmtAutoTable:Integer;
+  _VmtInitTable:Integer;
+  _VmtTypeInfo:Integer;
+  _VmtFieldTable:Integer;
+  _VmtMethodTable:Integer;
+  _VmtDynamicTable:Integer;
+  _VmtClassName:Integer;
+  _VmtInstanceSize:Integer;
+  _VmtParent:Integer;
+  _VmtEquals:Integer;
+  _VmtGetHashCode:Integer;
+  _VmtToString:Integer;
+  _VmtSafeCallException:Integer;
+  _VmtAfterConstruction:Integer;
+  _VmtBeforeDestruction:Integer;
+  _VmtDispatch:Integer;
+  _VmtDefaultHandler:Integer;
+  _VmtNewInstance:Integer;
+  _VmtFreeInstance:Integer;
+  _VmtDestroy:Integer;
 
 Function GetCtx(Ctx:TList;Adr:Integer):PRContext;
 procedure SetRegisterValue(var regs:RegList;Idx,Value:Integer);

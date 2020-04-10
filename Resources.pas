@@ -1459,7 +1459,7 @@ Begin
   End;
 
   //notify main window that form is closed (ugly ref to main form - refactor!)
-  PostMessage(FMain.Handle, WM_DFMCLOSED, 0, 0);
+  SendMessage(FMain.Handle, WM_DFMCLOSED, 0, 0); // crypto changed Post to Send
   Action := caFree;
 end;
 

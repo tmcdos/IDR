@@ -217,19 +217,19 @@ Begin
   New(startOperation);
   startOperation.pbSteps:=pbSteps;
   startOperation.sbText:=sbText;
-  PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taStartPrBar), Integer(startOperation));
+  SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taStartPrBar), Integer(startOperation));
   //if stepSize <> 1 then Dec(stepSize);
   Result:=stepSize - 1;
 end;
 
 Procedure TAnalyzeThread.UpdateProgress;
 Begin
-  if Not Terminated then PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
+  if Not Terminated then SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
 end;
 
 Procedure TAnalyzeThread.StopProgress;
 Begin
-  PostMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
+  SendMessage(mainForm.Handle, WM_UPDANALYSISSTATUS, Ord(taUpdatePrBar), 0);
   //as the nice place to check if we are asked to Terminate
   if Terminated Then Raise Exception.Create('Termination request 1');
 end;
@@ -265,10 +265,10 @@ Begin
   if not Terminated then
   begin
     Inc(adrCnt);
-    if adrCnt = SKIPADDR_COUNT then
+    //if adrCnt = SKIPADDR_COUNT then
     begin
       UpdateStatusBar(adr);
-      adrCnt := 0;
+      //adrCnt := 0;
     end;
   end;
 end;
@@ -1164,10 +1164,10 @@ Begin
     if (freeInstanceAdr<>0) and not IsValidImageAdr(freeInstanceAdr) then continue;
     destroyAdr := PInteger(Code + i + $30)^;
     if (destroyAdr<>0) and not IsValidImageAdr(destroyAdr) then continue;
-    classVMT := Pos2Adr(i) - VmtSelfPtr;
+    classVMT := Pos2Adr(i) - _VmtSelfPtr;
     if Adr2Pos(classVMT) < 0 then continue;
     StopAt := GetStopAt(classVMT);
-    if i + StopAt - classVMT - VmtSelfPtr >= CodeSize then continue;
+    if i + StopAt - classVMT - _VmtSelfPtr >= CodeSize then continue;
     _ap := Adr2Pos(classNameAdr);
     if _ap <= 0 then continue;
     len := Byte(Code[_ap]);
@@ -1283,7 +1283,7 @@ Begin
 
     //StopAt := GetStopAt(classVMT);
     //Использовали виртуальную таблицу
-    SetFlags([cfData], i, StopAt - classVMT - VmtSelfPtr);
+    SetFlags([cfData], i, StopAt - classVMT - _VmtSelfPtr);
     recU := mainForm.GetUnit(classVMT);
     if Assigned(recU) then
       if typeInfoAdr<>0 then    //extract unit name
@@ -1337,12 +1337,12 @@ Begin
       Inc(i,4);
       continue;
     End;
-    adr := PInteger(Code + i)^;  //Points to vmt0 (VmtSelfPtr)
-    if IsValidImageAdr(adr) and (Pos2Adr(i) = adr + VmtSelfPtr) then
+    adr := PInteger(Code + i)^;  //Points to vmt0 (_VmtSelfPtr)
+    if IsValidImageAdr(adr) and (Pos2Adr(i) = adr + _VmtSelfPtr) then
     Begin
       classVMT := adr;
       StopAt := GetStopAt(classVMT);
-      //if i + StopAt - classVMT - VmtSelfPtr >= CodeSize then continue;
+      //if i + StopAt - classVMT - _VmtSelfPtr >= CodeSize then continue;
       intfTableAdr := PInteger(Code + i + 4)^;
       if intfTableAdr<>0 then
       Begin
@@ -1755,11 +1755,11 @@ Begin
 
       //StopAt := GetStopAt(classVMT);
       //Use Virtual Table
-      SetFlags([cfData], i, StopAt - classVMT - VmtSelfPtr);
+      SetFlags([cfData], i, StopAt - classVMT - _VmtSelfPtr);
       recU := mainForm.GetUnit(classVMT);
       if Assigned(recU) then
       Begin
-        adr := PInteger(Code + i - VmtSelfPtr + VmtTypeInfo)^;
+        adr := PInteger(Code + i - _VmtSelfPtr + _VmtTypeInfo)^;
         if (adr<>0) and IsValidImageAdr(adr) then
         Begin
           //Extract unit name
@@ -1866,7 +1866,7 @@ Begin
     recN := GetInfoRec(Pos2Adr(i));
     if Assigned(recN) and (recN.kind = ikVMT) then
     begin
-      vmtAdr := Pos2Adr(i) - VmtSelfPtr;
+      vmtAdr := Pos2Adr(i) - _VmtSelfPtr;
       recU := mainForm.GetUnit(vmtAdr);
       if Assigned(recU) then
       begin
@@ -2451,14 +2451,15 @@ Begin
             if not KBase.IsUsedProc(Idx) then
             Begin
               matched := false;
-              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz >= 8) then
+              if KBase.GetProcInfo(Idx, [INFO_DUMP, INFO_ARGS], pInfo) and (pInfo.DumpSz >= 8)
+                and (m + pInfo.DumpSz < toPos) then
               Begin
                 matched := MatchCode(Code + m, @pInfo) and mainForm.StrapCheck(m, @pInfo);
                 if matched then
                 Begin
                   //If method of class, check that ClassName is found
-                  clasName := ExtractClassName(pInfo.ProcName);
-                  if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
+                  ///clasName := ExtractClassName(pInfo.ProcName);
+                  ///if (clasName = '') or Assigned(GetOwnTypeByName(clasName)) then
                   Begin
                     mainForm.StrapProc(m, Idx, @pInfo, true, pInfo.DumpSz);
                     StdUnits[r].used := true;
@@ -3160,7 +3161,7 @@ Begin
       Inc(n, len);
       classVMT := PInteger(Code + n)^;
       Inc(n,4);
-      recN := GetInfoRec(classVMT + VmtSelfPtr);
+      recN := GetInfoRec(classVMT + _VmtSelfPtr);
       //parentAdr := PInteger(Code + n)^;
       Inc(n, 4);
       propCnt := PWord(Code + n)^;
@@ -3427,7 +3428,7 @@ Begin
   begin
     if Terminated then Break;
     if (n and stepMask) = 0 then
-    UpdateProgress;
+      UpdateProgress;
     if IsFlagSet([cfProcStart], n) then
     begin
       adr := Pos2Adr(n);
@@ -3514,7 +3515,7 @@ Begin
             if (getProc and $FF000000) = $FF000000 then
             Begin
               fieldOfs := getProc and $00FFFFFF;
-              recN1 := GetInfoRec(classVMT + VmtSelfPtr);
+              recN1 := GetInfoRec(classVMT + _VmtSelfPtr);
               If Assigned(recN1) and Assigned(recN.vmtInfo) then
                 recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
             End
@@ -3553,7 +3554,7 @@ Begin
             if (setProc and $FF000000) = $FF000000 then
             Begin
               fieldOfs := setProc and $00FFFFFF;
-              recN1 := GetInfoRec(classVMT + VmtSelfPtr);
+              recN1 := GetInfoRec(classVMT + _VmtSelfPtr);
               If Assigned(recN1) and Assigned(recN.vmtInfo) then
                 recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
             End
@@ -3593,7 +3594,7 @@ Begin
             if (storedProc and $FF000000) = $FF000000 then
             Begin
               fieldOfs := storedProc and $00FFFFFF;
-              recN1 := GetInfoRec(classVMT + VmtSelfPtr);
+              recN1 := GetInfoRec(classVMT + _VmtSelfPtr);
               If Assigned(recN1) and Assigned(recN.vmtInfo) then
                 recN1.vmtInfo.AddField(0, 0, FIELD_PUBLIC, fieldOfs, -1, _name, typeName);
             End
@@ -3702,7 +3703,7 @@ Begin
     UpdateStatusBar(clasName);
 
     //Destructor
-    _pos := Adr2Pos(vmtAdr) - VmtSelfPtr + VmtDestroy;
+    _pos := Adr2Pos(vmtAdr) - _VmtSelfPtr + _VmtDestroy;
     adr := PInteger(Code + _pos)^;
     if IsValidImageAdr(adr) then
     Begin
@@ -3739,12 +3740,12 @@ Begin
     if (n and stepMask) = 0 then UpdateProgress;
     recV := VmtList[n];
     vmtAdr := recV.vmtAdr;
-    stopAt := GetStopAt(vmtAdr - VmtSelfPtr);
+    stopAt := GetStopAt(vmtAdr - _VmtSelfPtr);
     if vmtAdr = stopAt then continue;
     clasName := GetClsName(vmtAdr);
     UpdateStatusBar(clasName);
-    _pos := Adr2Pos(vmtAdr) - VmtSelfPtr + VmtParent + 4;
-    m := VmtParent + 4;
+    _pos := Adr2Pos(vmtAdr) - _VmtSelfPtr + _VmtParent + 4;
+    m := _VmtParent + 4;
     while true do
     Begin
       if Pos2Adr(_pos) = stopAt then break;
